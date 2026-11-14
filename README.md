@@ -1,7 +1,8 @@
 # ScrubPaws — 꼬질꼬질 대소동
 
 엄마가 돌아오기 전까지 집 안의 애완동물들을 깨끗하고 건강하게 돌보는 게임입니다.
-`index.html` 파일 하나로 동작하며, 브라우저에서 열면 바로 플레이할 수 있습니다.
+게임 본체는 `app/src/main/assets/index.html` 파일 하나이며, 브라우저에서 열면 바로 플레이할 수 있습니다.
+안드로이드에서는 이 파일을 전체 화면 WebView로 띄우는 앱으로 실행됩니다.
 
 ## 플레이 방법
 
@@ -34,3 +35,22 @@
 3. 마당 식구들 — 리트리버, 돼지, 염소
 4. 커다란 친구들 — 조랑말, 알파카, 판다
 5. 집이 좁아요! — 곰, 하마, 아기 코끼리
+
+## 구성
+
+| 경로 | 설명 |
+| --- | --- |
+| `app/src/main/assets/index.html` | 게임 본체 (캔버스 + WebAudio). 웹 글꼴만 온라인에서 받아 오며, 오프라인이면 기기 기본 글꼴로 표시됩니다 |
+| `app/src/main/java/com/vegacitizen/scrubpaws/MainActivity.java` | 게임을 가로 전체 화면 WebView로 띄우는 액티비티 |
+| `.github/workflows/android.yml` | 푸시할 때마다 디버그 APK를 빌드하는 GitHub Actions |
+
+## 빌드
+
+Android Studio로 이 폴더를 열어 실행하거나, 명령줄에서:
+
+```bash
+./gradlew assembleDebug
+```
+
+APK는 `app/build/outputs/apk/debug/app-debug.apk` 에 생성됩니다.
+GitHub Actions 실행 결과의 `ScrubPaws-debug-apk` 아티팩트에서도 내려받을 수 있습니다.
