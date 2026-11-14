@@ -22,13 +22,10 @@
   #bFeed.on{outline:5px solid #fff}
   .pb.off{background:#9c8b80!important;opacity:.5}
   .pb:active{transform:translateY(3px)}
-  #foods{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(128px + env(safe-area-inset-bottom,0px));display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:min(96vw,460px)}
-  .fd{font:13px var(--display);color:var(--ink);background:var(--paper);border:3px solid var(--ink);border-radius:14px;padding:4px 8px;min-width:64px;cursor:pointer;touch-action:none;box-shadow:0 4px 0 var(--ink)}
-  .fd span{display:block;font-size:26px;line-height:1.15}
-  @media (max-height:480px){.pb{width:62px;height:62px;font-size:16px}.pb.big{width:80px;height:80px;font-size:19px}#foods{bottom:calc(104px + env(safe-area-inset-bottom,0px))}.fd{min-width:54px;font-size:11px;padding:3px 5px}.fd span{font-size:21px}}
+  @media (max-height:480px){.pb{width:62px;height:62px;font-size:16px}.pb.big{width:80px;height:80px;font-size:19px}}
   #snd{position:fixed;left:calc(14px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));width:46px;height:46px;border-radius:50%;
     border:3px solid var(--paper);background:rgba(74,50,38,.8);font-size:20px;cursor:pointer;padding:0;touch-action:none;z-index:5}
-  .pb:focus-visible,.fd:focus-visible,.btn:focus-visible{outline:4px solid var(--soap);outline-offset:3px}
+  .pb:focus-visible,.btn:focus-visible{outline:4px solid var(--soap);outline-offset:3px}
   #ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(40,24,16,.72);
     padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));box-sizing:border-box;overflow:auto}
   #card{background:var(--paper);border-radius:26px;border:6px solid var(--ink);max-width:640px;width:100%;
@@ -50,7 +47,6 @@
 </head>
 <body>
 <canvas id="cv"></canvas>
-<div id="foods" hidden></div>
 <div id="pad" hidden>
   <button id="bFeed" class="pb off" type="button">먹이</button>
   <button id="bBath" class="pb off" type="button">목욕</button>
@@ -280,7 +276,6 @@ function startStage(n) {
   pl.x = 620; pl.y = 350; pl.pet = null; timeLeft = S.time; gt = 0; warnT = 0;
   const foods = [...new Set(S.pets.map(k => SP[k].food))];
   stations = foods.map((f, i) => ({ x: 85 + i * 100, y: 198, type: f })).concat([{ x: 405, y: 198, type: 'snack' }, { x: 510, y: 198, type: 'water' }]);
-  buildFoodBar();
   S.pets.concat(S.pets).forEach((k, i) => {
     const sp = SP[k], pt = randPoint();
     const m = 1 + n * .05;
@@ -344,23 +339,27 @@ function feed(p, type) {
     makeMess(p, type, 2); p.dirt = Math.min(100, p.dirt + 12); p.angryT = 1.8; p.eatT = 1;
     say(p, wrong ? '퉤! 이거 아냐!' : (type === 'water' ? '첨벙! 물장난~' : '배불러! 던지고 놀래~'), '#e2493f', 1);
     emote(p, 'angry'); burst(p.x, p.y - 10, 'dust', 8);
-    showToast(wrong ? p.sp.n + '의 밥이 아니에요! 집이 어질러졌어요' : '원하지 않는데 줘서 집이 어질러졌어요!');
+    showToast('배고프지 않은데 먹여서 집이 어질러졌어요!');
   }
 }
 function pressGrab() {
   if (state !== 'play') return; initAudio();
   const a = curAct = findAction(); if (!a) return;
-  if (a.type === 'grab') { a.pet.state = 'carried'; a.pet.path = []; pl.pet = a.pet; SFX.grab(); emote(a.pet, 'scared'); say(a.pet, a.pet.sp.cry + '?!', '#4a3226'); hint('carry', '잡았다! [먹이]를 누르면 조리대로, [목욕]을 누르면 욕조로 던져요'); }
+  if (a.type === 'grab') { a.pet.state = 'carried'; a.pet.path = []; pl.pet = a.pet; SFX.grab(); emote(a.pet, 'scared'); say(a.pet, a.pet.sp.cry + '?!', '#4a3226'); hint('carry', '잡았다! [먹이]를 누르면 원하는 것이 있는 조리대로, [목욕]을 누르면 욕조로 던져요'); }
   else if (a.type === 'release') { const p = pl.pet; p.state = 'free'; p.x = pl.x + pl.dir * 24; p.y = pl.y + 6; collide(p, p.cr); pl.pet = null; picking = false; p.pause = .5; }
   else if (a.type === 'sweep') { messes.splice(messes.indexOf(a.mess), 1); score += 20; SFX.sweep(); burst(a.mess.x, a.mess.y, 'dust', 6); }
 }
-function pressFeed() {
-  if (state !== 'play' || !pl.pet) return; initAudio();
-  picking = !picking; SFX.take(); if (picking) hint('pick', '무엇을 줄지 고르세요. 동물마다 밥이 달라요! (숫자키 1~5)');
+function wantedItem(p) {   // 지금 가장 원하는 것 (없으면 null)
+  let t = null, v = 50;
+  if (p.thirst >= v) { t = 'water'; v = p.thirst; }
+  if (p.hunger >= 50 && p.hunger > v - (t ? 0 : 1)) { t = p.sp.food; v = p.hunger; }
+  if (p.snack >= 50 && p.snack > v - (t ? 0 : 1)) t = 'snack';
+  return t;
 }
-function chooseFood(i) {
-  if (state !== 'play' || !pl.pet || !stations[i]) return; initAudio();
-  const s = stations[i]; throwPet(pl.pet, s.x + R(-16, 16), R(246, 276), 'eat', s.type);
+function pressFeed() {     // 고를 필요 없이, 원하는 것(없으면 자기 밥) 쪽으로 던진다
+  if (state !== 'play' || !pl.pet) return; initAudio();
+  const p = pl.pet, type = wantedItem(p) || p.sp.food, s = stations.find(q => q.type === type);
+  throwPet(p, s.x + R(-16, 16), R(246, 276), 'eat', type);
 }
 function pressBath() {
   if (state !== 'play' || !pl.pet) return; initAudio();
@@ -368,19 +367,13 @@ function pressBath() {
   const used = tub.map(w => w.slot), slot = used.includes(0) ? 1 : 0, p = pl.pet;
   throwPet(p, TUB.x + TUB.w * (slot ? .7 : .3), TUB.y + TUB.h - 4, 'tub'); p.slot = slot; hint('bath', '풍덩! 잠시 기다리면 저절로 깨끗해져서 나와요');
 }
-function buildFoodBar() {
-  const el = $('foods'); el.innerHTML = '';
-  stations.forEach((s, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'fd'; b.innerHTML = '<span>' + FOOD[s.type].e + '</span>' + FOOD[s.type].n;
-    b.addEventListener('pointerdown', e => { e.preventDefault(); chooseFood(i); }); el.appendChild(b); });
-}
 
 /* ---------- 입력 ---------- */
 const keys = {}; const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
 window.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space' || e.code === 'Enter') { if (document.activeElement && document.activeElement.classList.contains('btn')) return; e.preventDefault(); if (!e.repeat) pressGrab(); }
-  if (!e.repeat) { if (e.code === 'KeyZ' || e.code === 'KeyJ') pressGrab(); else if (e.code === 'KeyX' || e.code === 'KeyK') pressFeed(); else if (e.code === 'KeyC' || e.code === 'KeyL') pressBath();
-    const d = /^(?:Digit|Numpad)([1-5])$/.exec(e.code); if (d) chooseFood(+d[1] - 1); }
+  if (!e.repeat) { if (e.code === 'KeyZ' || e.code === 'KeyJ') pressGrab(); else if (e.code === 'KeyX' || e.code === 'KeyK') pressFeed(); else if (e.code === 'KeyC' || e.code === 'KeyL') pressBath(); }
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -461,9 +454,9 @@ function updatePet(p, dt) {
   if (p.voiceT <= 0 && p.state === 'free' && p.happyT <= 0) {
     p.voiceT = R(2.8, 5);
     if (sick) { say(p, '콜록콜록…', '#5a8f3c'); emote(p, 'sick'); hint('sick', '콜록콜록 = 병든 아이! 더러우면 병이 나요. 얼른 씻겨 주세요'); }
-    else if (p.want === 'thirst') { say(p, '헥헥…헥…', '#2a7fb8'); emote(p, 'thirsty'); hint('thirst', '혀를 내밀고 헥헥 = 목마름! 잡아서 [먹이] → 💧 물'); }
-    else if (p.want === 'hunger') { say(p, pick([sp.cry + '… 꼬르륵', '낑…낑…', '꼬르르륵~']), '#a0522d'); emote(p, 'hungry'); hint('hunger', '침 흘리며 낑낑 + 꼬르륵 = 배고픔! 잡아서 [먹이] → ' + FOOD[sp.food].e + ' ' + FOOD[sp.food].n); }
-    else if (p.want === 'snack') { say(p, sp.cry + '! ' + sp.cry + '!♪', '#d9731a'); emote(p, 'beg'); hint('snack', '반짝이는 눈으로 폴짝폴짝 조르기 = 간식! 잡아서 [먹이] → 🍪 간식'); }
+    else if (p.want === 'thirst') { say(p, '헥헥…헥…', '#2a7fb8'); emote(p, 'thirsty'); hint('thirst', '혀를 내밀고 헥헥 = 목마름! 잡아서 [먹이]를 누르면 💧 물을 마셔요'); }
+    else if (p.want === 'hunger') { say(p, pick([sp.cry + '… 꼬르륵', '낑…낑…', '꼬르르륵~']), '#a0522d'); emote(p, 'hungry'); hint('hunger', '침 흘리며 낑낑 + 꼬르륵 = 배고픔! 잡아서 [먹이]를 누르면 ' + FOOD[sp.food].e + ' ' + FOOD[sp.food].n + '을(를) 먹어요'); }
+    else if (p.want === 'snack') { say(p, sp.cry + '! ' + sp.cry + '!♪', '#d9731a'); emote(p, 'beg'); hint('snack', '반짝이는 눈으로 폴짝폴짝 조르기 = 간식! 잡아서 [먹이]를 누르면 🍪 간식을 먹어요'); }
     else if (p.dirt >= 55) { say(p, '벅벅벅', '#7a6a4f'); emote(p, 'dirty'); p.scratchT = .8; hint('dirt', '벅벅 긁고 파리가 꼬이면 더러운 아이! [잡기]로 잡고 [목욕]으로 욕조에 던지세요'); }
     else if (Math.random() < .35) { say(p, sp.cry, '#8a6a55'); emote(p, 'idle'); }
   }
@@ -535,7 +528,7 @@ function update(dt) {
   if (!pl.pet) picking = false;
   if (bGrab.textContent !== lab) bGrab.textContent = lab;
   bGrab.classList.toggle('off', !(play && curAct)); bFeed.classList.toggle('off', !(play && pl.pet)); bBath.classList.toggle('off', !(play && pl.pet && tub.length < TUB_MAX));
-  bFeed.classList.toggle('on', picking); $('pad').hidden = !play; $('foods').hidden = !(play && picking);
+  bFeed.classList.toggle('on', picking); $('pad').hidden = !play;
 }
 
 /* ---------- 엄마 ---------- */
@@ -591,15 +584,15 @@ function showTitle() {
     '<p>엄마가 돌아오기 전까지 동물들을 <b>깨끗하고 건강하게</b> 돌보세요.<br>동물을 <b>잡아서</b> 욕조로 던져 씻기고, 조리대로 던져 딱 맞는 밥과 물을 먹이세요!</p>' +
     '<div class="signs"><span>🫧 <b>더러움</b> 벅벅 긁고 파리가 꼬여요. 다가가면 도망쳐요</span><span>🍚 <b>배고픔</b> 침을 흘리며 낑낑, 배에서 꼬르륵</span>' +
     '<span>💧 <b>목마름</b> 혀를 내밀고 헥헥, 땀을 뻘뻘</span><span>🍪 <b>간식</b> 눈을 반짝이며 폴짝폴짝 따라다녀요</span>' +
-    '<span>⚠️ 원하지 않는 밥·간식을 주면 집을 어질러서 더 빨리 더러워져요</span></div>' +
-    '<p class="sub">이동: 화면 드래그 / 방향키·WASD<br>잡기: 스페이스·Z &nbsp;·&nbsp; 먹이: X 후 숫자 1~5 &nbsp;·&nbsp; 목욕: C</p><button class="btn" id="go">시작하기</button>');
+    '<span>⚠️ 배고프지도 목마르지도 않은 아이에게 먹이면 집을 어질러서 더 빨리 더러워져요</span></div>' +
+    '<p class="sub">이동: 화면 드래그 / 방향키·WASD<br>잡기: 스페이스·Z &nbsp;·&nbsp; 먹이: X &nbsp;·&nbsp; 목욕: C</p><button class="btn" id="go">시작하기</button>');
   $('go').onclick = () => { initAudio(); score = 0; showIntro(0); };
 }
 function showIntro(n) {
   state = 'intro'; const S = STAGES[n]; const kinds = [...new Set(S.pets)];
   showOv('<h2>스테이지 ' + (n + 1) + ' · ' + S.name + '</h2><p class="sub">엄마 도착까지 ' + S.time + '초 · 동물 ' + S.pets.length * 2 + '마리</p>' +
     '<div class="rows">' + kinds.map(k => '<span class="chip">' + SP[k].e + ' ' + SP[k].n + ' → <b>' + FOOD[SP[k].food].e + ' ' + FOOD[SP[k].food].n + '</b></span>').join('') + '</div>' +
-    '<p>밥은 동물마다 달라요. 간식 🍪 과 물 💧 은 모두 같아요.<br><span class="sub">잡은 다음 [먹이]로 조리대에, [목욕]으로 욕조에 던져요. 욕조에는 두 마리까지 들어가요.</span></p>' +
+    '<p>[먹이]를 누르면 그 아이가 원하는 밥·간식·물을 알아서 먹어요.<br><span class="sub">잡은 다음 [먹이]로 조리대에, [목욕]으로 욕조에 던져요. 욕조에는 두 마리까지 들어가요.</span></p>' +
     '<button class="btn" id="go">돌보기 시작!</button>');
   $('go').onclick = () => { initAudio(); startStage(n); };
 }
@@ -771,7 +764,7 @@ function drawFurn(c, f) {
   else if (k === 'table') { box('#c79a63', '#a87c48'); }
   else if (k === 'plant') { rr(c, x, y - 24, w, h + 24, 8, '#c8754a'); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; ell(c, x + w / 2 + Math.cos(a) * 20, y - 62 + Math.sin(a) * 22, 20, 26, i % 2 ? '#4f9d5d' : '#3f8a4f'); } ell(c, x + w / 2, y - 62, 22, 26, '#5fae6a'); }
   else if (k === 'counter') { box('#f4f0e8', '#b98a5e', 6); for (let i = 0; i < 5; i++) rr(c, x + 10 + i * 105, y + h - hh + 8, 98, hh - 14, 5, '#a87c48');
-    for (const s of stations) { const near = state === 'play' && picking; rr(c, s.x - 34, y - hh - 30, 68, 62, 12, s.type === 'water' ? '#7fd0ee' : s.type === 'snack' ? '#ffd27a' : '#fff'); c.strokeStyle = near ? '#ff8a3d' : '#4a3226'; c.lineWidth = near ? 5 : 3; c.beginPath(); c.roundRect(s.x - 34, y - hh - 30, 68, 62, 12); c.stroke(); emo(c, FOOD[s.type].e, s.x, y - hh - 4 + (near ? Math.sin(gt * 8) * 2 : 0), 34); txt(c, FOOD[s.type].n, s.x, y - hh + 21, 13, '#4a3226', 'center', '#fff'); if (near) txt(c, String(stations.indexOf(s) + 1), s.x - 24, y - hh - 22, 14, '#fff', 'center', '#ff8a3d'); } }
+    for (const s of stations) { const near = state === 'play' && pl.pet && wantedItem(pl.pet) === s.type; rr(c, s.x - 34, y - hh - 30, 68, 62, 12, s.type === 'water' ? '#7fd0ee' : s.type === 'snack' ? '#ffd27a' : '#fff'); c.strokeStyle = near ? '#ff8a3d' : '#4a3226'; c.lineWidth = near ? 5 : 3; c.beginPath(); c.roundRect(s.x - 34, y - hh - 30, 68, 62, 12); c.stroke(); emo(c, FOOD[s.type].e, s.x, y - hh - 4 + (near ? Math.sin(gt * 8) * 2 : 0), 34); txt(c, FOOD[s.type].n, s.x, y - hh + 21, 13, '#4a3226', 'center', '#fff'); } }
   else if (k === 'bed') { box('#f7f3ea', '#b98a5e', 10); rr(c, x, y - hh - 34, w, 44, 10, '#a87c48'); rr(c, x + 14, y - hh + 8, 80, 34, 12, '#fff'); rr(c, x + 110, y - hh + 8, 80, 34, 12, '#fff'); rr(c, x, y - hh + 54, w, h - 54, 10, '#f29aa8'); }
   else if (k === 'wardrobe') { box('#b98a5e', '#a87c48'); c.fillStyle = '#8a6a4a'; c.fillRect(x + w / 2 - 1, y - hh + h, 2, hh - 6); ell(c, x + w / 2 - 10, y - hh / 2 + h, 3, 3, '#ffd54a'); ell(c, x + w / 2 + 10, y - hh / 2 + h, 3, 3, '#ffd54a'); }
   else if (k === 'toybox') { box('#ffd27a', '#f0a53d'); ell(c, x + 24, y - hh + 14, 13, 13, '#e2493f'); rr(c, x + 48, y - hh + 2, 22, 22, 4, '#6fa3d9'); txt(c, '★', x + w / 2, y + h - hh / 2 + 2, 22, '#fff'); }
@@ -908,7 +901,7 @@ function frame(now) {
 }
 document.addEventListener('visibilitychange', () => { last = performance.now(); });
 // 테스트/디버그용 훅
-window.__game = { get state() { return state; }, get pets() { return pets; }, pl, startStage, momArrives, get mom() { return mom; }, setTime(v) { timeLeft = v; }, pressGrab, pressFeed, pressBath, chooseFood, get tub() { return tub; }, get stations() { return stations; }, get messes() { return messes; }, TUB, emote, get ac() { return ac; }, get master() { return master; } };
+window.__game = { get state() { return state; }, get pets() { return pets; }, pl, startStage, momArrives, get mom() { return mom; }, setTime(v) { timeLeft = v; }, pressGrab, pressFeed, pressBath, get tub() { return tub; }, get stations() { return stations; }, get messes() { return messes; }, TUB, emote, get ac() { return ac; }, get master() { return master; } };
 function boot() { startStageDemo(); showTitle(); requestAnimationFrame(frame); }
 function startStageDemo() { // 타이틀 뒤 배경용
   stage = 0; stations = []; pets = []; cam.x = 0; cam.y = 0;
