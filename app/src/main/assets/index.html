@@ -58,6 +58,7 @@
 <script src="GLTFLoader.js"></script>
 <script src="SkeletonUtils.js"></script>
 <script src="cat_model.js"></script>
+<script src="rabbit_model.js"></script>
 <div id="pad" hidden>
   <button id="bGym" class="pb off" type="button">운동</button>
   <button id="bFeed" class="pb off" type="button">먹이</button>
@@ -225,8 +226,8 @@ const FOOD = {
 const SP = {
   hamster: { n: '햄스터', e: '🐹', r: 17, t: [1.0, 2.0, 3.0], v: 'squeak', sp: 175, col: '#f1c27d', col2: '#fff3dc', ear: 'round', tail: 'none', whisk: 1, cheeks: 1, food: 'seed', cry: '찍찍', p: 2.0, head: .72, leg: .2 },
   chick: { n: '병아리', e: '🐥', r: 16, t: [1.0, 1.8, 2.8], v: 'peep', sp: 150, col: '#ffd84a', col2: '#fff0a0', ear: 'none', tail: 'short', beak: 1, legs: 2, legCol: '#f08a24', food: 'grain', cry: '삐약', p: 2.3, head: .7, leg: .45 },
-  rabbit: { n: '토끼', e: '🐰', r: 20, t: [1.3, 2.4, 3.2], v: 'honk', sp: 185, col: '#f4f1ec', col2: '#ffffff', ear: 'long', tail: 'fluff', whisk: 1, food: 'carrot', cry: '뀨뀨', p: 1.7, head: .66, leg: .28, dark: '#d9d2c8' },
-  cat: { n: '고양이', e: '🐱', r: 22, t: [1.5, 3.2, 3.6], v: 'meow', sp: 180, col: '#f6b25c', col2: '#fff7ec', ear: 'pointy', tail: 'fluffy', whisk: 1, cat: 1, muzzle: 1, earS: 1.2, head: .74, food: 'fish', cry: '야옹', p: 1.5, dark: '#e58f33' },
+  rabbit: { n: '토끼', e: '🐰', r: 20, t: [1.3, 2.4, 3.2], v: 'honk', sp: 185, col: '#f4f1ec', col2: '#ffffff', ear: 'long', model: 'rabbit', tail: 'fluff', whisk: 1, food: 'carrot', cry: '뀨뀨', p: 1.7, head: .66, leg: .28, dark: '#d9d2c8' },
+  cat: { n: '고양이', e: '🐱', r: 22, t: [1.5, 3.2, 3.6], v: 'meow', sp: 180, col: '#f6b25c', col2: '#fff7ec', ear: 'pointy', tail: 'fluffy', whisk: 1, cat: 1, model: 'cat', muzzle: 1, earS: 1.2, head: .74, food: 'fish', cry: '야옹', p: 1.5, dark: '#e58f33' },
   puppy: { n: '강아지', e: '🐶', r: 21, t: [1.4, 2.6, 3.4], v: 'yap', sp: 165, col: '#e8d2b0', col2: '#fff8ea', ear: 'floppy', tail: 'dog', patch: 1, food: 'kibble', cry: '멍멍', p: 1.3, dark: '#9b6a43' },
   dog: { n: '리트리버', e: '🐕', r: 30, t: [1.8, 3.2, 4.0], v: 'woof', sp: 170, col: '#e0a95c', col2: '#f6d9a8', ear: 'floppy', tail: 'dog', food: 'meat', cry: '컹컹', p: .9, dark: '#b57f38', leg: .5 },
   pig: { n: '돼지', e: '🐷', r: 37, t: [2.6, 3.4, 5.5], v: 'oink', sp: 130, col: '#f7b3c0', col2: '#ffd6dd', ear: 'pointy', tail: 'curl', snout: 1, food: 'corn', cry: '꿀꿀', p: .8, dark: '#e08a9c', leg: .3 },
@@ -718,7 +719,7 @@ function showTitle() {
     '<span>💧 <b>목마름</b> 혀를 내밀고 헥헥, 땀을 뻘뻘</span><span>🍪 <b>간식</b> 눈을 반짝이며 폴짝폴짝 따라다녀요</span>' +
     '<span>🍔 <b>살</b> 배고프지 않은데 먹이면 포동포동 살이 쪄서 느려져요. 러닝머신에서 운동!</span><span>💢 <b>스트레스</b> 배고프거나 뚱뚱하거나 더러우면, 또 깨끗한데 씻기면 쌓여서 서로 싸워요</span></div>' +
     '<p class="sub">이동: 화면 드래그 / 방향키·WASD<br>잡기: 스페이스·Z &nbsp;·&nbsp; 먹이: X &nbsp;·&nbsp; 목욕: C &nbsp;·&nbsp; 운동: V</p>' +
-    '<p class="sub" style="font-size:11px">고양이 모델: "Toon Cat FREE" by Omabuarts Studio (sketchfab.com/omabuarts), CC-BY-4.0</p>' +
+    '<p class="sub" style="font-size:11px">고양이 모델: "Toon Cat FREE" by Omabuarts Studio (sketchfab.com/omabuarts), CC-BY-4.0<br>토끼 모델: "Rabbit - Animated Low Poly" by WildPoly3D (sketchfab.com/WildPoly3D), CC-BY-NC-4.0</p>' +
     (hasProgress() ? '<p class="pay">💰 ' + money.toLocaleString() + '원 · 저장된 진행이 있어요</p><button class="btn" id="go">이어하기 · 스테이지 ' + (saveStage + 1) + '</button> <button class="btn alt" id="fresh">새로 시작</button>'
       : '<button class="btn" id="go">시작하기</button>'));
   $('go').onclick = () => { initAudio(); score = 0; if (hasProgress()) showShop(saveStage); else showIntro(0); };
@@ -937,28 +938,46 @@ function buildSigns() {     // 조리대 위 장식(이번 스테이지의 먹�
   }
 }
 
-/* ---------- 외부 모델(glTF): 고양이 "Toon Cat FREE" by Omabuarts Studio, CC-BY-4.0 ---------- */
-let catProto = null; const _q = { q: null, e: null };
+/* ---------- 외부 모델(glTF): 뼈대와 동작이 들어 있는 모델을 종별로 붙인다 ----------
+   고양이: "Toon Cat FREE" by Omabuarts Studio (CC-BY-4.0)
+   토끼:   "Rabbit - Animated Low Poly" by WildPoly3D (CC-BY-NC-4.0, 비상업적 이용만 가능) */
+const MODELS = {
+  cat: { data: 'CAT_GLTF', size: 3.7, walkRate: 85, runRate: 85, clips: { walk: 'Scene' },
+    bones: { mouth: 'mouth_021', eyes: ['eyeL_022', 'eyeR_023'], ears: ['earL_019', 'earR_020'], head: 'head_018', tail: 'tail_07' }, earDroop: .8 },
+  rabbit: { data: 'RABBIT_GLTF', size: 3.2, walkRate: 34, runRate: 70, clips: { idle: 'idle', walk: 'walk', run: 'run', eat: 'eat', wash: 'wash', sleep: 'sleep', look: 'lookaround' },
+    bones: { eyes: ['eye_L_034', 'eye_R_035'], ears: ['ear01_L_028', 'ear01_R_031'], head: 'head_027' }, earDroop: .9 }
+};
+const _q = { q: null, e: null };
 function loadModels() {
-  if (!window.CAT_GLTF || !THREE.GLTFLoader || !THREE.SkeletonUtils) return;
-  try {
-    new THREE.GLTFLoader().parse(JSON.stringify(window.CAT_GLTF), '', g => {
-      let mesh = null; g.scene.traverse(o => { if (o.isSkinnedMesh) mesh = o; }); if (!mesh || !g.animations.length) return;
-      mesh.material = new THREE.MeshLambertMaterial({ map: mesh.material.map });
-      catProto = { root: g.scene, clip: g.animations[0], len: 497, h: 364 };   // 모델 원본의 몸길이와 키
-      for (const p of pets) if (p.sp.cat && p.md && !p.md.ext) attachCat(p, p.md);
-    }, () => { });
-  } catch (e) { }
+  if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return;
+  for (const key in MODELS) {
+    const cfg = MODELS[key], data = window[cfg.data]; if (!data) continue;
+    try {
+      new THREE.GLTFLoader().parse(JSON.stringify(data), '', g => {
+        let mesh = null; g.scene.traverse(o => { if (o.isSkinnedMesh) mesh = o; }); if (!mesh || !g.animations.length) return;
+        mesh.material = new THREE.MeshLambertMaterial({ map: mesh.material.map || null, vertexColors: !!mesh.geometry.attributes.color });
+        // 뼈대를 적용한 실제 크기를 재서 종마다 같은 방식으로 크기와 위치를 맞춘다
+        g.scene.updateMatrixWorld(true); mesh.skeleton.update();
+        const box = new THREE.Box3(), v = new THREE.Vector3(), pos = mesh.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i += 2) { v.fromBufferAttribute(pos, i); mesh.boneTransform(i, v); v.applyMatrix4(mesh.matrixWorld); box.expandByPoint(v); }
+        cfg.proto = { root: g.scene, anims: g.animations, len: box.max.z - box.min.z, h: box.max.y - box.min.y, off: [-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2] };
+        for (const p of pets) if (p.sp.model === key && p.md && !p.md.ext) attachModel(p, p.md);
+      }, () => { });
+    } catch (e) { }
+  }
 }
-function attachCat(p, md) {   // 도형으로 만든 고양이를 숨기고 뼈대가 있는 모델을 붙인다
-  const r = p.sp.r, k = r * 3.7 / catProto.len, root = THREE.SkeletonUtils.clone(catProto.root), holder = new THREE.Group(), fit = new THREE.Group();
-  fit.rotation.y = PI / 2; fit.scale.setScalar(k); fit.add(root); holder.add(fit); md.g.add(holder);
+function attachModel(p, md) {   // 도형으로 만든 동물을 숨기고 뼈대가 있는 모델을 붙인다
+  const cfg = MODELS[p.sp.model], pr = cfg.proto, r = p.sp.r, k = r * cfg.size / pr.len;
+  const root = THREE.SkeletonUtils.clone(pr.root), holder = new THREE.Group(), fit = new THREE.Group(), off = new THREE.Group();
+  fit.rotation.y = PI / 2; fit.scale.setScalar(k); off.position.set(pr.off[0], pr.off[1], pr.off[2]); off.add(root); fit.add(off); holder.add(fit); md.g.add(holder);
   let mesh = null; root.traverse(o => { if (o.isSkinnedMesh) { mesh = o; o.material = o.material.clone(); o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
   const B = {}, rest = {}; mesh.skeleton.bones.forEach(b => { B[b.name] = b; rest[b.name] = { q: b.quaternion.clone(), s: b.scale.clone() }; });
-  const mixer = new THREE.AnimationMixer(root), act = mixer.clipAction(catProto.clip);
+  const mixer = new THREE.AnimationMixer(root), acts = {};
+  for (const n in cfg.clips) { const c = pr.anims.find(a => a.name === cfg.clips[n]); if (c) acts[n] = mixer.clipAction(c); }
   md.inner.visible = false;
   const bubble = sprite('🤤', md.g, 18 + r * .55); bubble.visible = false;
-  md.ext = { holder, fit, k, mesh, B, rest, mixer, act, walking: false, bubble, ch: '', top: catProto.h * k };
+  const fb = cfg.bones, face = [].concat(fb.mouth || [], fb.eyes || [], fb.ears || [], fb.head || [], fb.tail || []).filter(n => B[n]);
+  md.ext = { cfg, holder, fit, k, mesh, B, rest, mixer, acts, cur: '', bubble, ch: '', top: pr.h * k, face };
 }
 const BUBBLE = { hungry: '🤤', thirsty: '🥵', beg: '🤩', sick: '🤒', sad: '😢', scared: '😨', shock: '😱' };
 
@@ -1067,7 +1086,7 @@ function makePet(p) {
 const cGrime = { c: null }, cSick = { c: null }, cTmp = { c: null };
 function syncPet(p, dt) {
   const md = p.md || (p.md = makePet(p)); if (!md.g.parent) room.petG.add(md.g);
-  if (p.sp.cat && catProto && !md.ext) attachCat(p, md);
+  if (p.sp.model && MODELS[p.sp.model].proto && !md.ext) attachModel(p, md);
   const sp = p.sp, r = sp.r, t = gt, ex = exprOf(p), g = md.g, dg = p.dirt / 100, hr = md.hr;
   const grime = cGrime.c || (cGrime.c = new THREE.Color(GRIME)), sick = cSick.c || (cSick.c = new THREE.Color('#9cc76b'));
   md.m.body.color.copy(md.base.body).lerp(grime, dg * .6); md.m.belly.color.copy(md.base.belly).lerp(grime, dg * .55); md.m.dark.color.copy(md.base.dark).lerp(grime, dg * .4);
@@ -1109,7 +1128,7 @@ function syncPet(p, dt) {
   if (sp.trunk) { const up = ex === 'beg' || ex === 'happy', sway = Math.sin(t * (up ? 10 : 2.5)) * .25; md.trunk.forEach((s, i) => { const u = (i + 1) / 6; s.position.set(hr * (.85 + u * (up ? .9 : .45)), hr * (-.25 + (up ? u * u * 1.1 : -u * 1.25)), sway * u * hr); }); }
   // 표정: 상태 표정이 우선이고, 평소에는 아이마다 다른 성격 표정에 가끔 윙크·하품·미소가 섞인다
   const blink = Math.sin(t * 1.3 + p.seed * 7) > .985, idle = ex === 'normal';
-  if (idle) { p.idleT = (p.idleT == null ? R(2, 6) : p.idleT) - dt; if (p.idleT <= 0) { if (p.idle) { p.idle = null; p.idleT = R(3, 7); } else { p.idle = sp.cat && !p.moving && Math.random() < .55 ? 'groom' : pick(['wink', 'yawn', 'smiley', 'cute', 'look']); p.idleT = p.idle === 'groom' ? R(3, 5) : R(.9, 1.7); } } } else p.idle = null;
+  if (idle) { p.idleT = (p.idleT == null ? R(2, 6) : p.idleT) - dt; if (p.idleT <= 0) { if (p.idle) { p.idle = null; p.idleT = R(3, 7); } else { p.idle = (sp.cat || sp.model === 'rabbit') && !p.moving && Math.random() < .55 ? 'groom' : pick(['wink', 'yawn', 'smiley', 'cute', 'look']); p.idleT = p.idle === 'groom' ? R(3, 5) : R(.9, 1.7); } } } else p.idle = null;
   const fc = idle ? (p.idle || p.face) : '', shock = ex === 'shock';
   for (const e of md.eyes) {
     const X = ex === 'sick'; e.x1.visible = e.x2.visible = X; e.pupil.visible = !X; e.hl.visible = e.hl2.visible = !X && ex !== 'happy' && ex !== 'wash';
@@ -1145,25 +1164,31 @@ function syncPet(p, dt) {
   md.spark.forEach((s, i) => { s.visible = p.cleanT > 0; const a = t * 3 + i * 3.1; s.position.set(Math.cos(a) * r * 1.2, md.by + Math.sin(a * 1.3) * r * .7, Math.sin(a) * r * 1.0); });
   md.star.forEach((s, i) => { s.visible = ex === 'beg'; const a = t * 4 + i * 3.1; s.position.set(Math.cos(a) * r * 1.2, top + Math.sin(a) * 6, Math.sin(a) * r); });
   if (md.ext) {
-    const x = md.ext, ft = p.fat / 100, walk = moving && !lying, Q = _q.q || (_q.q = new THREE.Quaternion()), E = _q.e || (_q.e = new THREE.Euler());
+    const x = md.ext, cfg = x.cfg, c = x.acts, fb = cfg.bones, ft = p.fat / 100, Q = _q.q || (_q.q = new THREE.Quaternion()), E = _q.e || (_q.e = new THREE.Euler());
+    const sleeping = lying && !!c.sleep, walk = moving && !lying, fast = p.fleeing || (p.state !== 'free' && p.state !== 'fight');
     x.holder.position.copy(md.inner.position); x.holder.rotation.copy(md.inner.rotation);
-    if (lying) { x.holder.rotation.x = 1.4; x.holder.position.y = r * .45; }                       // 아프면 옆으로 눕는다
+    if (lying) { if (sleeping) x.holder.position.y = 0; else { x.holder.rotation.x = 1.4; x.holder.position.y = r * .45; } }   // 아프면 눕는다
+    if (groom && c.wash) { x.holder.rotation.z = 0; x.holder.position.y = 0; }
     x.fit.scale.set(x.k * (1 + ft * .7), x.k * (1 + ft * .22), x.k * (1 + ft * .1));              // 살이 찌면 옆으로 퍼진다
-    if (walk !== x.walking) { x.walking = walk; if (walk) x.act.reset().fadeIn(.15).play(); else x.act.fadeOut(.2); }
-    x.act.timeScale = p.state === 'free' || p.state === 'fight' ? clamp(Math.hypot(mvx, mvy) / Math.max(dt, .001) / 85, .6, 2.4) : 2.2;
+    // 상태에 맞는 동작을 고르고 부드럽게 넘어간다
+    const name = sleeping ? 'sleep' : eating && c.eat ? 'eat' : p.state === 'wash' && c.wash ? 'wash' : walk ? (fast && c.run ? 'run' : 'walk') : groom && c.wash ? 'wash' : p.idle === 'look' && c.look ? 'look' : c.idle ? 'idle' : '';
+    if (name !== x.cur) { if (c[x.cur]) c[x.cur].fadeOut(.2); if (c[name]) c[name].reset().fadeIn(.2).play(); x.cur = name; }
+    const spd = Math.hypot(mvx, mvy) / Math.max(dt, .001);
+    if (c[name]) c[name].timeScale = name === 'walk' ? clamp(spd / cfg.walkRate, .7, 3.2) : name === 'run' ? (p.state === 'free' ? clamp(spd / cfg.runRate, 1, 3) : 2.4) : 1;
+    for (const n of x.face) { x.B[n].quaternion.copy(x.rest[n].q); x.B[n].scale.copy(x.rest[n].s); }   // 표정 뼈는 매번 기본 자세에서 시작
     x.mixer.update(dt);
-    const set = (n, rx, ry, rz) => { const b = x.B[n]; if (b) b.quaternion.copy(x.rest[n].q).multiply(Q.setFromEuler(E.set(rx || 0, ry || 0, rz || 0))); };
+    const add = (n, rx, ry, rz) => { const b = x.B[n]; if (b) b.quaternion.multiply(Q.setFromEuler(E.set(rx || 0, ry || 0, rz || 0))); };
     const pant = Math.abs(Math.sin(t * 16)), chew = Math.abs(Math.sin(t * 16));
     const mo = shock ? 1 : eating ? .25 + chew * .6 : ex === 'thirsty' ? .45 + pant * .3 : ex === 'beg' || ex === 'happy' ? .7 : ex === 'hungry' || ex === 'angry' ? .5 : ex === 'scared' ? .4 : fc === 'yawn' ? 1 : groom ? .3 + chew * .3 : fc === 'smiley' ? .35 : fc === 'derp' ? .2 : 0;
-    set('mouth_021', mo * .6);
+    if (fb.mouth) add(fb.mouth, mo * .6);
     let es = 1, ey = 1;
-    if (ex === 'happy' || ex === 'wash' || blink || fc === 'yawn' || groom) ey = .15; else if (ex === 'sick') ey = .25; else if (ex === 'thirsty' || ex === 'sad') ey = .55;
+    if (ex === 'happy' || ex === 'wash' || blink || fc === 'yawn' || groom || sleeping) ey = .15; else if (ex === 'sick') ey = .25; else if (ex === 'thirsty' || ex === 'sad') ey = .55;
     else if (ex === 'beg' || fc === 'cute') es = 1.35; else if (shock) es = 1.55; else if (ex === 'scared') es = 1.3; else if (fc === 'grumpy') ey = .5; else if (fc === 'sleepy') ey = .3;
-    for (const n of ['eyeL_022', 'eyeR_023']) { const b = x.B[n]; if (b) { const wink = fc === 'wink' && n === 'eyeL_022' || fc === 'cool' && n === 'eyeR_023'; b.scale.copy(x.rest[n].s).multiplyScalar(es); b.scale.y *= wink ? .15 : ey; } }
-    const ear = droop || fc === 'grumpy' ? .8 : ex === 'angry' ? .5 : shock ? -.25 : fc === 'sleepy' ? .4 : Math.sin(t * 3 + p.seed) * .06;
-    set('earL_019', ear); set('earR_020', ear);
-    set('head_018', (droop ? .32 : 0) + (eating ? .4 + chew * .12 : 0) + (groom ? .35 + Math.sin(t * 7) * .06 : 0) + (ex === 'beg' ? -.2 : 0), 0, ex === 'beg' ? Math.sin(t * 9) * .15 : fc === 'cool' || fc === 'derp' ? .16 : fc === 'look' ? Math.sin(t * 4) * .2 : 0);
-    if (!walk) set('tail_07', 0, 0, (ex === 'beg' || ex === 'happy' ? Math.sin(t * 20) * .5 : ex === 'angry' ? Math.sin(t * 26) * .25 : Math.sin(t * 2.5 + p.seed) * .15));
+    (fb.eyes || []).forEach((n, i) => { const b = x.B[n]; if (b) { const wink = fc === 'wink' && i === 0 || fc === 'cool' && i === 1; b.scale.multiplyScalar(es); b.scale.y *= wink ? .15 : ey; } });
+    const ear = droop || fc === 'grumpy' ? cfg.earDroop : ex === 'angry' ? cfg.earDroop * .6 : shock ? -.25 : fc === 'sleepy' ? cfg.earDroop * .5 : Math.sin(t * 3 + p.seed) * .06;
+    (fb.ears || []).forEach(n => add(n, ear));
+    if (fb.head) add(fb.head, (droop && !sleeping ? .32 : 0) + (eating && !c.eat ? .4 + chew * .12 : 0) + (groom && !c.wash ? .35 + Math.sin(t * 7) * .06 : 0) + (ex === 'beg' ? -.2 : 0), 0, ex === 'beg' ? Math.sin(t * 9) * .15 : fc === 'cool' || fc === 'derp' ? .16 : fc === 'look' && !c.look ? Math.sin(t * 4) * .2 : 0);
+    if (fb.tail && !walk) add(fb.tail, 0, 0, (ex === 'beg' || ex === 'happy' ? Math.sin(t * 20) * .5 : ex === 'angry' ? Math.sin(t * 26) * .25 : Math.sin(t * 2.5 + p.seed) * .15));
     const mc = x.mesh.material.color; mc.setRGB(1, 1, 1).lerp(grime, dg * .78); if (ex === 'sick') mc.lerp(sick, .45);
     const ch = BUBBLE[ex] || ''; x.bubble.visible = !!ch;
     if (ch) { if (x.ch !== ch) { x.ch = ch; x.bubble.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; x.bubble.material.needsUpdate = true; } x.bubble.position.set(0, x.top + 16 + Math.sin(t * 5) * 2, 0); }

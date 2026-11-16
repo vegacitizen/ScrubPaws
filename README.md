@@ -96,7 +96,7 @@
 | `app/src/main/assets/index.html` | 게임 본체 (3D 장면 + WebAudio). 웹 글꼴만 온라인에서 받아 오며, 오프라인이면 기기 기본 글꼴로 표시됩니다 |
 | `app/src/main/assets/three.min.js` | 3D 렌더링 라이브러리 three.js r149 (MIT 라이선스), 오프라인 실행을 위해 앱에 포함 |
 | `app/src/main/assets/GLTFLoader.js`, `SkeletonUtils.js` | three.js 예제 모음의 모델 불러오기 도구 (MIT 라이선스) |
-| `app/src/main/assets/cat_model.js` | 고양이 3D 모델(뼈대와 걷는 동작 포함)을 한 파일로 묶은 것 |
+| `app/src/main/assets/cat_model.js`, `rabbit_model.js` | 고양이·토끼 3D 모델(뼈대와 동작 포함)을 각각 한 파일로 묶은 것 |
 | `app/src/main/java/com/vegacitizen/scrubpaws/MainActivity.java` | 게임을 가로 전체 화면 WebView로 띄우는 액티비티 |
 | `.github/workflows/android.yml` | 푸시할 때마다 디버그 APK를 빌드하는 GitHub Actions |
 
@@ -114,5 +114,9 @@ GitHub Actions 실행 결과의 `ScrubPaws-debug-apk` 아티팩트에서도 내�
 
 ## 크레딧
 
-고양이 모델은 "Toon Cat FREE" (https://sketchfab.com/3d-models/toon-cat-free-b2bd1ee7858444bda366110a2d960386) by Omabuarts Studio (https://sketchfab.com/omabuarts)를 사용했으며, CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) 라이선스를 따릅니다.
-게임 안에서는 크기를 맞추고, 더러움·병에 따라 색을 입히고, 표정을 위해 입·눈·귀·머리 뼈를 움직이도록 고쳐 썼습니다.
+- 고양이 모델: "Toon Cat FREE" (https://sketchfab.com/3d-models/toon-cat-free-b2bd1ee7858444bda366110a2d960386) by Omabuarts Studio (https://sketchfab.com/omabuarts), CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+- 토끼 모델: "Rabbit - Animated Low Poly" (https://sketchfab.com/3d-models/rabbit-animated-low-poly-cd36ad89c9ce4d6fbc386c92d4ccfc25) by WildPoly3D (https://sketchfab.com/WildPoly3D), CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+
+토끼 모델은 **비상업적 이용만 허용**됩니다. 이 게임을 판매하거나 광고·결제를 붙여 배포하려면 토끼 모델을 다른 것으로 바꿔야 합니다.
+
+게임 안에서는 두 모델 모두 크기를 맞추고, 더러움·병에 따라 색을 입히고, 표정을 위해 눈·귀·머리 등의 뼈를 움직이도록 고쳐 썼습니다. 토끼는 사용하지 않는 동작 일부를 뺐습니다.
