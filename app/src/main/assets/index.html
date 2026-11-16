@@ -14,15 +14,18 @@
   body{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box}
   [hidden]{display:none!important}
   canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
-  #pad{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:10px}
+  #pad{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .prow{display:flex;align-items:flex-end;gap:10px}
   .pb{width:78px;height:78px;border-radius:50%;border:4px solid var(--paper);color:#fff;font:19px var(--display);touch-action:none;cursor:pointer;padding:0;
     box-shadow:0 5px 0 rgba(0,0,0,.35),0 8px 14px rgba(0,0,0,.3)}
   .pb.big{width:100px;height:100px;font-size:23px;background:var(--accent)}
+  .pb.sm{width:64px;height:64px;font-size:15px}
+  #bJump{background:#8b6fd6} #bWhistle{background:#d96a9a} #bBubble{background:#3fb7c9}
   #bFeed{background:#e8a322} #bBath{background:#2aa7c9} #bGym{background:#4f9d5d}
   #bFeed.on{outline:5px solid #fff}
   .pb.off{background:#9c8b80!important;opacity:.5}
   .pb:active{transform:translateY(3px)}
-  @media (max-height:480px){.pb{width:62px;height:62px;font-size:16px}.pb.big{width:80px;height:80px;font-size:19px}}
+  @media (max-height:480px){.pb{width:58px;height:58px;font-size:15px}.pb.big{width:76px;height:76px;font-size:18px}.pb.sm{width:48px;height:48px;font-size:12px}#pad{gap:5px}}
   #snd{position:fixed;left:calc(14px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));width:46px;height:46px;border-radius:50%;
     border:3px solid var(--paper);background:rgba(74,50,38,.8);font-size:20px;cursor:pointer;padding:0;touch-action:none;z-index:5}
   .pb:focus-visible,.buy:focus-visible,.btn:focus-visible{outline:4px solid var(--soap);outline-offset:3px}
@@ -60,10 +63,17 @@
 <script src="cat_model.js"></script>
 <script src="rabbit_model.js"></script>
 <div id="pad" hidden>
+ <div class="prow">
+  <button id="bBubble" class="pb sm off" type="button" hidden>거품</button>
+  <button id="bWhistle" class="pb sm off" type="button" hidden>휘파람</button>
+  <button id="bJump" class="pb sm off" type="button">점프</button>
+ </div>
+ <div class="prow">
   <button id="bGym" class="pb off" type="button">운동</button>
   <button id="bFeed" class="pb off" type="button">먹이</button>
   <button id="bBath" class="pb off" type="button">목욕</button>
   <button id="bGrab" class="pb big off" type="button">잡기</button>
+ </div>
 </div>
 <button id="snd" type="button" aria-label="소리 켜기/끄기">🔊</button>
 <div id="ov"><div id="card"></div></div>
@@ -262,15 +272,20 @@ const SLOTS = {
   bath: [{ x: 960, y: 165, w: 130, h: 90 }, { x: 815, y: 165, w: 130, h: 90 }, { x: 670, y: 165, w: 130, h: 90 }],
   gym: [{ x: 935, y: 440, w: 150, h: 56 }, { x: 770, y: 440, w: 150, h: 56 }, { x: 605, y: 440, w: 150, h: 56 }]
 };
-const up = { speed: 0, power: 0, feed: 1, bath: 1, gym: 1 }; let money = 0, units = [], SOLIDS = FURN;
+const up = { speed: 0, power: 0, jump: 0, feed: 1, bath: 1, gym: 1, whistle: 0, bounce: 0, bubble: 0 }; let money = 0, units = [], SOLIDS = FURN;
 const UPG = [
   { k: 'speed', e: '👟', n: '이동 속도', d: '더 빨리 걸어요', max: 5, cost: [1500, 2500, 4000, 6000, 8500] },
   { k: 'power', e: '💪', n: '던지는 힘', d: '더 멀리 던지고, 큰 동물도 가볍게 들어요', max: 5, cost: [1500, 2500, 4000, 6000, 8500] },
   { k: 'feed', e: '🥣', n: '먹이통', d: '한 통에 한 마리씩 먹어요', max: 3, cost: [0, 4000, 9000] },
   { k: 'bath', e: '🛁', n: '욕조', d: '한 욕조에 한 마리씩 씻어요', max: 3, cost: [0, 4000, 9000] },
-  { k: 'gym', e: '🏃', n: '러닝머신', d: '한 대에 한 마리씩 달려요', max: 3, cost: [0, 5000, 10000] }
+  { k: 'jump', e: '🦘', n: '점프', d: '더 높이, 더 멀리 뛰어요. 동물을 들고 뛰면 1.5배 멀리 던져요', max: 4, cost: [3000, 5000, 8000, 12000] },
+  { k: 'gym', e: '🏃', n: '러닝머신', d: '한 대에 한 마리씩 달려요', max: 3, cost: [0, 5000, 10000] },
+  { k: 'whistle', e: '📣', n: '휘파람', d: '모든 동물이 내 쪽으로 모여요. 단계가 오르면 더 자주 쓸 수 있어요', max: 3, cost: [6000, 8000, 10000] },
+  { k: 'bounce', e: '🏀', n: '연속 던지기', d: '쓰는 중인 시설에 던지면 튕겨서 빈 시설로 날아가요', max: 1, cost: [9000] },
+  { k: 'bubble', e: '🫧', n: '비눗방울 폭탄', d: '주변 동물이 반쯤 깨끗해져요. 단계가 오르면 범위가 넓어지고 더 자주 써요', max: 3, cost: [8000, 10000, 12000] }
 ];
-const throwRange = () => 170 + up.power * 95;
+const throwRange = () => (170 + up.power * 95) * (pl.jumpT > 0 && pl.pet ? 1.5 : 1);   // 동물을 들고 점프하는 동안은 1.5배
+const WHISTLE_CD = [0, 25, 18, 12], BUBBLE_CD = [0, 40, 30, 22]; let cd = { whistle: 0, bubble: 0 }, fx = null;
 /* 스테이지별 난이도: 앞 스테이지일수록 욕구·더러움·스트레스가 천천히 차고 합격선도 낮다 */
 const EASE = [.5, .6, .66, .74, .82], PASS_AVG = [50, 55, 58, 60, 62], PASS_MIN = [25, 30, 32, 34, 36], RANDOM_FIGHTS_FROM = 10;
 const ease = () => EASE[stage] == null ? 1 : EASE[stage];
@@ -326,7 +341,7 @@ function distRect(e, r) { const nx = clamp(e.x, r.x, r.x + r.w), ny = clamp(e.y,
 let state = 'title', stage = 0, score = 0, best = 0, timeLeft = 0, gt = 0;
 let pets = [], messes = [], parts = [], says = [], picking = false, mom = null, curAct = null, fights = [], fightT = 8;
 let toast = { t: 0, text: '' }, hintSeen = {}, shake = 0, warnT = 0;
-const pl = { x: 620, y: 350, dir: 1, phase: 0, moving: false, item: null, pet: null };
+const pl = { x: 620, y: 350, dir: 1, phase: 0, moving: false, item: null, pet: null, jumpT: 0, jumpDur: 1, jz: 0 };
 const cam = { x: 0, y: 0 };
 try { best = +localStorage.getItem('scrubpaws_best') || 0; } catch (e) { }
 
@@ -334,7 +349,7 @@ function startStage(n) {
   stage = n; const S = STAGES[n];
   pets = []; messes = []; parts = []; says = []; picking = false; mom = null; fights = []; fightT = R(5, 8);
   buildUnits();
-  pl.x = 620; pl.y = 350; pl.pet = null; timeLeft = S.time; gt = 0; warnT = 0;
+  pl.x = 620; pl.y = 350; pl.pet = null; pl.jumpT = 0; pl.jz = 0; cd = { whistle: 0, bubble: 0 }; fx = null; timeLeft = S.time; gt = 0; warnT = 0;
   S.pets.concat(S.pets).forEach((k, i) => {
     const sp = SP[k], pt = randPoint();
     const m = (1 + n * .05) * EASE[n];
@@ -363,16 +378,45 @@ function findAction() {   // 잡기 버튼이 지금 할 일
   if (ms) return { type: 'sweep', mess: ms, label: '치우기' };
   return null;
 }
-function throwPet(p, u, item) {   // 포물선으로 시설 칸에 던진다
+function throwPet(p, u, item, via) {   // 포물선으로 시설 칸에 던진다. via가 있으면 그 칸에 맞고 튕겨서 u로 간다
   pl.pet = null; picking = false; p.state = 'fly'; p.path = []; p.z = 0; u.res = p; p.unit = u;
-  p.fly = { x0: pl.x, y0: pl.y, z0: 80, x1: u.cx, y1: u.cy, t: 0, dur: clamp(Math.hypot(u.cx - pl.x, u.cy - pl.y) / 420, .85, 1.25), item };
-  p.dir = u.cx > pl.x ? 1 : -1; emote(p, 'yeet'); say(p, pick(['꺄아아~!!', p.sp.cry + '~~~?!', '으아아아!']), '#e2493f', 1);
+  const t = via || u;
+  p.fly = { x0: pl.x, y0: pl.y, z0: 80 + pl.jz, x1: t.cx, y1: t.cy, t: 0, dur: clamp(Math.hypot(t.cx - pl.x, t.cy - pl.y) / 420, .85, 1.25), item, bounce: !!via };
+  p.dir = t.cx > pl.x ? 1 : -1; emote(p, 'yeet'); say(p, pick(['꺄아아~!!', p.sp.cry + '~~~?!', '으아아아!']), '#e2493f', 1);
+}
+function aimUnit(kind) {   // 던질 곳을 정한다: 빈 칸이 닿으면 거기로, 아니면(연속 던지기) 쓰는 중인 칸에 튕겨서 빈 칸으로
+  const u = findUnit(kind); if (!u.err || !up.bounce) return u;
+  const free = units.filter(q => q.kind === kind && !q.user && !q.res); if (!free.length) return u;
+  let via = null, bd = 1e9; for (const q of units) { if (q.kind !== kind || !(q.user || q.res)) continue; const d = Math.hypot(q.cx - pl.x, q.cy - pl.y); if (d <= throwRange() && d < bd) { bd = d; via = q; } }
+  if (!via) return u;
+  free.sort((a, b) => Math.hypot(a.cx - via.cx, a.cy - via.cy) - Math.hypot(b.cx - via.cx, b.cy - via.cy));
+  return { unit: free[0], via };
 }
 function tryThrow(kind) {
   if (state !== 'play' || !pl.pet) return; initAudio();
-  const u = findUnit(kind), nm = { feed: '먹이통', bath: '욕조', gym: '러닝머신' }[kind];
-  if (u.err) { showToast(u.err === 'busy' ? '빈 ' + nm + '이(가) 없어요! 조금만 기다려요' : '너무 멀어요! ' + nm + ' 가까이 가서 던지세요'); tone(220, 160, .15, 'square', .12); return; }
-  const p = pl.pet; throwPet(p, u, kind === 'feed' ? (wantedItem(p) || p.sp.food) : null);
+  const a = aimUnit(kind), nm = { feed: '먹이통', bath: '욕조', gym: '러닝머신' }[kind];
+  if (a.err) { showToast(a.err === 'busy' ? '빈 ' + nm + '이(가) 없어요! 조금만 기다려요' : '너무 멀어요! ' + nm + ' 가까이 가거나 점프해서 던지세요'); tone(220, 160, .15, 'square', .12); return; }
+  const p = pl.pet; throwPet(p, a.unit || a, kind === 'feed' ? (wantedItem(p) || p.sp.food) : null, a.via);
+}
+/* ---------- 점프 · 휘파람 · 비눗방울 폭탄 ---------- */
+function pressJump() {
+  if (state !== 'play' || pl.jumpT > 0) return; initAudio();
+  pl.jumpDur = .55 + up.jump * .06; pl.jumpT = pl.jumpDur; tone(260, 620, .18, 'triangle', .22); burst(pl.x, pl.y, 'dust', 4);
+}
+function pressWhistle() {
+  if (state !== 'play' || up.whistle < 1 || cd.whistle > 0) return; initAudio();
+  cd.whistle = WHISTLE_CD[up.whistle]; fx = { kind: 'whistle', x: pl.x, y: pl.y, t: 0, r: 700 };
+  tone(1500, 2300, .16, 'sine', .22); tone(2300, 1700, .12, 'sine', .22, .16); tone(1700, 2600, .3, 'sine', .22, .3);
+  says.push({ x: pl.x, y: pl.y, h: 130, text: '휘이익~♪', col: '#2a7fb8', life: 1.4, big: 1 });
+  for (const p of pets) if (p.state === 'free') { p.path = [[pl.x + R(-80, 80), pl.y + R(-50, 70)]]; p.pause = 0; p.goal = 'come'; p.lying = false; p.calmT = 4.5; if (Math.random() < .5) say(p, p.sp.cry + '?', '#8a6a55'); }
+}
+function pressBubble() {
+  if (state !== 'play' || up.bubble < 1 || cd.bubble > 0) return; initAudio();
+  const rad = 180 + up.bubble * 45; cd.bubble = BUBBLE_CD[up.bubble]; fx = { kind: 'bubble', x: pl.x, y: pl.y, t: 0, r: rad };
+  SFX.splash(); SFX.clean(); let n = 0;
+  for (const p of pets) if ((p.state === 'free' || p.state === 'fight' || p.state === 'eat' || p.state === 'gym') && Math.hypot(p.x - pl.x, p.y - pl.y) <= rad) { p.dirt *= .5; p.cleanT = 2; burst(p.x, p.y, 'bubble', 6); n++; }
+  for (let i = 0; i < 26; i++) { const a = R(0, TAU), d = R(20, rad); parts.push({ x: pl.x + Math.cos(a) * d, y: pl.y + Math.sin(a) * d * .7, h: R(10, 70), vx: R(-30, 30), vy: R(-80, -20), life: R(.8, 1.5), kind: 'bubble', s: R(.9, 1.8) }); }
+  says.push({ x: pl.x, y: pl.y, h: 130, text: n ? '뽀글뽀글! ' + n + '마리' : '뽀글…', col: '#2a9fb8', life: 1.4, big: 1 });
 }
 function land(p) {
   const f = p.fly, u = p.unit; p.fly = null; p.z = 0; p.x = u.cx; p.y = u.cy; u.res = null; u.user = p; u.t = 0; u.sayT = .3;
@@ -498,7 +542,7 @@ const keys = {}; const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
 window.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space' || e.code === 'Enter') { if (document.activeElement && document.activeElement.classList.contains('btn')) return; e.preventDefault(); if (!e.repeat) pressGrab(); }
-  if (!e.repeat) { if (e.code === 'KeyZ' || e.code === 'KeyJ') pressGrab(); else if (e.code === 'KeyX' || e.code === 'KeyK') pressFeed(); else if (e.code === 'KeyC' || e.code === 'KeyL') pressBath(); else if (e.code === 'KeyV') pressGym(); }
+  if (!e.repeat) { if (e.code === 'KeyZ' || e.code === 'KeyJ') pressGrab(); else if (e.code === 'KeyX' || e.code === 'KeyK') pressFeed(); else if (e.code === 'KeyC' || e.code === 'KeyL') pressBath(); else if (e.code === 'KeyV') pressGym(); else if (e.code === 'KeyB' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') pressJump(); else if (e.code === 'KeyQ') pressWhistle(); else if (e.code === 'KeyE') pressBubble(); }
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -506,8 +550,8 @@ cv.addEventListener('pointerdown', e => { initAudio(); if (joy.id === null) { jo
 cv.addEventListener('pointermove', e => { if (e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
 const joyEnd = e => { if (e.pointerId === joy.id) joy.id = null; };
 cv.addEventListener('pointerup', joyEnd); cv.addEventListener('pointercancel', joyEnd);
-const bGrab = $('bGrab'), bFeed = $('bFeed'), bBath = $('bBath'), bGym = $('bGym');
-[[bGrab, pressGrab], [bFeed, pressFeed], [bBath, pressBath], [bGym, pressGym]].forEach(([el, fn]) => el.addEventListener('pointerdown', e => { e.preventDefault(); fn(); }));
+const bGrab = $('bGrab'), bFeed = $('bFeed'), bBath = $('bBath'), bGym = $('bGym'), bJump = $('bJump'), bWhistle = $('bWhistle'), bBubble = $('bBubble');
+[[bGrab, pressGrab], [bFeed, pressFeed], [bBath, pressBath], [bGym, pressGym], [bJump, pressJump], [bWhistle, pressWhistle], [bBubble, pressBubble]].forEach(([el, fn]) => el.addEventListener('pointerdown', e => { e.preventDefault(); fn(); }));
 window.addEventListener('contextmenu', e => e.preventDefault());
 const sndEl = $('snd'); sndEl.textContent = muted ? '🔇' : '🔊';
 sndEl.addEventListener('click', () => {
@@ -525,11 +569,13 @@ function updatePlayer(dt) {
   const l = Math.hypot(mx, my); if (l > 1) { mx /= l; my /= l; }
   pl.moving = l > .1;
   if (pl.moving) {
-    const spd = 205 * (1 + up.speed * .12) * (pl.pet ? 1 - Math.min(.5, pl.pet.sp.r / 100) * (1 - up.power * .16) : 1);
+    const spd = 205 * (1 + up.speed * .12) * (pl.pet ? 1 - Math.min(.5, pl.pet.sp.r / 100) * (1 - up.power * .16) : 1) * (pl.jumpT > 0 ? 1.45 + up.jump * .2 : 1);
     pl.x += mx * spd * dt; pl.y += my * spd * dt; if (Math.abs(mx) > .15) pl.dir = mx > 0 ? 1 : -1;
     pl.phase += dt * 13; collide(pl, 18);
   }
   if (pl.pet) { pl.pet.x = pl.x; pl.pet.y = pl.y; pl.pet.dir = pl.dir; }
+  if (pl.jumpT > 0) { pl.jumpT -= dt; const u = 1 - Math.max(0, pl.jumpT) / pl.jumpDur; pl.jz = Math.sin(u * Math.PI) * (55 + up.jump * 24); if (pl.jumpT <= 0) { pl.jz = 0; noise(.06, 300, 1, .25, 0, 'lowpass'); } }
+  if (cd.whistle > 0) cd.whistle -= dt; if (cd.bubble > 0) cd.bubble -= dt; if (fx) { fx.t += dt; if (fx.t > .7) fx = null; }
   updateUnits(dt);
 }
 function wantOf(p) {
@@ -578,13 +624,18 @@ function updatePet(p, dt) {
     else if (Math.random() < .35) { say(p, sp.cry, '#8a6a55'); emote(p, 'idle'); }
   }
   if (p.scratchT > 0) p.scratchT -= dt;
-  if (p.state === 'fly') { const f = p.fly; f.t += dt; const u = Math.min(1, f.t / f.dur); p.x = f.x0 + (f.x1 - f.x0) * u; p.y = f.y0 + (f.y1 - f.y0) * u; p.z = f.z0 * (1 - u) + Math.sin(u * Math.PI) * 170; if (u >= 1) land(p); return; }
+  if (p.state === 'fly') { const f = p.fly; f.t += dt; const u = Math.min(1, f.t / f.dur); p.x = f.x0 + (f.x1 - f.x0) * u; p.y = f.y0 + (f.y1 - f.y0) * u; p.z = f.z0 * (1 - u) + Math.sin(u * Math.PI) * 170;
+    if (u >= 1) { if (f.bounce) { const t = p.unit; p.fly = { x0: f.x1, y0: f.y1, z0: 46, x1: t.cx, y1: t.cy, t: 0, dur: clamp(Math.hypot(t.cx - f.x1, t.cy - f.y1) / 520, .55, 1), item: f.item };
+        tone(180, 520, .16, 'triangle', .3); noise(.08, 500, 1, .3, 0, 'lowpass'); says.push({ x: f.x1, y: f.y1, h: 90, text: '통!', col: '#ff8a3d', life: .7, big: 1 }); burst(f.x1, f.y1, 'spark', 4); shake = Math.max(shake, .1); }
+      else land(p); }
+    return; }
   if (p.state === 'eat') { p.moving = false; return; }
   if (p.state !== 'free') { p.moving = false; return; }
 
   // 도망 (빈손으로 다가오면 목욕인 줄 알고 도망)
   const dp = dist(p, pl);
-  const threat = !pl.pet && p.dirt >= 45 && dp < 170 && !sick;
+  if (p.calmT > 0) p.calmT -= dt;
+  const threat = !pl.pet && p.dirt >= 45 && dp < 170 && !sick && !(p.calmT > 0);
   p.fleeing = false;
   if (p.tired > 0) p.tired -= dt;
   let vx = 0, vy = 0, spd = 0;
@@ -602,7 +653,7 @@ function updatePet(p, dt) {
     if (p.pause <= 0 && p.path.length) {
       const w = p.path[0], dx = w[0] - p.x, dy = w[1] - p.y, d = Math.hypot(dx, dy);
       if (d < 12) { p.path.shift(); if (!p.path.length) p.pause = p.goal === 'beg' ? .4 : R(1.2, 3.2); }
-      else { vx = dx / d; vy = dy / d; spd = sp.sp * (p.goal === 'beg' ? .75 : p.goal === 'wander' ? .36 : .5) * (p.want === 'thirst' ? .8 : 1); }
+      else { vx = dx / d; vy = dy / d; spd = sp.sp * (p.goal === 'come' ? 1.05 : p.goal === 'beg' ? .75 : p.goal === 'wander' ? .36 : .5) * (p.want === 'thirst' ? .8 : 1); }
     }
   }
   if (sick) spd *= .5;
@@ -645,8 +696,10 @@ function update(dt) {
   const play = state === 'play', lab = play && curAct ? curAct.label : '잡기';
   if (!pl.pet) picking = false;
   if (bGrab.textContent !== lab) bGrab.textContent = lab;
-  bGrab.classList.toggle('off', !(play && curAct)); bFeed.classList.toggle('off', !(play && pl.pet && !findUnit('feed').err)); bBath.classList.toggle('off', !(play && pl.pet && !findUnit('bath').err));
-  bGym.classList.toggle('off', !(play && pl.pet && !findUnit('gym').err));
+  bGrab.classList.toggle('off', !(play && curAct)); bFeed.classList.toggle('off', !(play && pl.pet && !aimUnit('feed').err)); bBath.classList.toggle('off', !(play && pl.pet && !aimUnit('bath').err));
+  bGym.classList.toggle('off', !(play && pl.pet && !aimUnit('gym').err));
+  bJump.classList.toggle('off', !(play && pl.jumpT <= 0));
+  for (const [el, k, nm] of [[bWhistle, 'whistle', '휘파람'], [bBubble, 'bubble', '거품']]) { el.hidden = up[k] < 1; const t = cd[k] > 0 ? String(Math.ceil(cd[k])) : nm; if (el.textContent !== t) el.textContent = t; el.classList.toggle('off', !(play && cd[k] <= 0)); }
   bFeed.classList.toggle('on', picking); $('pad').hidden = !play;
 }
 
@@ -664,7 +717,7 @@ function momArrives(collapsed) {
   const avg = Math.round(res.reduce((a, r) => a + r.s, 0) / res.length), mn = Math.min(...res.map(r => r.s));
   const pass = avg >= PASS_AVG[stage] && mn >= PASS_MIN[stage] && !collapsed;
   // 용돈: 잘 돌본 동물이 많을수록, 만족도(점수)가 높을수록 많이 받는다
-  const pay = pass ? res.reduce((a, r) => a + (r.s >= 40 ? r.s * 10 : 0), 0) : 0;
+  const pay = pass ? res.reduce((a, r) => a + (r.s >= 40 ? r.s * 20 : 0), 0) : 0;
   mom = { t: 0, res, avg, pass, pay, shown: 0, done: false, collapsed, stars: avg >= 90 ? 3 : avg >= 78 ? 2 : 1 };
   state = 'mom'; shake = .6; SFX.slam(); joy.id = null;
 }
@@ -687,7 +740,7 @@ function showVerdict() {
     const last = stage === STAGES.length - 1;
     showOv('<h2 class="goodc">엄마: "어머, 잘 돌봤구나!"</h2><div class="stars">' + '★'.repeat(m.stars) + '<span style="opacity:.25">' + '★'.repeat(3 - m.stars) + '</span></div>' +
       '<p>평균 건강 점수 <b>' + m.avg + '점</b> · 점수 ' + score + '</p>' +
-      '<p class="pay">💰 용돈 <b>+' + m.pay.toLocaleString() + '원</b><br><span class="sub">동물 ' + m.res.length + '마리의 만족도를 합쳐서 받았어요 (1점 = 10원)</span></p>' +
+      '<p class="pay">💰 용돈 <b>+' + m.pay.toLocaleString() + '원</b><br><span class="sub">동물 ' + m.res.length + '마리의 만족도를 합쳐서 받았어요 (1점 = 20원)</span></p>' +
       (last ? '<p>모든 스테이지 클리어! 이제 엄마도 인정하는 최고의 집사예요 🎉<br><span class="sub">최고 점수 ' + best + '</span></p><button class="btn" id="go">상점 들르고 처음부터</button>'
         : '<p class="sub">"그럼 이번엔 더 큰 애들도 부탁할게~"</p><button class="btn" id="go">상점으로</button>'));
     $('go').onclick = () => { initAudio(); if (last) score = 0; showShop(last ? 0 : stage + 1); };
@@ -721,7 +774,7 @@ function showTitle() {
     '<div class="signs"><span>🫧 <b>더러움</b> 벅벅 긁고 파리가 꼬여요. 다가가면 도망쳐요</span><span>🍚 <b>배고픔</b> 침을 흘리며 낑낑, 배에서 꼬르륵</span>' +
     '<span>💧 <b>목마름</b> 혀를 내밀고 헥헥, 땀을 뻘뻘</span><span>🍪 <b>간식</b> 눈을 반짝이며 폴짝폴짝 따라다녀요</span>' +
     '<span>🍔 <b>살</b> 배고프지 않은데 먹이면 포동포동 살이 쪄서 느려져요. 러닝머신에서 운동!</span><span>💢 <b>스트레스</b> 배고프거나 뚱뚱하거나 더러우면, 또 깨끗한데 씻기면 쌓여서 서로 싸워요</span></div>' +
-    '<p class="sub">이동: 화면 드래그 / 방향키·WASD<br>잡기: 스페이스·Z &nbsp;·&nbsp; 먹이: X &nbsp;·&nbsp; 목욕: C &nbsp;·&nbsp; 운동: V</p>' +
+    '<p class="sub">이동: 화면 드래그 / 방향키·WASD<br>잡기: 스페이스·Z &nbsp;·&nbsp; 먹이: X &nbsp;·&nbsp; 목욕: C &nbsp;·&nbsp; 운동: V<br>점프: B·Shift &nbsp;·&nbsp; 휘파람: Q &nbsp;·&nbsp; 거품: E (상점에서 산 뒤)</p>' +
     '<p class="sub" style="font-size:11px">고양이 모델: "Toon Cat FREE" by Omabuarts Studio (sketchfab.com/omabuarts), CC-BY-4.0<br>토끼 모델: "Rabbit - Animated Low Poly" by WildPoly3D (sketchfab.com/WildPoly3D), CC-BY-NC-4.0</p>' +
     (hasProgress() ? '<p class="pay">💰 ' + money.toLocaleString() + '원 · 저장된 진행이 있어요</p><button class="btn" id="go">이어하기 · 스테이지 ' + (saveStage + 1) + '</button> <button class="btn alt" id="fresh">새로 시작</button>'
       : '<button class="btn" id="go">시작하기</button>'));
@@ -901,6 +954,7 @@ function buildRoom() {
   sh(deco);
   room.beltImg = canvasTex(64, 32, c => { c.fillStyle = '#20242c'; c.fillRect(0, 0, 64, 32); c.fillStyle = '#596274'; c.fillRect(0, 0, 8, 32); c.fillRect(32, 0, 8, 32); });
   room.rangeRing = M(new THREE.RingGeometry(.985, 1, 72), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .75, side: THREE.DoubleSide }), 1, 1, 1, 0, 1.2, 0, scene); room.rangeRing.rotation.x = -PI / 2;
+  room.fxRing = M(new THREE.RingGeometry(.9, 1, 72), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .8, side: THREE.DoubleSide, depthWrite: false }), 1, 1, 1, 0, 3, 0, scene); room.fxRing.rotation.x = -PI / 2; room.fxRing.visible = false;
   room.messG = new THREE.Group(); scene.add(room.messG); room.petG = new THREE.Group(); scene.add(room.petG);
 }
 function buildSigns() {     // 조리대 위 장식(이번 스테이지의 먹이)과 시설 모델
@@ -1105,7 +1159,7 @@ function syncPet(p, dt) {
     else if (p.want === 'snack' && p.state === 'free') ang = faceTo(pl.x - p.x, pl.y - p.y);
   } else if (p.state === 'carried') {
     gx = pl.x; gz = pl.y; ang = plM.g.rotation.y; g.rotation.y = ang;
-    gy = 104; jit = Math.sin(t * 22) * 1.5;
+    gy = 104 + pl.jz; jit = Math.sin(t * 22) * 1.5;
   } else if (p.state === 'fly') { gy = p.z; ang = -PI / 2 + Math.sin(t * 9) * .4; g.rotation.y = ang; tilt = Math.sin(t * 13) * .3; roll = Math.sin(t * 11) * .25; scl = 1 + Math.sin(clamp(p.fly.t / p.fly.dur, 0, 1) * PI) * 1.1; }   // 치솟으며 커졌다가 떨어지며 작아진다
   else if (p.state === 'wash') { gz = p.y + 6; gy = 44 - (md.L + md.bh * .75); ang = -PI / 2; roll = Math.sin(t * 9 + p.seed) * .12; }
   else if (p.state === 'eat') ang = PI / 2;
@@ -1231,9 +1285,10 @@ function makeKid() {
 function syncKid(dt) {
   const k = plM, t = gt, dx = pl.x - k.lx, dy = pl.y - k.ly; k.lx = pl.x; k.ly = pl.y;
   if (Math.hypot(dx, dy) > .2 && Math.hypot(dx, dy) < 60) turn(k.g, faceTo(dx, dy), Math.min(1, dt * 14));
-  k.g.position.set(pl.x - CX, 0, pl.y - CZ);
+  k.g.position.set(pl.x - CX, pl.jz, pl.y - CZ); k.shadow.position.y = 1 - pl.jz;
   const sw = pl.moving ? Math.sin(pl.phase) * .7 : 0; k.legs[0].rotation.z = sw; k.legs[1].rotation.z = -sw;
   if (pl.pet) { k.arms[0].rotation.z = k.arms[1].rotation.z = 2.9; }
+  else if (pl.jumpT > 0) { k.arms[0].rotation.z = k.arms[1].rotation.z = 2.4; k.legs[0].rotation.z = .7; k.legs[1].rotation.z = -.5; }
   else { k.arms[0].rotation.z = -sw; k.arms[1].rotation.z = sw; }
   k.inner.position.y = pl.moving ? Math.abs(Math.sin(pl.phase)) * 2 : 0; k.shadow.visible = !hq;
   k.head.rotation.z = pl.pet ? .18 : Math.sin(gt * 1.7) * .03;
@@ -1289,6 +1344,7 @@ function render3D(dt) {
   for (const p of pets) syncPet(p, dt);
   syncKid(dt); syncMom(); syncMesses();
   const play = state === 'play';
+  if (fx) { const u = fx.t / .7; room.fxRing.visible = true; room.fxRing.position.set(fx.x - CX, 3, fx.y - CZ); const sc = Math.max(1, fx.r * Math.min(1, u * 1.3)); room.fxRing.scale.set(sc, sc, 1); room.fxRing.material.opacity = .8 * (1 - u); room.fxRing.material.color.set(fx.kind === 'bubble' ? '#7fe3f5' : '#ffffff'); } else room.fxRing.visible = false;
   const rng = throwRange(), hold = play && !!pl.pet;
   room.rangeRing.visible = hold; if (hold) { room.rangeRing.position.set(pl.x - CX, 1.2, pl.y - CZ); room.rangeRing.scale.set(rng, rng, 1); }
   for (const u of units) if (u.mesh) {
@@ -1374,7 +1430,7 @@ function frame(now) {
 document.addEventListener('visibilitychange', () => { last = performance.now(); });
 window.addEventListener('resize', fit3D);
 // 테스트/디버그용 훅
-window.__game = { get state() { return state; }, get pets() { return pets; }, pl, startStage, momArrives, get mom() { return mom; }, setTime(v) { timeLeft = v; }, pressGrab, pressFeed, pressBath, pressGym, startFight, get fights() { return fights; }, get units() { return units; }, up, get money() { return money; }, set money(v) { money = v; }, showShop, saveGame, loadGame, setHQ, get cam() { return cam3; }, get hq() { return hq; }, get messes() { return messes; }, emote, get ac() { return ac; }, get master() { return master; }, get gl() { return !!renderer; } };
+window.__game = { get state() { return state; }, get pets() { return pets; }, pl, startStage, momArrives, get mom() { return mom; }, setTime(v) { timeLeft = v; }, pressGrab, pressFeed, pressBath, pressGym, pressJump, pressWhistle, pressBubble, throwRange, get cd() { return cd; }, startFight, get fights() { return fights; }, get units() { return units; }, up, get money() { return money; }, set money(v) { money = v; }, showShop, saveGame, loadGame, setHQ, get cam() { return cam3; }, get hq() { return hq; }, get messes() { return messes; }, emote, get ac() { return ac; }, get master() { return master; }, get gl() { return !!renderer; } };
 function boot() {
   loadGame(); stage = 0; pets = []; buildUnits();
   const ok = typeof THREE !== 'undefined' && init3D();
