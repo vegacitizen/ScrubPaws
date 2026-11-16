@@ -40,6 +40,7 @@
   .signs{text-align:left;font-size:clamp(13px,2.4vw,15.5px);line-height:1.55;margin:8px auto;display:grid;gap:2px}
   .btn{font:clamp(20px,4vw,26px) var(--display);background:var(--accent);color:#fff;border:4px solid var(--ink);border-radius:18px;
     padding:10px 34px;margin-top:10px;cursor:pointer;box-shadow:0 5px 0 var(--ink)}
+  .btn.alt{background:#b9ada4}
   .btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
   .stars{font-size:40px;letter-spacing:6px;color:#ffb81f;text-shadow:0 2px 0 var(--ink)}
   .goodc{color:var(--good)} .badc{color:var(--bad)}
@@ -263,6 +264,19 @@ const UPG = [
   { k: 'gym', e: '🏃', n: '러닝머신', d: '한 대에 한 마리씩 달려요', max: 3, cost: [0, 5000, 10000] }
 ];
 const throwRange = () => 170 + up.power * 95;
+/* 저장: 돈 · 능력 · 시설 · 다음에 할 스테이지를 기기에 남겨서 앱을 껐다 켜도 이어진다 */
+const SAVE_KEY = 'scrubpaws_save'; let saveStage = 0;
+function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, money, up, stage: saveStage })); } catch (e) { } }
+function loadGame() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!d || typeof d !== 'object') return;
+    money = Math.max(0, Math.round(+d.money || 0));
+    for (const u of UPG) { const v = Math.round(+(d.up || {})[u.k]); if (v >= 0) up[u.k] = clamp(v, u.cost[0] ? 0 : 1, u.max); }
+    saveStage = clamp(Math.round(+d.stage || 0), 0, STAGES.length - 1);
+  } catch (e) { }
+}
+function resetGame() { money = 0; saveStage = 0; score = 0; for (const u of UPG) up[u.k] = u.cost[0] ? 0 : 1; saveGame(); }
+const hasProgress = () => money > 0 || saveStage > 0 || UPG.some(u => up[u.k] > (u.cost[0] ? 0 : 1));
 function buildUnits() {
   units = [];
   for (const kind of ['feed', 'bath', 'gym']) for (let i = 0; i < up[kind]; i++) {
@@ -651,6 +665,7 @@ function updateMom(dt) {
   if (m.t > end && !m.done) {
     m.done = true;
     if (m.pass) { SFX.praise(); score += m.avg * 5 + m.stars * 100; money += m.pay; } else { SFX.scold(); shake = 1; }
+    saveStage = m.pass ? (stage === STAGES.length - 1 ? 0 : stage + 1) : stage; saveGame();
     if (score > best) { best = score; try { localStorage.setItem('scrubpaws_best', String(best)); } catch (e) { } }
     setTimeout(showVerdict, 1700);
   }
@@ -672,7 +687,7 @@ function showVerdict() {
   }
 }
 function showShop(n) {      // 스테이지 사이: 용돈으로 능력과 시설을 산다
-  state = 'shop';
+  state = 'shop'; saveStage = n; saveGame();
   const rows = UPG.map((u, i) => {
     const lv = up[u.k], full = lv >= u.max, c = full ? 0 : u.cost[lv], can = !full && money >= c;
     const pips = '●'.repeat(lv) + '<span style="opacity:.25">' + '●'.repeat(u.max - lv) + '</span>';
@@ -695,8 +710,14 @@ function showTitle() {
     '<div class="signs"><span>🫧 <b>더러움</b> 벅벅 긁고 파리가 꼬여요. 다가가면 도망쳐요</span><span>🍚 <b>배고픔</b> 침을 흘리며 낑낑, 배에서 꼬르륵</span>' +
     '<span>💧 <b>목마름</b> 혀를 내밀고 헥헥, 땀을 뻘뻘</span><span>🍪 <b>간식</b> 눈을 반짝이며 폴짝폴짝 따라다녀요</span>' +
     '<span>🍔 <b>살</b> 배고프지 않은데 먹이면 포동포동 살이 쪄서 느려져요. 러닝머신에서 운동!</span><span>💢 <b>스트레스</b> 배고프거나 뚱뚱하거나 더러우면, 또 깨끗한데 씻기면 쌓여서 서로 싸워요</span></div>' +
-    '<p class="sub">이동: 화면 드래그 / 방향키·WASD<br>잡기: 스페이스·Z &nbsp;·&nbsp; 먹이: X &nbsp;·&nbsp; 목욕: C &nbsp;·&nbsp; 운동: V</p><button class="btn" id="go">시작하기</button>');
-  $('go').onclick = () => { initAudio(); score = 0; showIntro(0); };
+    '<p class="sub">이동: 화면 드래그 / 방향키·WASD<br>잡기: 스페이스·Z &nbsp;·&nbsp; 먹이: X &nbsp;·&nbsp; 목욕: C &nbsp;·&nbsp; 운동: V</p>' +
+    (hasProgress() ? '<p class="pay">💰 ' + money.toLocaleString() + '원 · 저장된 진행이 있어요</p><button class="btn" id="go">이어하기 · 스테이지 ' + (saveStage + 1) + '</button> <button class="btn alt" id="fresh">새로 시작</button>'
+      : '<button class="btn" id="go">시작하기</button>'));
+  $('go').onclick = () => { initAudio(); score = 0; if (hasProgress()) showShop(saveStage); else showIntro(0); };
+  if ($('fresh')) $('fresh').onclick = () => {
+    showOv('<h2>새로 시작할까요?</h2><p>모은 돈 ' + money.toLocaleString() + '원과 산 능력·시설이 모두 사라져요.</p><button class="btn" id="go">아니요, 이어할래요</button> <button class="btn alt" id="yes">네, 처음부터</button>');
+    $('go').onclick = () => showTitle(); $('yes').onclick = () => { initAudio(); resetGame(); showIntro(0); };
+  };
 }
 function showIntro(n) {
   state = 'intro'; const S = STAGES[n]; const kinds = [...new Set(S.pets)];
@@ -1154,9 +1175,9 @@ function frame(now) {
 document.addEventListener('visibilitychange', () => { last = performance.now(); });
 window.addEventListener('resize', fit3D);
 // 테스트/디버그용 훅
-window.__game = { get state() { return state; }, get pets() { return pets; }, pl, startStage, momArrives, get mom() { return mom; }, setTime(v) { timeLeft = v; }, pressGrab, pressFeed, pressBath, pressGym, startFight, get fights() { return fights; }, get units() { return units; }, up, get money() { return money; }, set money(v) { money = v; }, showShop, get messes() { return messes; }, emote, get ac() { return ac; }, get master() { return master; }, get gl() { return !!renderer; } };
+window.__game = { get state() { return state; }, get pets() { return pets; }, pl, startStage, momArrives, get mom() { return mom; }, setTime(v) { timeLeft = v; }, pressGrab, pressFeed, pressBath, pressGym, startFight, get fights() { return fights; }, get units() { return units; }, up, get money() { return money; }, set money(v) { money = v; }, showShop, saveGame, loadGame, get messes() { return messes; }, emote, get ac() { return ac; }, get master() { return master; }, get gl() { return !!renderer; } };
 function boot() {
-  stage = 0; pets = []; buildUnits();
+  loadGame(); stage = 0; pets = []; buildUnits();
   const ok = typeof THREE !== 'undefined' && init3D();
   if (ok) showTitle(); else showOv('<h2>3D를 시작할 수 없어요</h2><p>이 기기나 브라우저에서 WebGL을 사용할 수 없습니다.</p>');
   requestAnimationFrame(frame);
