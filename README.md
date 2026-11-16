@@ -1,8 +1,8 @@
 # ScrubPaws — 꼬질꼬질 대소동
 
 엄마가 돌아오기 전까지 집 안의 애완동물들을 깨끗하고 건강하게 돌보는 게임입니다.
-게임 본체는 `app/src/main/assets/index.html` 파일 하나이며, 브라우저에서 열면 바로 플레이할 수 있습니다.
-안드로이드에서는 이 파일을 전체 화면 WebView로 띄우는 앱으로 실행됩니다.
+3D로 만든 안드로이드 게임입니다. 방과 동물, 주인공, 엄마가 모두 3D 모델이고, 앱 안에서 WebGL(three.js)로 그립니다.
+게임 본체는 `app/src/main/assets/index.html`이며 같은 폴더의 `three.min.js`와 함께 브라우저에서도 바로 실행됩니다.
 
 ## 플레이 방법
 
@@ -51,7 +51,8 @@
 
 | 경로 | 설명 |
 | --- | --- |
-| `app/src/main/assets/index.html` | 게임 본체 (캔버스 + WebAudio). 웹 글꼴만 온라인에서 받아 오며, 오프라인이면 기기 기본 글꼴로 표시됩니다 |
+| `app/src/main/assets/index.html` | 게임 본체 (3D 장면 + WebAudio). 웹 글꼴만 온라인에서 받아 오며, 오프라인이면 기기 기본 글꼴로 표시됩니다 |
+| `app/src/main/assets/three.min.js` | 3D 렌더링 라이브러리 three.js r149 (MIT 라이선스), 오프라인 실행을 위해 앱에 포함 |
 | `app/src/main/java/com/vegacitizen/scrubpaws/MainActivity.java` | 게임을 가로 전체 화면 WebView로 띄우는 액티비티 |
 | `.github/workflows/android.yml` | 푸시할 때마다 디버그 APK를 빌드하는 GitHub Actions |
 
