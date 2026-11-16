@@ -104,4 +104,5 @@ Android Studio로 이 폴더를 열어 실행하거나, 명령줄에서:
 ```
 
 APK는 `app/build/outputs/apk/debug/app-debug.apk` 에 생성됩니다.
+디버그 APK는 저장소의 `app/debug.keystore`(디버그 전용 키)로 항상 같은 서명을 받으므로, 새 빌드를 기존 앱 위에 덮어 설치할 수 있고 저장 데이터가 유지됩니다.
 GitHub Actions 실행 결과의 `ScrubPaws-debug-apk` 아티팩트에서도 내려받을 수 있습니다.
