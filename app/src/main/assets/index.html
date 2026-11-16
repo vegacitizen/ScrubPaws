@@ -18,7 +18,7 @@
   .pb{width:78px;height:78px;border-radius:50%;border:4px solid var(--paper);color:#fff;font:19px var(--display);touch-action:none;cursor:pointer;padding:0;
     box-shadow:0 5px 0 rgba(0,0,0,.35),0 8px 14px rgba(0,0,0,.3)}
   .pb.big{width:100px;height:100px;font-size:23px;background:var(--accent)}
-  #bFeed{background:#e8a322} #bBath{background:#2aa7c9} #bDisc{background:#b0473c}
+  #bFeed{background:#e8a322} #bBath{background:#2aa7c9} #bGym{background:#4f9d5d}
   #bFeed.on{outline:5px solid #fff}
   .pb.off{background:#9c8b80!important;opacity:.5}
   .pb:active{transform:translateY(3px)}
@@ -50,7 +50,7 @@
 <canvas id="cv"></canvas>
 <script src="three.min.js"></script>
 <div id="pad" hidden>
-  <button id="bDisc" class="pb off" type="button" hidden>훈육</button>
+  <button id="bGym" class="pb off" type="button">운동</button>
   <button id="bFeed" class="pb off" type="button">먹이</button>
   <button id="bBath" class="pb off" type="button">목욕</button>
   <button id="bGrab" class="pb big off" type="button">잡기</button>
@@ -237,12 +237,14 @@ const STAGES = [
 /* ---------- 집 구조: 방 하나 (왼쪽 조리대 = 밥·간식·물, 오른쪽 = 욕조) ---------- */
 const FLOOR = { x0: 20, y0: 150, x1: 1100, y1: 520 };
 const TUB = { x: 850, y: 165, w: 240, h: 100, hh: 42, kind: 'tub' };
+const GYM = { x: 900, y: 424, w: 150, h: 56, hh: 14, kind: 'gym' };   // 오른쪽 아래 운동 구역의 러닝머신
 const FURN = [
   { x: 30, y: 150, w: 540, h: 50, hh: 36, kind: 'counter' },
   { x: 762, y: 150, w: 46, h: 36, hh: 92, kind: 'plant' },
   TUB,
   { x: 40, y: 416, w: 200, h: 56, hh: 50, kind: 'sofa', hide: [140, 392] },
-  { x: 500, y: 456, w: 92, h: 46, hh: 46, kind: 'toybox', hide: [546, 432] }
+  { x: 500, y: 456, w: 92, h: 46, hh: 46, kind: 'toybox', hide: [546, 432] },
+  GYM
 ];
 const SOLIDS = FURN;
 const HIDES = FURN.filter(f => f.hide).map(f => ({ x: f.hide[0], y: f.hide[1] }));
@@ -267,7 +269,7 @@ function distRect(e, r) { const nx = clamp(e.x, r.x, r.x + r.w), ny = clamp(e.y,
 
 /* ---------- 상태 ---------- */
 let state = 'title', stage = 0, score = 0, best = 0, timeLeft = 0, gt = 0;
-let pets = [], messes = [], parts = [], says = [], stations = [], tub = [], picking = false, mom = null, curAct = null, fights = [], fightT = 8, fightsOn = false;
+let pets = [], messes = [], parts = [], says = [], stations = [], tub = [], picking = false, mom = null, curAct = null, fights = [], fightT = 8, gym = null;
 let toast = { t: 0, text: '' }, hintSeen = {}, shake = 0, warnT = 0;
 const pl = { x: 620, y: 350, dir: 1, phase: 0, moving: false, item: null, pet: null };
 const cam = { x: 0, y: 0 };
@@ -275,7 +277,7 @@ try { best = +localStorage.getItem('scrubpaws_best') || 0; } catch (e) { }
 
 function startStage(n) {
   stage = n; const S = STAGES[n];
-  pets = []; messes = []; parts = []; says = []; tub = []; picking = false; mom = null; fights = []; fightT = R(5, 8); pl.spank = null;
+  pets = []; messes = []; parts = []; says = []; tub = []; picking = false; mom = null; fights = []; fightT = R(5, 8); gym = null;
   pl.x = 620; pl.y = 350; pl.pet = null; timeLeft = S.time; gt = 0; warnT = 0;
   const foods = [...new Set(S.pets.map(k => SP[k].food))];
   stations = foods.map((f, i) => ({ x: 85 + i * 100, y: 198, type: f })).concat([{ x: 405, y: 198, type: 'snack' }, { x: 510, y: 198, type: 'water' }]);
@@ -285,10 +287,9 @@ function startStage(n) {
     pets.push({ sp, x: pt.x, y: pt.y, dir: 1, phase: R(0, 6), seed: R(0, 100), state: 'free', cr: Math.min(sp.r * .6, 30),
       hunger: R(5, 45), thirst: R(5, 45), snack: R(0, 35), dirt: R(8, 34), health: 100,
       hr: .55 * R(.7, 1.3) * m, tr: .6 * R(.7, 1.3) * m, sr: .38 * R(.7, 1.3) * m, dr: (.5 + .04 * n) * R(.8, 1.2),
-      path: [], pause: R(0, 2), goal: 'wander', voiceT: R(2, 5), stam: 2.6, tired: 0, happyT: 0, angryT: 0, cleanT: 0, stuck: 0, lx: pt.x, ly: pt.y, repath: 0, moving: false, lying: false, fleeing: false });
+      path: [], pause: R(0, 2), goal: 'wander', voiceT: R(2, 5), stam: 2.6, tired: 0, happyT: 0, angryT: 0, cleanT: 0, fat: 0, stress: 0, stuck: 0, lx: pt.x, ly: pt.y, repath: 0, moving: false, lying: false, fleeing: false });
   });
   pets[0].hunger = 52; pets[pets.length - 1].dirt = 46; if (pets[1]) pets[1].thirst = 50;
-  fightsOn = pets.length >= 8;   // 식구가 많아지면 싸움이 난다
   state = 'play'; hideOv();
 }
 
@@ -301,7 +302,6 @@ function burst(x, y, kind, n) { for (let i = 0; i < n; i++) parts.push({ x: x + 
 /* ---------- 행동 ---------- */
 function nearestPet(range) { let b = null, bd = 1e9; for (const p of pets) { if (p.state !== 'free' && p.state !== 'fight') continue; const d = dist(p, pl) - p.cr; if (d < range && d < bd) { bd = d; b = p; } } return b; }
 function findAction() {   // 잡기 버튼이 지금 할 일
-  if (pl.spank) return null;
   if (pl.pet) return { type: 'release', label: '놓기' };
   const np = nearestPet(46);
   if (np) return { type: 'grab', pet: np, label: '잡기' };
@@ -318,7 +318,13 @@ function throwPet(p, tx, ty, then, item) {   // 포물선으로 던진다
 function land(p) {
   const f = p.fly; p.fly = null; p.z = 0; p.x = f.x1; p.y = f.y1;
   if (f.then === 'tub') {
+    if (p.dirt < 30) {   // 깨끗한데 또 씻기면 스트레스
+      p.stress = Math.min(100, p.stress + 45); p.angryT = 2; say(p, '씻기 싫어!!', '#e2493f', 1); emote(p, 'angry'); showToast('깨끗한 아이를 씻기면 스트레스를 받아요!');
+    }
     p.state = 'wash'; tub.push({ p, t: 0, dur: 3.2 + p.sp.r * .012, slot: p.slot || 0 }); SFX.splash(); burst(p.x, TUB.y, 'bubble', 12); shake = Math.max(shake, .15);
+  } else if (f.then === 'gym') {
+    p.state = 'gym'; p.dir = 1; gym = { p, t: 0, dur: 4, sayT: .3, fat0: p.fat }; noise(.12, 300, 1, .4, 0, 'lowpass'); tone(500, 900, .12, 'triangle', .2);
+    hint('gym', '러닝머신에서 달리면 살이 빠져요. 운동하면 목이 말라요!');
   } else {
     p.state = 'eat'; p.eatT = 1.5; p.dir = -1; collide(p, p.cr); noise(.12, 300, 1, .4, 0, 'lowpass'); burst(p.x, p.y, 'dust', 5); feed(p, f.item);
   }
@@ -331,26 +337,25 @@ function makeMess(p, type, n) {
   while (messes.length > 14) messes.shift();
 }
 function feed(p, type) {
-  let ok = false, wrong = false;
+  let ok = false;
   if (type === 'water') { ok = p.thirst >= 50; if (ok) p.thirst = 0; }
   else if (type === 'snack') { ok = p.snack >= 50; if (ok) p.snack = 0; }
-  else if (type !== p.sp.food) wrong = true;
-  else { ok = p.hunger >= 50; if (ok) p.hunger = 0; }
-  p.eating = ok ? type : null;
+  else if (type === p.sp.food) { ok = p.hunger >= 50; if (ok) p.hunger = 0; }
+  p.eating = type;
   if (ok) {
     p.happyT = 2.2; p.health = Math.min(100, p.health + 5); score += 50;
     say(p, type === 'water' ? '꿀꺽꿀꺽!' : '냠냠냠!', '#3fae6a', 1); if (type === 'water') SFX.drink(); else SFX.eat(); emote(p, 'happy'); burst(p.x, p.y - p.sp.r, 'heart', 5);
-  } else {
-    makeMess(p, type, 2); p.dirt = Math.min(100, p.dirt + 12); p.angryT = 1.8; p.eatT = 1;
-    say(p, wrong ? '퉤! 이거 아냐!' : (type === 'water' ? '첨벙! 물장난~' : '배불러! 던지고 놀래~'), '#e2493f', 1);
-    emote(p, 'angry'); burst(p.x, p.y - 10, 'dust', 8);
-    showToast('배고프지 않은데 먹여서 집이 어질러졌어요!');
+  } else {               // 배고프지 않은데 먹으면 살이 찐다
+    p.fat = Math.min(100, p.fat + 22); p.happyT = 1.2;
+    say(p, p.fat >= 60 ? '꺼억… 배불러…' : '배부른데… 냠냠!', '#d9731a', 1); SFX.eat(); tone(160, 90, .25, 'sawtooth', .12, .7);
+    showToast('배고프지 않은데 먹이면 살이 쪄요! (몸무게 ' + weightOf(p) + ')');
   }
 }
+function weightOf(p) { const kg = Math.pow(p.sp.r / 10, 3) * .12 * (1 + p.fat / 100 * .8); return (kg < 10 ? kg.toFixed(1) : Math.round(kg)) + 'kg'; }
 function pressGrab() {
   if (state !== 'play') return; initAudio();
   const a = curAct = findAction(); if (!a) return;
-  if (a.type === 'grab') { breakFight(a.pet); a.pet.state = 'carried'; a.pet.path = []; pl.pet = a.pet; SFX.grab(); emote(a.pet, 'scared'); say(a.pet, a.pet.sp.cry + '?!', '#4a3226'); hint('carry', '잡았다! [먹이]를 누르면 원하는 것이 있는 조리대로, [목욕]을 누르면 욕조로 던져요'); }
+  if (a.type === 'grab') { breakFight(a.pet); a.pet.state = 'carried'; a.pet.path = []; pl.pet = a.pet; SFX.grab(); emote(a.pet, 'scared'); say(a.pet, a.pet.sp.cry + '?!', '#4a3226'); hint('carry', '잡았다! [먹이]는 조리대로, [목욕]은 욕조로, [운동]은 러닝머신으로 던져요'); }
   else if (a.type === 'release') { const p = pl.pet; p.state = 'free'; p.x = pl.x + pl.dir * 24; p.y = pl.y + 6; collide(p, p.cr); pl.pet = null; picking = false; p.pause = .5; }
   else if (a.type === 'sweep') { messes.splice(messes.indexOf(a.mess), 1); score += 20; SFX.sweep(); burst(a.mess.x, a.mess.y, 'dust', 6); }
 }
@@ -362,29 +367,30 @@ function wantedItem(p) {   // 지금 가장 원하는 것 (없으면 null)
   return t;
 }
 function pressFeed() {     // 고를 필요 없이, 원하는 것(없으면 자기 밥) 쪽으로 던진다
-  if (state !== 'play' || !pl.pet || pl.spank) return; initAudio();
+  if (state !== 'play' || !pl.pet) return; initAudio();
   const p = pl.pet, type = wantedItem(p) || p.sp.food, s = stations.find(q => q.type === type);
   throwPet(p, s.x + R(-16, 16), R(246, 276), 'eat', type);
 }
-/* ---------- 싸움과 훈육 ---------- */
+/* ---------- 스트레스와 싸움 ---------- */
 function startFight(a, b) {
-  for (const p of [a, b]) { p.state = 'fight'; p.path = []; p.naughty = true; p.lying = false; }
+  for (const p of [a, b]) { p.state = 'fight'; p.path = []; p.lying = false; }
   fights.push({ a, b, t: 0, bt: 0, hitT: 0, on: false });
   say(a, a.sp.cry + '!!!', '#e2493f', 1); say(b, b.sp.cry + '!!', '#e2493f', 1); emote(a, 'angry'); emote(b, 'angry');
-  if (!hintSeen.fight) { hintSeen.fight = 1; toast.text = '싸움이 났어요! 한 마리를 [잡기]로 떼어 놓고 [훈육]으로 혼내 주세요'; toast.t = 6; }
+  if (!hintSeen.fight) { hintSeen.fight = 1; toast.text = '싸움이 났어요! [잡기]로 떼어 놓고, 💢 스트레스의 원인(배고픔·살·더러움)을 풀어 주세요'; toast.t = 6; }
 }
-function endFight(f) { f.done = true; for (const p of [f.a, f.b]) if (p.state === 'fight') { p.state = 'free'; p.pause = 1; p.path = []; } }
+function endFight(f) { f.done = true; for (const p of [f.a, f.b]) { p.stress = Math.max(0, p.stress - 20); if (p.state === 'fight') { p.state = 'free'; p.pause = 1; p.path = []; } } }
 function breakFight(p) { const f = fights.find(f => !f.done && (f.a === p || f.b === p)); if (f) endFight(f); }
 function updateFights(dt) {
-  if (!fightsOn) return;
-  fightT -= dt;
+  // 스트레스가 높을수록 자주 싸운다. 식구가 8마리 이상이면 가끔은 그냥도 싸운다.
+  const hot = pets.filter(p => p.stress >= 60).length, mx = pets.reduce((m, p) => Math.max(m, p.stress), 0);
+  fightT -= dt * ((pets.length >= 8 ? .5 : 0) + mx / 100 * 1.4 + hot * .3);
   if (fightT <= 0) {
-    fightT = R(7, 12) * 10 / pets.length;
+    fightT = R(6, 10);
     const c = pets.filter(p => p.state === 'free' && p.health >= 40 && !p.fleeing);
     if (fights.length < 2 && c.length >= 2) {
-      const nz = c.filter(p => p.naughty), a = nz.length && Math.random() < .7 ? pick(nz) : pick(c);
-      let b = null, bd = 1e9; for (const q of c) if (q !== a) { const d = dist(a, q); if (d < bd) { bd = d; b = q; } }
-      if (b && bd < 480) startFight(a, b);
+      const hc = c.filter(p => p.stress >= 60), a = hc.length ? pick(hc) : pets.length >= 8 ? pick(c) : null;
+      let b = null, bd = 1e9; if (a) for (const q of c) if (q !== a) { const d = dist(a, q); if (d < bd) { bd = d; b = q; } }
+      if (b && bd < 520) startFight(a, b);
     }
   }
   for (const f of fights) {
@@ -407,24 +413,23 @@ function updateFights(dt) {
   }
   fights = fights.filter(f => !f.done);
 }
-function pressDisc() {      // 훈육: 들고 있는 동물의 엉덩이를 회초리로 찰싹
-  if (state !== 'play' || !fightsOn || !pl.pet || pl.spank) return; initAudio();
-  pl.spank = { t: 0, p: pl.pet, was: !!pl.pet.naughty };
+function pressGym() {       // 운동: 들고 있는 동물을 러닝머신으로
+  if (state !== 'play' || !pl.pet) return; initAudio();
+  if (gym) { showToast('러닝머신을 쓰는 중이에요! 조금만 기다려요'); tone(220, 160, .15, 'square', .12); return; }
+  throwPet(pl.pet, GYM.x + 62, GYM.y + GYM.h / 2, 'gym');
 }
-function updateSpank(dt) {
-  const sk = pl.spank; if (!sk) return; const prev = sk.t; sk.t += dt; const p = sk.p;
-  for (const h of [.25, .55, .85]) if (prev < h && sk.t >= h) {
-    noise(.07, 3000, 2, .6, 0, 'highpass'); tone(900, 300, .06, 'square', .15); emote(p, 'scared');
-    says.push({ x: pl.x + R(-20, 20), y: pl.y, h: 110 + R(0, 30), text: '찰싹!', col: '#e2493f', life: .6, big: 1 }); burst(pl.x + pl.dir * 40, pl.y - 40, 'spark', 3); shake = Math.max(shake, .12);
-  }
-  if (sk.t >= 1.1) {
-    pl.spank = null; pl.pet = null; p.state = 'free'; p.x = pl.x + pl.dir * 34; p.y = pl.y + 6; collide(p, p.cr); p.pause = 2; p.path = []; p.sulkT = 3;
-    if (sk.was) { p.naughty = false; score += 30; say(p, '잘못했어요…', '#7a6a4f', 1); }
-    else { p.health = Math.max(1, p.health - 8); say(p, '억울해… ㅠㅠ', '#2a7fb8', 1); showToast('잘못 없는 아이를 혼내면 건강이 나빠져요!'); }
+function updateGym(dt) {
+  const w = gym; if (!w) return; const p = w.p; w.t += dt;
+  p.fat = Math.max(0, p.fat - 45 / w.dur * dt); p.thirst = Math.min(100, p.thirst + 5 * dt); p.phase += dt * 24;
+  if (Math.random() < dt * 9) tone(140, 90, .05, 'triangle', .18);
+  w.sayT -= dt; if (w.sayT <= 0) { w.sayT = 1.1; say(p, pick(['헉헉!', '영차!', '다다다다!', '후우…']), '#3f8a4f'); if (Math.random() < .6) emote(p, 'squeal'); }
+  if (w.t >= w.dur) {
+    gym = null; p.state = 'free'; p.x = GYM.x + R(20, 110); p.y = GYM.y - 30; collide(p, p.cr); p.pause = 1.2; p.path = []; p.happyT = 1.5;
+    if (w.fat0 >= 20) { score += 60; say(p, '가뿐해! (' + weightOf(p) + ')', '#3fae6a', 1); SFX.clean(); } else say(p, '힘들어…', '#7a6a4f');
   }
 }
 function pressBath() {
-  if (state !== 'play' || !pl.pet || pl.spank) return; initAudio();
+  if (state !== 'play' || !pl.pet) return; initAudio();
   if (tub.length >= TUB_MAX) { showToast('욕조가 꽉 찼어요! 조금만 기다려요'); tone(220, 160, .15, 'square', .12); return; }
   const used = tub.map(w => w.slot), slot = used.includes(0) ? 1 : 0, p = pl.pet;
   throwPet(p, TUB.x + TUB.w * (slot ? .7 : .3), TUB.y + TUB.h - 4, 'tub'); p.slot = slot; hint('bath', '풍덩! 잠시 기다리면 저절로 깨끗해져서 나와요');
@@ -435,7 +440,7 @@ const keys = {}; const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
 window.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space' || e.code === 'Enter') { if (document.activeElement && document.activeElement.classList.contains('btn')) return; e.preventDefault(); if (!e.repeat) pressGrab(); }
-  if (!e.repeat) { if (e.code === 'KeyZ' || e.code === 'KeyJ') pressGrab(); else if (e.code === 'KeyX' || e.code === 'KeyK') pressFeed(); else if (e.code === 'KeyC' || e.code === 'KeyL') pressBath(); else if (e.code === 'KeyV') pressDisc(); }
+  if (!e.repeat) { if (e.code === 'KeyZ' || e.code === 'KeyJ') pressGrab(); else if (e.code === 'KeyX' || e.code === 'KeyK') pressFeed(); else if (e.code === 'KeyC' || e.code === 'KeyL') pressBath(); else if (e.code === 'KeyV') pressGym(); }
   if (e.code.startsWith('Arrow')) e.preventDefault();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -443,8 +448,8 @@ cv.addEventListener('pointerdown', e => { initAudio(); if (joy.id === null) { jo
 cv.addEventListener('pointermove', e => { if (e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
 const joyEnd = e => { if (e.pointerId === joy.id) joy.id = null; };
 cv.addEventListener('pointerup', joyEnd); cv.addEventListener('pointercancel', joyEnd);
-const bGrab = $('bGrab'), bFeed = $('bFeed'), bBath = $('bBath'), bDisc = $('bDisc');
-[[bGrab, pressGrab], [bFeed, pressFeed], [bBath, pressBath], [bDisc, pressDisc]].forEach(([el, fn]) => el.addEventListener('pointerdown', e => { e.preventDefault(); fn(); }));
+const bGrab = $('bGrab'), bFeed = $('bFeed'), bBath = $('bBath'), bGym = $('bGym');
+[[bGrab, pressGrab], [bFeed, pressFeed], [bBath, pressBath], [bGym, pressGym]].forEach(([el, fn]) => el.addEventListener('pointerdown', e => { e.preventDefault(); fn(); }));
 window.addEventListener('contextmenu', e => e.preventDefault());
 const sndEl = $('snd'); sndEl.textContent = muted ? '🔇' : '🔊';
 sndEl.addEventListener('click', () => {
@@ -460,14 +465,14 @@ function updatePlayer(dt) {
   if (keys.ArrowUp || keys.KeyW) my -= 1; if (keys.ArrowDown || keys.KeyS) my += 1;
   if (joy.id !== null) { const dx = joy.x - joy.ox, dy = joy.y - joy.oy, l = Math.hypot(dx, dy); if (l > 10) { const k = Math.min(1, l / 50); mx = dx / l * k; my = dy / l * k; } }
   const l = Math.hypot(mx, my); if (l > 1) { mx /= l; my /= l; }
-  pl.moving = l > .1 && !pl.spank;
+  pl.moving = l > .1;
   if (pl.moving) {
     const spd = 235 * (pl.pet ? 1 - Math.min(.42, pl.pet.sp.r / 160) : 1);
     pl.x += mx * spd * dt; pl.y += my * spd * dt; if (Math.abs(mx) > .15) pl.dir = mx > 0 ? 1 : -1;
     pl.phase += dt * 13; collide(pl, 18);
   }
   if (pl.pet) { pl.pet.x = pl.x; pl.pet.y = pl.y; pl.pet.dir = pl.dir; }
-  updateSpank(dt);
+  updateGym(dt);
   // 욕조: 일정 시간 동안 저절로 씻긴다
   for (const w of tub) {
     w.t += dt; w.p.dirt = Math.max(0, w.p.dirt - dt * 100 / w.dur);
@@ -506,7 +511,9 @@ function updatePet(p, dt) {
   if (p.state !== 'wash') p.dirt = Math.min(100, p.dirt + p.dr * messMul * (p.snack >= 100 ? 1.5 : 1) * dt);
   let dmg = 0;
   if (p.dirt > 60) dmg += (p.dirt - 60) / 40 * 2.2;
-  if (p.hunger >= 100) dmg += 1.5; if (p.thirst >= 100) dmg += 1.8; if (p.snack >= 100) dmg += .4;
+  if (p.hunger >= 100) dmg += 1.5; if (p.thirst >= 100) dmg += 1.8; if (p.snack >= 100) dmg += .4; if (p.fat > 70) dmg += (p.fat - 70) / 30;
+  const st = (p.hunger >= 60 ? 3 : 0) + (p.fat >= 50 ? 2.5 : 0) + (p.dirt >= 55 ? 3 : 0);   // 배고픔·살·더러움이 스트레스가 된다
+  p.stress = clamp(p.stress + (st > 0 ? st : -3) * dt, 0, 100);
   if (dmg > 0) p.health = Math.max(0, p.health - dmg * dt); else if (p.dirt < 40) p.health = Math.min(100, p.health + .8 * dt);
   p.happyT -= dt; p.angryT -= dt; p.cleanT -= dt; if (p.sulkT > 0) p.sulkT -= dt;
   p.want = wantOf(p); const sick = p.health < 40;
@@ -521,7 +528,7 @@ function updatePet(p, dt) {
     else if (p.want === 'hunger') { say(p, pick([sp.cry + '… 꼬르륵', '낑…낑…', '꼬르르륵~']), '#a0522d'); emote(p, 'hungry'); hint('hunger', '침 흘리며 낑낑 + 꼬르륵 = 배고픔! 잡아서 [먹이]를 누르면 ' + FOOD[sp.food].e + ' ' + FOOD[sp.food].n + '을(를) 먹어요'); }
     else if (p.want === 'snack') { say(p, sp.cry + '! ' + sp.cry + '!♪', '#d9731a'); emote(p, 'beg'); hint('snack', '반짝이는 눈으로 폴짝폴짝 조르기 = 간식! 잡아서 [먹이]를 누르면 🍪 간식을 먹어요'); }
     else if (p.dirt >= 55) { say(p, '벅벅벅', '#7a6a4f'); emote(p, 'dirty'); p.scratchT = .8; hint('dirt', '벅벅 긁고 파리가 꼬이면 더러운 아이! [잡기]로 잡고 [목욕]으로 욕조에 던지세요'); }
-    else if (p.naughty) { say(p, '으르릉…', '#e2493f'); emote(p, 'angry'); }
+    else if (p.stress >= 60) { say(p, '으르릉…', '#e2493f'); emote(p, 'angry'); }
     else if (Math.random() < .35) { say(p, sp.cry, '#8a6a55'); emote(p, 'idle'); }
   }
   if (p.scratchT > 0) p.scratchT -= dt;
@@ -553,6 +560,7 @@ function updatePet(p, dt) {
     }
   }
   if (sick) spd *= .5;
+  spd *= 1 - p.fat / 100 * .6;   // 살이 찔수록 느려진다
   p.moving = spd > 0;
   if (p.moving) {
     p.x += vx * spd * dt; p.y += vy * spd * dt;
@@ -566,7 +574,7 @@ function updatePet(p, dt) {
   p.lx = p.x; p.ly = p.y; p.wasFlee = p.fleeing;
 }
 function exprOf(p) {
-  if (p.state === 'wash') return 'wash'; if (p.state === 'carried' || p.state === 'fly') return 'scared'; if (p.state === 'fight') return 'angry';
+  if (p.state === 'wash') return 'wash'; if (p.state === 'carried' || p.state === 'fly') return 'scared'; if (p.state === 'fight') return 'angry'; if (p.state === 'gym') return 'thirsty';
   if (p.angryT > 0) return 'angry'; if (p.happyT > 0) return 'happy'; if (p.fleeing) return 'scared';
   if (p.health < 40) return 'sick'; if (p.sulkT > 0) return 'sad'; if (p.tired > 0) return 'thirsty';
   if (p.want === 'thirst') return 'thirsty'; if (p.want === 'hunger') return 'hungry'; if (p.want === 'snack') return 'beg';
@@ -592,19 +600,19 @@ function update(dt) {
   if (!pl.pet) picking = false;
   if (bGrab.textContent !== lab) bGrab.textContent = lab;
   bGrab.classList.toggle('off', !(play && curAct)); bFeed.classList.toggle('off', !(play && pl.pet)); bBath.classList.toggle('off', !(play && pl.pet && tub.length < TUB_MAX));
-  bDisc.hidden = !fightsOn; bDisc.classList.toggle('off', !(play && pl.pet && !pl.spank));
+  bGym.classList.toggle('off', !(play && pl.pet && !gym));
   bFeed.classList.toggle('on', picking); $('pad').hidden = !play;
 }
 
 /* ---------- 엄마 ---------- */
 function momArrives(collapsed) {
-  for (const w of tub) w.p.state = 'free'; tub = []; picking = false; fights = []; pl.spank = null;
+  for (const w of tub) w.p.state = 'free'; tub = []; picking = false; fights = []; gym = null;
   for (const p of pets) if (p.state !== 'free') { p.state = 'free'; p.z = 0; p.fly = null; }
   if (pl.pet) { pl.pet.state = 'free'; pl.pet = null; }
   const res = pets.map(p => {
-    let s = p.health * .6 + (100 - p.dirt) * .4 - (p.hunger >= 60 ? 8 : 0) - (p.thirst >= 60 ? 8 : 0);
+    let s = p.health * .6 + (100 - p.dirt) * .4 - (p.hunger >= 60 ? 8 : 0) - (p.thirst >= 60 ? 8 : 0) - p.fat * .25;
     s = clamp(Math.round(s), 0, 100);
-    const tag = p.health < 40 ? '아파요' : p.dirt >= 55 ? '꼬질꼬질' : (p.hunger >= 60 || p.thirst >= 60) ? '배고파/목말라' : s >= 80 ? '반짝반짝!' : '건강해요';
+    const tag = p.health < 40 ? '아파요' : p.dirt >= 55 ? '꼬질꼬질' : p.fat >= 60 ? '뚱뚱해요' : (p.hunger >= 60 || p.thirst >= 60) ? '배고파/목말라' : s >= 80 ? '반짝반짝!' : '건강해요';
     return { p, s, tag, good: s >= 65 && p.health >= 40 };
   });
   const avg = Math.round(res.reduce((a, r) => a + r.s, 0) / res.length), mn = Math.min(...res.map(r => r.s));
@@ -649,16 +657,16 @@ function showTitle() {
     '<p>엄마가 돌아오기 전까지 동물들을 <b>깨끗하고 건강하게</b> 돌보세요.<br>3D 집에서 동물을 <b>잡아서</b> 욕조로 던져 씻기고, 조리대로 던져 딱 맞는 밥과 물을 먹이세요!</p>' +
     '<div class="signs"><span>🫧 <b>더러움</b> 벅벅 긁고 파리가 꼬여요. 다가가면 도망쳐요</span><span>🍚 <b>배고픔</b> 침을 흘리며 낑낑, 배에서 꼬르륵</span>' +
     '<span>💧 <b>목마름</b> 혀를 내밀고 헥헥, 땀을 뻘뻘</span><span>🍪 <b>간식</b> 눈을 반짝이며 폴짝폴짝 따라다녀요</span>' +
-    '<span>⚠️ 배고프지도 목마르지도 않은 아이에게 먹이면 집을 어질러서 더 빨리 더러워져요</span></div>' +
-    '<p class="sub">이동: 화면 드래그 / 방향키·WASD<br>잡기: 스페이스·Z &nbsp;·&nbsp; 먹이: X &nbsp;·&nbsp; 목욕: C &nbsp;·&nbsp; 훈육: V</p><button class="btn" id="go">시작하기</button>');
+    '<span>🍔 <b>살</b> 배고프지 않은데 먹이면 포동포동 살이 쪄서 느려져요. 러닝머신에서 운동!</span><span>💢 <b>스트레스</b> 배고프거나 뚱뚱하거나 더러우면, 또 깨끗한데 씻기면 쌓여서 서로 싸워요</span></div>' +
+    '<p class="sub">이동: 화면 드래그 / 방향키·WASD<br>잡기: 스페이스·Z &nbsp;·&nbsp; 먹이: X &nbsp;·&nbsp; 목욕: C &nbsp;·&nbsp; 운동: V</p><button class="btn" id="go">시작하기</button>');
   $('go').onclick = () => { initAudio(); score = 0; showIntro(0); };
 }
 function showIntro(n) {
   state = 'intro'; const S = STAGES[n]; const kinds = [...new Set(S.pets)];
   showOv('<h2>스테이지 ' + (n + 1) + ' · ' + S.name + '</h2><p class="sub">엄마 도착까지 ' + S.time + '초 · 동물 ' + S.pets.length * 2 + '마리</p>' +
     '<div class="rows">' + kinds.map(k => '<span class="chip">' + SP[k].e + ' ' + SP[k].n + ' → <b>' + FOOD[SP[k].food].e + ' ' + FOOD[SP[k].food].n + '</b></span>').join('') + '</div>' +
-    '<p>[먹이]를 누르면 그 아이가 원하는 밥·간식·물을 알아서 먹어요.<br><span class="sub">잡은 다음 [먹이]로 조리대에, [목욕]으로 욕조에 던져요. 욕조에는 두 마리까지 들어가요.</span></p>' +
-    (S.pets.length * 2 >= 8 ? '<p class="badc">식구가 많아져서 동물끼리 싸워요! 싸우면 다치고 더러워져요.<br>한 마리를 잡아 떼어 놓고 [훈육]으로 💢 표시가 붙은 아이를 혼내 주세요.</p>' : '') +
+    '<p>[먹이]를 누르면 그 아이가 원하는 밥·간식·물을 알아서 먹어요.<br><span class="sub">잡은 다음 [먹이]·[목욕]·[운동]을 누르면 그곳으로 던져요.</span></p>' +
+    '<p class="sub">배고프지 않은 아이에게 먹이면 살이 쪄요. 살찐 아이는 [운동]으로 러닝머신에!<br>배고픔·살·더러움은 스트레스(💢)가 되어 싸움이 잦아져요.</p>' +
     '<button class="btn" id="go">돌보기 시작!</button>');
   $('go').onclick = () => { initAudio(); startStage(n); };
 }
@@ -731,7 +739,8 @@ function buildRoom() {
     for (let y = 0, r = 0; y < fh; y += 37, r++) { c.fillRect(0, y, fw, 2); for (let x = (r % 2) * 60; x < fw; x += 120) c.fillRect(x, y, 2, 37); }
     c.save(); c.beginPath(); c.roundRect(bx, 0, fw - bx, 190, [0, 0, 0, 26]); c.clip(); c.fillStyle = '#d3efec'; c.fillRect(bx, 0, fw - bx, 190); c.fillStyle = '#bfe3df';
     for (let y = 0, r = 0; y < 190; y += 38, r++) for (let x = bx + (r % 2) * 38; x < fw; x += 76) c.fillRect(x, y, 38, 38); c.restore();
-    c.globalAlpha = .6; rr(c, 280, 150, 420, 130, 30, '#d9695a'); rr(c, 300, 168, 380, 94, 22, '#f0a58f'); rr(c, TUB.x - F.x0 + 20, 138, 200, 40, 20, '#7fc7c0'); c.globalAlpha = 1;
+    c.globalAlpha = .6; rr(c, 280, 150, 420, 130, 30, '#d9695a'); rr(c, 300, 168, 380, 94, 22, '#f0a58f'); rr(c, TUB.x - F.x0 + 20, 138, 200, 40, 20, '#7fc7c0'); rr(c, GYM.x - F.x0 - 26, GYM.y - F.y0 - 44, GYM.w + 52, GYM.h + 62, 22, '#9fd08a'); c.globalAlpha = 1;
+    txt(c, '운동 구역', GYM.x - F.x0 + GYM.w / 2, GYM.y - F.y0 - 24, 20, 'rgba(60,110,50,.75)');
   });
   const fl = M(new THREE.PlaneGeometry(fw, fh), new THREE.MeshLambertMaterial({ map: ft }), 1, 1, 1, 0, 0, 0, scene); fl.rotation.x = -PI / 2;
   M(G.box, '#5c4335', fw + 60, 20, fh + 60, 0, -10.5, 0, scene);
@@ -770,6 +779,15 @@ function buildRoom() {
   const pt = FURN[1], px = pt.x + pt.w / 2 - CX, pz = pt.y + pt.h / 2 - CZ;
   M(G.cyl, '#c8754a', 22, 40, 22, px, 20, pz, scene);
   [[0, 78, 0, 30], [-18, 62, 6, 22], [18, 64, 4, 22], [0, 104, -2, 22], [-10, 90, 10, 18], [12, 88, 8, 18]].forEach((q, i) => M(G.sph, i % 2 ? '#4f9d5d' : '#3f8a4f', q[3], q[3] * 1.1, q[3], px + q[0], q[1], pz + q[2], scene));
+  // 운동 구역: 러닝머신
+  const gx = GYM.x + GYM.w / 2 - CX, gz = GYM.y + GYM.h / 2 - CZ;
+  M(G.box, '#3b4250', GYM.w, 12, GYM.h, gx, 6, gz, scene);
+  room.beltTex = canvasTex(64, 32, c => { c.fillStyle = '#20242c'; c.fillRect(0, 0, 64, 32); c.fillStyle = '#596274'; c.fillRect(0, 0, 8, 32); c.fillRect(32, 0, 8, 32); });
+  room.beltTex.wrapS = THREE.RepeatWrapping; room.beltTex.repeat.set(5, 1);
+  const belt = M(new THREE.PlaneGeometry(GYM.w - 34, GYM.h - 12), new THREE.MeshLambertMaterial({ map: room.beltTex }), 1, 1, 1, gx - 10, 12.6, gz, scene); belt.rotation.x = -PI / 2;
+  for (const s of [1, -1]) { M(G.cyl, '#c9ced6', 3, 66, 3, gx + GYM.w / 2 - 12, 45, gz + s * (GYM.h / 2 - 5), scene).rotation.z = -.18; const rail = M(G.cyl, '#c9ced6', 2.5, 60, 2.5, gx + GYM.w / 2 - 44, 62, gz + s * (GYM.h / 2 - 5), scene); rail.rotation.z = PI / 2 - .35; }
+  const con = M(G.box, '#e2493f', 8, 26, GYM.h - 8, gx + GYM.w / 2 - 6, 84, gz, scene); con.rotation.z = -.35; M(G.box, '#bfe6ff', 2, 14, GYM.h - 26, gx + GYM.w / 2 - 11, 85, gz, scene).rotation.z = -.35;
+  room.gymGlow = M(G.box, new THREE.MeshBasicMaterial({ color: '#7bd66a', transparent: true, opacity: .5 }), GYM.w + 16, 3, GYM.h + 16, gx, 1.5, gz, scene);
   room.messG = new THREE.Group(); scene.add(room.messG); room.petG = new THREE.Group(); scene.add(room.petG);
 }
 function buildSigns() {
@@ -887,11 +905,11 @@ function syncPet(p, dt) {
     else if (p.want === 'snack' && p.state === 'free') ang = faceTo(pl.x - p.x, pl.y - p.y);
   } else if (p.state === 'carried') {
     gx = pl.x; gz = pl.y; ang = plM.g.rotation.y; g.rotation.y = ang;
-    if (pl.spank) { gx = pl.x + Math.cos(ang) * (30 + r * .8); gz = pl.y - Math.sin(ang) * (30 + r * .8); gy = 26; tilt = -.8; jit = Math.sin(t * 40) * 1.5; }
-    else { gy = 104; jit = Math.sin(t * 22) * 1.5; }
+    gy = 104; jit = Math.sin(t * 22) * 1.5;
   } else if (p.state === 'fly') { gy = p.z; ang = faceTo(p.fly.x1 - p.fly.x0, p.fly.y1 - p.fly.y0); g.rotation.y = ang; tilt = -p.fly.t * 11; }
   else if (p.state === 'wash') { gz = TUB.y + TUB.h / 2 + 6; gy = 44 - (md.L + md.bh * .75); ang = -PI / 2; roll = Math.sin(t * 9 + p.seed) * .12; }
   else if (p.state === 'eat') ang = PI / 2;
+  else if (p.state === 'gym') { gy = 15; ang = 0; bob = Math.abs(Math.sin(t * 24)) * r * .12; }
   if (ang !== null) turn(g, ang, Math.min(1, dt * 10));
   if (ex === 'beg') bob = Math.abs(Math.sin(t * 9)) * r * .45; else if (ex === 'happy') bob = Math.abs(Math.sin(t * 8)) * r * .25;
   if (ex === 'hungry' && Math.sin(t * 2.3 + p.seed) > .55) jit = Math.sin(t * 34) * 1.4;
@@ -900,9 +918,9 @@ function syncPet(p, dt) {
   md.inner.position.set(jit, bob - (lying ? md.L * .9 : 0), 0); md.inner.rotation.z = tilt + (ex === 'sick' && !lying ? Math.sin(t * 2) * .07 : 0); md.inner.rotation.x = roll;
   md.shadow.position.y = 1 - gy; md.shadow.visible = p.state !== 'wash';
   // 몸짓
-  const moving = p.moving || p.state === 'carried' || p.state === 'fly', ph = p.state === 'carried' || p.state === 'fly' ? t * 24 : p.phase, sw = moving ? Math.sin(ph) * .65 : 0;
+  const moving = p.moving || p.state === 'carried' || p.state === 'fly' || p.state === 'gym', ph = p.state !== 'free' && p.state !== 'fight' ? t * 24 : p.phase, sw = moving ? Math.sin(ph) * .65 : 0;
   md.legs.forEach((l, i) => { l.rotation.z = (i % 2 ? -sw : sw); l.visible = !lying; });
-  const br = ex === 'thirsty' ? 1 + Math.sin(t * 16) * .04 : 1 + Math.sin(t * 2.4 + p.seed) * .015; md.body.scale.set(br, br, br);
+  const br = ex === 'thirsty' ? 1 + Math.sin(t * 16) * .04 : 1 + Math.sin(t * 2.4 + p.seed) * .015; const ft = p.fat / 100; md.body.scale.set(br * (1 + ft * .3), br * (1 + ft * .35), br * (1 + ft * .75)); md.legs.forEach(l => { l.scale.set(1 + ft * .5, 1, 1 + ft * .5); }); md.head.scale.setScalar(1 + ft * .12);
   md.tail.rotation.y = (ex === 'beg' || ex === 'happy') ? Math.sin(t * 22) * .8 : Math.sin(t * 3 + p.seed) * .2;
   const droop = ex === 'hungry' || ex === 'sick' || ex === 'thirsty' || ex === 'sad';
   md.head.position.y = md.hy0 - (droop ? r * .12 : 0) - (lying ? md.bh * .3 : 0);
@@ -930,7 +948,7 @@ function syncPet(p, dt) {
   md.flies.forEach((f, i) => { f.visible = dg >= .55 && !washing && i < (dg >= .8 ? 3 : 2); const a = t * (3 + i) + i * 2.1; f.position.set(Math.cos(a) * r * 1.1, top + Math.sin(a * 1.7) * r * .3, Math.sin(a) * r * .8); });
   md.stink.forEach((s, i) => { s.visible = dg >= .8 && !washing; const u = (t * .7 + i * .33) % 1; s.position.set((i - 1) * r * .5 + Math.sin(t * 3 + i) * 4, top + u * 34, 0); s.material.opacity = .55 * (1 - u); });
   md.sweat.forEach((s, i) => { s.visible = ex === 'thirsty' || ex === 'scared'; const u = (t * 1.6 + i * .5) % 1; s.position.set(md.hx + (i ? 1 : -1) * r * .3, md.hy0 + hr * .6 + u * 18, (i ? 1 : -1) * (hr + u * 10)); });
-  md.anger.visible = ex === 'angry' || !!(p.naughty && p.state !== 'fight'); md.anger.position.set(-r * .2, top + r * .25, 0); md.anger.scale.setScalar((22 + r * .45) * (1 + Math.sin(t * 8) * .12));
+  md.anger.visible = ex === 'angry' || (p.stress >= 60 && p.state !== 'fight'); md.anger.position.set(-r * .2, top + r * .25, 0); md.anger.scale.setScalar((22 + r * .45) * (1 + Math.sin(t * 8) * .12));
   md.spark.forEach((s, i) => { s.visible = p.cleanT > 0; const a = t * 3 + i * 3.1; s.position.set(Math.cos(a) * r * 1.2, md.by + Math.sin(a * 1.3) * r * .7, Math.sin(a) * r * 1.0); });
   md.star.forEach((s, i) => { s.visible = ex === 'beg'; const a = t * 4 + i * 3.1; s.position.set(Math.cos(a) * r * 1.2, top + Math.sin(a) * 6, Math.sin(a) * r); });
   md.food.visible = p.state === 'eat' && !!p.eating;
@@ -957,9 +975,7 @@ function syncKid(dt) {
   if (Math.hypot(dx, dy) > .2 && Math.hypot(dx, dy) < 60) turn(k.g, faceTo(dx, dy), Math.min(1, dt * 14));
   k.g.position.set(pl.x - CX, 0, pl.y - CZ);
   const sw = pl.moving ? Math.sin(pl.phase) * .7 : 0; k.legs[0].rotation.z = sw; k.legs[1].rotation.z = -sw;
-  k.stick.visible = !!pl.spank;
-  if (pl.spank) { k.arms[0].rotation.z = 1.2 + Math.abs(Math.sin(pl.spank.t / .3 * PI)) * 1.5; k.arms[1].rotation.z = 1.2; }
-  else if (pl.pet) { k.arms[0].rotation.z = k.arms[1].rotation.z = 2.9; }
+  if (pl.pet) { k.arms[0].rotation.z = k.arms[1].rotation.z = 2.9; }
   else { k.arms[0].rotation.z = -sw; k.arms[1].rotation.z = sw; }
   k.inner.position.y = pl.moving ? Math.abs(Math.sin(pl.phase)) * 2 : 0;
 }
@@ -1014,8 +1030,9 @@ function render3D(dt) {
   for (const p of pets) syncPet(p, dt);
   syncKid(dt); syncMom(); syncMesses();
   const play = state === 'play';
-  for (const s of stations) if (s.sign) { const on = !!(play && pl.pet && !pl.spank && wantedItem(pl.pet) === s.type); s.glow.visible = on; s.sign.position.y = 92 + (on ? Math.abs(Math.sin(gt * 8)) * 8 : 0); }
-  room.tubGlow.visible = play && !!pl.pet && !pl.spank && tub.length < TUB_MAX; room.tubGlow.material.opacity = .35 + Math.sin(gt * 8) * .2;
+  for (const s of stations) if (s.sign) { const on = !!(play && pl.pet && wantedItem(pl.pet) === s.type); s.glow.visible = on; s.sign.position.y = 92 + (on ? Math.abs(Math.sin(gt * 8)) * 8 : 0); }
+  room.tubGlow.visible = play && !!pl.pet && tub.length < TUB_MAX; room.tubGlow.material.opacity = .35 + Math.sin(gt * 8) * .2;
+  room.gymGlow.visible = play && !!pl.pet && !gym; room.gymGlow.material.opacity = .35 + Math.sin(gt * 8) * .2; if (gym) { room.beltTex.offset.x -= dt * 2.4; }
   room.bubG.visible = tub.length > 0; if (tub.length) room.bubbles.forEach((b, i) => { const s = 11 + (i % 3) * 4 + Math.sin(gt * 5 + i) * 2; b.scale.setScalar(s); b.position.y = 50 + Math.sin(gt * 4 + i * 1.7) * 4; });
   const tp = play && curAct && curAct.pet; ring.visible = !!tp; if (tp) { ring.position.set(tp.x - CX, 2, tp.y - CZ); const s = tp.sp.r * 1.25 + 8 + Math.sin(gt * 8) * 2; ring.scale.set(s, s, s); }
   const tm = play && curAct && curAct.mess; ring2.visible = !!tm; if (tm) ring2.position.set(tm.x - CX, 2, tm.y - CZ);
@@ -1041,6 +1058,7 @@ function drawHUD() {
     else ell(c, x, y, 5 * q.s * k, 4 * q.s * k, '#b89a70');
     c.globalAlpha = 1;
   }
+  if (gym) { const [x, y] = proj(GYM.x + GYM.w / 2, 4, GYM.y + GYM.h + 14), bw = 90 * pxu, pr = clamp(gym.t / gym.dur, 0, 1); rr(c, x - bw / 2, y, bw, 12, 6, '#4a3226'); rr(c, x - bw / 2 + 2, y + 2, (bw - 4) * pr, 8, 4, '#7bd66a'); }
   for (const w of tub) { const [x, y] = proj(w.p.x, 8, TUB.y + TUB.h + 16), bw = 74 * pxu, pr = clamp(w.t / w.dur, 0, 1); rr(c, x - bw / 2, y, bw, 12, 6, '#4a3226'); rr(c, x - bw / 2 + 2, y + 2, (bw - 4) * pr, 8, 4, '#6fd3e8'); }
   for (const s of says) {
     const [x, y] = proj(s.x, s.h, s.y); c.globalAlpha = clamp(s.life * 2, 0, 1);
@@ -1056,6 +1074,7 @@ function drawHUD() {
     const x0 = bx + bw + 20, cw = Math.min(52, (VW - x0 - 120) / Math.max(1, pets.length) - 3);
     pets.forEach((p, i) => { const x = x0 + i * (cw + 3), y = 8; rr(c, x, y, cw, 48, 10, 'rgba(255,246,227,.92)'); emo(c, p.sp.e, x + cw / 2, y + 18, Math.min(23, cw * .5));
       const h = p.health / 100; rr(c, x + 5, y + 35, cw - 10, 7, 3.5, '#4a3226'); rr(c, x + 6, y + 36, (cw - 12) * h, 5, 2.5, h > .7 ? '#3fae6a' : h > .4 ? '#f0b429' : '#e2493f');
+      if (p.fat >= 20) emo(c, '🍔', x + cw - 8, y + 9, 12); if (p.stress >= 60) emo(c, '💢', x + 8, y + 9, 12);
       if (p.health < 40 && Math.sin(gt * 10) > 0) { c.strokeStyle = '#e2493f'; c.lineWidth = 3; c.beginPath(); c.roundRect(x, y, cw, 48, 10); c.stroke(); } });
     txt(c, '점수 ' + score, VW - 14, 22, 18, '#fff', 'right', '#4a3226');
     if (messes.length) txt(c, '🧹 어질러짐 ×' + messes.length, VW - 14, 46, 14, '#ffd27a', 'right', '#4a3226');
@@ -1092,7 +1111,7 @@ function frame(now) {
 document.addEventListener('visibilitychange', () => { last = performance.now(); });
 window.addEventListener('resize', fit3D);
 // 테스트/디버그용 훅
-window.__game = { get state() { return state; }, get pets() { return pets; }, pl, startStage, momArrives, get mom() { return mom; }, setTime(v) { timeLeft = v; }, pressGrab, pressFeed, pressBath, pressDisc, startFight, get fights() { return fights; }, get tub() { return tub; }, get stations() { return stations; }, get messes() { return messes; }, TUB, emote, get ac() { return ac; }, get master() { return master; }, get gl() { return !!renderer; } };
+window.__game = { get state() { return state; }, get pets() { return pets; }, pl, startStage, momArrives, get mom() { return mom; }, setTime(v) { timeLeft = v; }, pressGrab, pressFeed, pressBath, pressGym, startFight, get gym() { return gym; }, get fights() { return fights; }, get tub() { return tub; }, get stations() { return stations; }, get messes() { return messes; }, TUB, emote, get ac() { return ac; }, get master() { return master; }, get gl() { return !!renderer; } };
 function boot() {
   stage = 0; stations = []; pets = [];
   const ok = typeof THREE !== 'undefined' && init3D();
