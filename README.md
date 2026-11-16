@@ -95,6 +95,8 @@
 | --- | --- |
 | `app/src/main/assets/index.html` | 게임 본체 (3D 장면 + WebAudio). 웹 글꼴만 온라인에서 받아 오며, 오프라인이면 기기 기본 글꼴로 표시됩니다 |
 | `app/src/main/assets/three.min.js` | 3D 렌더링 라이브러리 three.js r149 (MIT 라이선스), 오프라인 실행을 위해 앱에 포함 |
+| `app/src/main/assets/GLTFLoader.js`, `SkeletonUtils.js` | three.js 예제 모음의 모델 불러오기 도구 (MIT 라이선스) |
+| `app/src/main/assets/cat_model.js` | 고양이 3D 모델(뼈대와 걷는 동작 포함)을 한 파일로 묶은 것 |
 | `app/src/main/java/com/vegacitizen/scrubpaws/MainActivity.java` | 게임을 가로 전체 화면 WebView로 띄우는 액티비티 |
 | `.github/workflows/android.yml` | 푸시할 때마다 디버그 APK를 빌드하는 GitHub Actions |
 
@@ -109,3 +111,8 @@ Android Studio로 이 폴더를 열어 실행하거나, 명령줄에서:
 APK는 `app/build/outputs/apk/debug/app-debug.apk` 에 생성됩니다.
 디버그 APK는 저장소의 `app/debug.keystore`(디버그 전용 키)로 항상 같은 서명을 받으므로, 새 빌드를 기존 앱 위에 덮어 설치할 수 있고 저장 데이터가 유지됩니다.
 GitHub Actions 실행 결과의 `ScrubPaws-debug-apk` 아티팩트에서도 내려받을 수 있습니다.
+
+## 크레딧
+
+고양이 모델은 "Toon Cat FREE" (https://sketchfab.com/3d-models/toon-cat-free-b2bd1ee7858444bda366110a2d960386) by Omabuarts Studio (https://sketchfab.com/omabuarts)를 사용했으며, CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) 라이선스를 따릅니다.
+게임 안에서는 크기를 맞추고, 더러움·병에 따라 색을 입히고, 표정을 위해 입·눈·귀·머리 뼈를 움직이도록 고쳐 썼습니다.

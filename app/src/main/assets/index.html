@@ -55,6 +55,9 @@
 <canvas id="gl"></canvas>
 <canvas id="cv"></canvas>
 <script src="three.min.js"></script>
+<script src="GLTFLoader.js"></script>
+<script src="SkeletonUtils.js"></script>
+<script src="cat_model.js"></script>
 <div id="pad" hidden>
   <button id="bGym" class="pb off" type="button">운동</button>
   <button id="bFeed" class="pb off" type="button">먹이</button>
@@ -715,6 +718,7 @@ function showTitle() {
     '<span>💧 <b>목마름</b> 혀를 내밀고 헥헥, 땀을 뻘뻘</span><span>🍪 <b>간식</b> 눈을 반짝이며 폴짝폴짝 따라다녀요</span>' +
     '<span>🍔 <b>살</b> 배고프지 않은데 먹이면 포동포동 살이 쪄서 느려져요. 러닝머신에서 운동!</span><span>💢 <b>스트레스</b> 배고프거나 뚱뚱하거나 더러우면, 또 깨끗한데 씻기면 쌓여서 서로 싸워요</span></div>' +
     '<p class="sub">이동: 화면 드래그 / 방향키·WASD<br>잡기: 스페이스·Z &nbsp;·&nbsp; 먹이: X &nbsp;·&nbsp; 목욕: C &nbsp;·&nbsp; 운동: V</p>' +
+    '<p class="sub" style="font-size:11px">고양이 모델: "Toon Cat FREE" by Omabuarts Studio (sketchfab.com/omabuarts), CC-BY-4.0</p>' +
     (hasProgress() ? '<p class="pay">💰 ' + money.toLocaleString() + '원 · 저장된 진행이 있어요</p><button class="btn" id="go">이어하기 · 스테이지 ' + (saveStage + 1) + '</button> <button class="btn alt" id="fresh">새로 시작</button>'
       : '<button class="btn" id="go">시작하기</button>'));
   $('go').onclick = () => { initAudio(); score = 0; if (hasProgress()) showShop(saveStage); else showIntro(0); };
@@ -797,7 +801,7 @@ function init3D() {
     const marks = [sprite('💢', g, 40), sprite('⭐', g, 34), sprite('💢', g, 40)];
     g.visible = false; scene.add(g); dustPool.push({ g, puffs, marks });
   }
-  fit3D(); return true;
+  fit3D(); loadModels(); return true;
 }
 function fit3D() {
   if (!renderer) return;
@@ -933,6 +937,31 @@ function buildSigns() {     // 조리대 위 장식(이번 스테이지의 먹�
   }
 }
 
+/* ---------- 외부 모델(glTF): 고양이 "Toon Cat FREE" by Omabuarts Studio, CC-BY-4.0 ---------- */
+let catProto = null; const _q = { q: null, e: null };
+function loadModels() {
+  if (!window.CAT_GLTF || !THREE.GLTFLoader || !THREE.SkeletonUtils) return;
+  try {
+    new THREE.GLTFLoader().parse(JSON.stringify(window.CAT_GLTF), '', g => {
+      let mesh = null; g.scene.traverse(o => { if (o.isSkinnedMesh) mesh = o; }); if (!mesh || !g.animations.length) return;
+      mesh.material = new THREE.MeshLambertMaterial({ map: mesh.material.map });
+      catProto = { root: g.scene, clip: g.animations[0], len: 497, h: 364 };   // 모델 원본의 몸길이와 키
+      for (const p of pets) if (p.sp.cat && p.md && !p.md.ext) attachCat(p, p.md);
+    }, () => { });
+  } catch (e) { }
+}
+function attachCat(p, md) {   // 도형으로 만든 고양이를 숨기고 뼈대가 있는 모델을 붙인다
+  const r = p.sp.r, k = r * 3.7 / catProto.len, root = THREE.SkeletonUtils.clone(catProto.root), holder = new THREE.Group(), fit = new THREE.Group();
+  fit.rotation.y = PI / 2; fit.scale.setScalar(k); fit.add(root); holder.add(fit); md.g.add(holder);
+  let mesh = null; root.traverse(o => { if (o.isSkinnedMesh) { mesh = o; o.material = o.material.clone(); o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  const B = {}, rest = {}; mesh.skeleton.bones.forEach(b => { B[b.name] = b; rest[b.name] = { q: b.quaternion.clone(), s: b.scale.clone() }; });
+  const mixer = new THREE.AnimationMixer(root), act = mixer.clipAction(catProto.clip);
+  md.inner.visible = false;
+  const bubble = sprite('🤤', md.g, 18 + r * .55); bubble.visible = false;
+  md.ext = { holder, fit, k, mesh, B, rest, mixer, act, walking: false, bubble, ch: '', top: catProto.h * k };
+}
+const BUBBLE = { hungry: '🤤', thirsty: '🥵', beg: '🤩', sick: '🤒', sad: '😢', scared: '😨', shock: '😱' };
+
 /* ---------- 동물 모델 ---------- */
 const BLOT = [[.5, .7, .4], [-.4, .8, -.3], [.1, .9, .1], [-.7, .5, .5], [.7, .4, -.5], [0, .6, .8], [-.2, .5, -.8]];
 function makePet(p) {
@@ -1038,6 +1067,7 @@ function makePet(p) {
 const cGrime = { c: null }, cSick = { c: null }, cTmp = { c: null };
 function syncPet(p, dt) {
   const md = p.md || (p.md = makePet(p)); if (!md.g.parent) room.petG.add(md.g);
+  if (p.sp.cat && catProto && !md.ext) attachCat(p, md);
   const sp = p.sp, r = sp.r, t = gt, ex = exprOf(p), g = md.g, dg = p.dirt / 100, hr = md.hr;
   const grime = cGrime.c || (cGrime.c = new THREE.Color(GRIME)), sick = cSick.c || (cSick.c = new THREE.Color('#9cc76b'));
   md.m.body.color.copy(md.base.body).lerp(grime, dg * .6); md.m.belly.color.copy(md.base.belly).lerp(grime, dg * .55); md.m.dark.color.copy(md.base.dark).lerp(grime, dg * .4);
@@ -1114,6 +1144,31 @@ function syncPet(p, dt) {
   md.anger.visible = ex === 'angry' || (p.stress >= 60 && p.state !== 'fight'); md.anger.position.set(-r * .2, top + r * .25, 0); md.anger.scale.setScalar((22 + r * .45) * (1 + Math.sin(t * 8) * .12));
   md.spark.forEach((s, i) => { s.visible = p.cleanT > 0; const a = t * 3 + i * 3.1; s.position.set(Math.cos(a) * r * 1.2, md.by + Math.sin(a * 1.3) * r * .7, Math.sin(a) * r * 1.0); });
   md.star.forEach((s, i) => { s.visible = ex === 'beg'; const a = t * 4 + i * 3.1; s.position.set(Math.cos(a) * r * 1.2, top + Math.sin(a) * 6, Math.sin(a) * r); });
+  if (md.ext) {
+    const x = md.ext, ft = p.fat / 100, walk = moving && !lying, Q = _q.q || (_q.q = new THREE.Quaternion()), E = _q.e || (_q.e = new THREE.Euler());
+    x.holder.position.copy(md.inner.position); x.holder.rotation.copy(md.inner.rotation);
+    if (lying) { x.holder.rotation.x = 1.4; x.holder.position.y = r * .45; }                       // 아프면 옆으로 눕는다
+    x.fit.scale.set(x.k * (1 + ft * .7), x.k * (1 + ft * .22), x.k * (1 + ft * .1));              // 살이 찌면 옆으로 퍼진다
+    if (walk !== x.walking) { x.walking = walk; if (walk) x.act.reset().fadeIn(.15).play(); else x.act.fadeOut(.2); }
+    x.act.timeScale = p.state === 'free' || p.state === 'fight' ? clamp(Math.hypot(mvx, mvy) / Math.max(dt, .001) / 85, .6, 2.4) : 2.2;
+    x.mixer.update(dt);
+    const set = (n, rx, ry, rz) => { const b = x.B[n]; if (b) b.quaternion.copy(x.rest[n].q).multiply(Q.setFromEuler(E.set(rx || 0, ry || 0, rz || 0))); };
+    const pant = Math.abs(Math.sin(t * 16)), chew = Math.abs(Math.sin(t * 16));
+    const mo = shock ? 1 : eating ? .25 + chew * .6 : ex === 'thirsty' ? .45 + pant * .3 : ex === 'beg' || ex === 'happy' ? .7 : ex === 'hungry' || ex === 'angry' ? .5 : ex === 'scared' ? .4 : fc === 'yawn' ? 1 : groom ? .3 + chew * .3 : fc === 'smiley' ? .35 : fc === 'derp' ? .2 : 0;
+    set('mouth_021', mo * .6);
+    let es = 1, ey = 1;
+    if (ex === 'happy' || ex === 'wash' || blink || fc === 'yawn' || groom) ey = .15; else if (ex === 'sick') ey = .25; else if (ex === 'thirsty' || ex === 'sad') ey = .55;
+    else if (ex === 'beg' || fc === 'cute') es = 1.35; else if (shock) es = 1.55; else if (ex === 'scared') es = 1.3; else if (fc === 'grumpy') ey = .5; else if (fc === 'sleepy') ey = .3;
+    for (const n of ['eyeL_022', 'eyeR_023']) { const b = x.B[n]; if (b) { const wink = fc === 'wink' && n === 'eyeL_022' || fc === 'cool' && n === 'eyeR_023'; b.scale.copy(x.rest[n].s).multiplyScalar(es); b.scale.y *= wink ? .15 : ey; } }
+    const ear = droop || fc === 'grumpy' ? .8 : ex === 'angry' ? .5 : shock ? -.25 : fc === 'sleepy' ? .4 : Math.sin(t * 3 + p.seed) * .06;
+    set('earL_019', ear); set('earR_020', ear);
+    set('head_018', (droop ? .32 : 0) + (eating ? .4 + chew * .12 : 0) + (groom ? .35 + Math.sin(t * 7) * .06 : 0) + (ex === 'beg' ? -.2 : 0), 0, ex === 'beg' ? Math.sin(t * 9) * .15 : fc === 'cool' || fc === 'derp' ? .16 : fc === 'look' ? Math.sin(t * 4) * .2 : 0);
+    if (!walk) set('tail_07', 0, 0, (ex === 'beg' || ex === 'happy' ? Math.sin(t * 20) * .5 : ex === 'angry' ? Math.sin(t * 26) * .25 : Math.sin(t * 2.5 + p.seed) * .15));
+    const mc = x.mesh.material.color; mc.setRGB(1, 1, 1).lerp(grime, dg * .78); if (ex === 'sick') mc.lerp(sick, .45);
+    const ch = BUBBLE[ex] || ''; x.bubble.visible = !!ch;
+    if (ch) { if (x.ch !== ch) { x.ch = ch; x.bubble.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; x.bubble.material.needsUpdate = true; } x.bubble.position.set(0, x.top + 16 + Math.sin(t * 5) * 2, 0); }
+    md.anger.position.y = x.top + r * .5;
+  }
   md.food.visible = p.state === 'eat' && !!p.eating;
   if (md.food.visible) { if (md.foodType !== p.eating) { md.foodType = p.eating; md.food.material.map = (sprCache[FOOD[p.eating].e] || sprite(FOOD[p.eating].e, null, 1).material.map); md.food.material.needsUpdate = true; } md.food.position.set(md.bw * 1.5, 16 + Math.abs(Math.sin(t * 14)) * 5, 0); }
 }
