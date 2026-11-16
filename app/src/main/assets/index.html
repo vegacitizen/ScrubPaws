@@ -223,7 +223,7 @@ const SP = {
   hamster: { n: '햄스터', e: '🐹', r: 17, t: [1.0, 2.0, 3.0], v: 'squeak', sp: 175, col: '#f1c27d', col2: '#fff3dc', ear: 'round', tail: 'none', whisk: 1, cheeks: 1, food: 'seed', cry: '찍찍', p: 2.0, head: .72, leg: .2 },
   chick: { n: '병아리', e: '🐥', r: 16, t: [1.0, 1.8, 2.8], v: 'peep', sp: 150, col: '#ffd84a', col2: '#fff0a0', ear: 'none', tail: 'short', beak: 1, legs: 2, legCol: '#f08a24', food: 'grain', cry: '삐약', p: 2.3, head: .7, leg: .45 },
   rabbit: { n: '토끼', e: '🐰', r: 20, t: [1.3, 2.4, 3.2], v: 'honk', sp: 185, col: '#f4f1ec', col2: '#ffffff', ear: 'long', tail: 'fluff', whisk: 1, food: 'carrot', cry: '뀨뀨', p: 1.7, head: .66, leg: .28, dark: '#d9d2c8' },
-  cat: { n: '고양이', e: '🐱', r: 22, t: [1.5, 3.2, 3.6], v: 'meow', sp: 180, col: '#f0a04b', col2: '#fff1dd', ear: 'pointy', tail: 'long', whisk: 1, stripes: 1, food: 'fish', cry: '야옹', p: 1.5, dark: '#c9772a' },
+  cat: { n: '고양이', e: '🐱', r: 22, t: [1.5, 3.2, 3.6], v: 'meow', sp: 180, col: '#f6b25c', col2: '#fff7ec', ear: 'pointy', tail: 'fluffy', whisk: 1, cat: 1, muzzle: 1, earS: 1.2, head: .74, food: 'fish', cry: '야옹', p: 1.5, dark: '#e58f33' },
   puppy: { n: '강아지', e: '🐶', r: 21, t: [1.4, 2.6, 3.4], v: 'yap', sp: 165, col: '#e8d2b0', col2: '#fff8ea', ear: 'floppy', tail: 'dog', patch: 1, food: 'kibble', cry: '멍멍', p: 1.3, dark: '#9b6a43' },
   dog: { n: '리트리버', e: '🐕', r: 30, t: [1.8, 3.2, 4.0], v: 'woof', sp: 170, col: '#e0a95c', col2: '#f6d9a8', ear: 'floppy', tail: 'dog', food: 'meat', cry: '컹컹', p: .9, dark: '#b57f38', leg: .5 },
   pig: { n: '돼지', e: '🐷', r: 37, t: [2.6, 3.4, 5.5], v: 'oink', sp: 130, col: '#f7b3c0', col2: '#ffd6dd', ear: 'pointy', tail: 'curl', snout: 1, food: 'corn', cry: '꿀꿀', p: .8, dark: '#e08a9c', leg: .3 },
@@ -939,7 +939,7 @@ function makePet(p) {
   const sp = p.sp, r = sp.r, g = new THREE.Group(), inner = new THREE.Group(); g.add(inner);
   const cDark = sp.dark || '#8a6a4a', m = { body: new THREE.MeshLambertMaterial({ color: sp.col }), belly: new THREE.MeshLambertMaterial({ color: sp.col2 }), head: new THREE.MeshLambertMaterial({ color: sp.col }), dark: new THREE.MeshLambertMaterial({ color: cDark }) }, eyeM = glossy('#2b1d16');
   const base = { body: new THREE.Color(sp.col), belly: new THREE.Color(sp.col2), dark: new THREE.Color(cDark) };
-  const earM = sp.earCol ? mat(sp.earCol) : m.dark, legM = sp.legCol ? mat(sp.legCol) : m.dark;
+  const earM = sp.earCol ? mat(sp.earCol) : m.dark, legM = sp.legCol ? mat(sp.legCol) : sp.cat ? m.body : m.dark;
   const L = r * (sp.leg || .4), bw = r * 1.05, bh = r * .75, bd = r * .78, by = L + bh * .85;
   const body = new THREE.Group(); body.position.y = by; inner.add(body);
   M(G.sph, m.body, bw, bh, bd, 0, 0, 0, body); M(G.sph, m.belly, bw * .8, bh * .72, bd * .87, bw * .06, -bh * .33, 0, body);
@@ -954,7 +954,8 @@ function makePet(p) {
   });
   // 꼬리
   const tail = new THREE.Group(); tail.position.set(-bw * .92, by + bh * .1, 0); inner.add(tail);
-  if (sp.tail === 'long') { const a = M(G.cyl, m.body, r * .1, r * 1.1, r * .1, -r * .25, r * .45, 0, tail); a.rotation.z = .5; M(G.sph, m.body, r * .12, r * .12, r * .12, -r * .52, r * .93, 0, tail); }
+  if (sp.tail === 'fluffy') { for (let i = 0; i < 15; i++) { const u = i / 14, rr2 = r * (.19 + Math.sin(u * PI) * .1); M(G.sph, m.body, rr2, rr2, rr2, -r * (.1 + Math.sin(u * 2.4) * .5), r * (-.25 + u * .95), r * (.25 - u * .1), tail); } }
+  else if (sp.tail === 'long') { const a = M(G.cyl, m.body, r * .1, r * 1.1, r * .1, -r * .25, r * .45, 0, tail); a.rotation.z = .5; M(G.sph, m.body, r * .12, r * .12, r * .12, -r * .52, r * .93, 0, tail); }
   else if (sp.tail === 'dog') { const a = M(G.cyl, m.body, r * .1, r * .8, r * .1, -r * .2, r * .32, 0, tail); a.rotation.z = .55; }
   else if (sp.tail === 'curl') { const a = M(G.tor, m.dark, r * .16, r * .16, r * .3, -r * .1, 0, 0, tail); a.rotation.y = PI / 2; }
   else if (sp.tail === 'fluff') M(G.sph, mat(sp.col2), r * .27, r * .27, r * .27, 0, 0, 0, tail);
@@ -971,7 +972,7 @@ function makePet(p) {
     let e = null;
     if (sp.ear === 'round') e = M(G.sph, earM, hr * .34 * es, hr * .34 * es, hr * .2, -hr * .1, hr * .78, s * hr * .62, head);
     else if (sp.ear === 'long') { e = new THREE.Group(); e.position.set(-hr * .15, hr * .75, s * hr * .32); head.add(e); M(G.sph, m.head, hr * .2, hr * .95, hr * .26, 0, hr * .85, 0, e); M(G.sph, '#f7b9c4', hr * .1, hr * .7, hr * .14, hr * .13, hr * .85, 0, e); }
-    else if (sp.ear === 'pointy') { e = M(G.cone, m.head, hr * .34, hr * .75, hr * .34, -hr * .1, hr * .95, s * hr * .55, head); e.rotation.x = s * .3; }
+    else if (sp.ear === 'pointy') { e = M(G.cone, m.head, hr * .34 * es, hr * .75 * es, hr * .34 * es, -hr * .1, hr * (.95 + (es - 1) * .3), s * hr * .55, head); e.rotation.x = s * .3; }
     else if (sp.ear === 'floppy' && es > 1.5) { e = M(G.sph, m.dark, hr * .75, hr * .95, hr * .14, -hr * .45, -hr * .05, s * hr * 1.0, head); e.rotation.y = s * .55; }
     else if (sp.ear === 'floppy') { e = M(G.sph, earM, hr * .22, hr * .62, hr * .32, -hr * .05, -hr * .05, s * hr * .95, head); e.rotation.x = s * .3; }
     if (e) ears.push(e);
@@ -983,7 +984,7 @@ function makePet(p) {
   if (sp.panda) for (const s of [1, -1]) M(G.sph, earM, hr * .18, hr * .32, hr * .26, hr * .78, hr * .12, s * hr * .4, head);
   if (sp.patch) M(G.sph, m.dark, hr * .2, hr * .36, hr * .34, hr * .74, hr * .14, hr * .42, head);
   let mouthX = hr * .93;
-  if (sp.muzzle) { M(G.sph, m.belly, hr * .5, hr * .4, hr * .5, hr * .72, -hr * .28, 0, head); M(G.sph, '#3a2a22', hr * .13, hr * .1, hr * .16, hr * 1.2, -hr * .14, 0, head); mouthX = hr * 1.12; }
+  if (sp.muzzle) { M(G.sph, m.belly, hr * .5, hr * .4, hr * .5, hr * .72, -hr * .28, 0, head); M(G.sph, sp.cat ? glossy('#f58fa0') : mat('#3a2a22'), hr * (sp.cat ? .08 : .13), hr * (sp.cat ? .065 : .1), hr * (sp.cat ? .11 : .16), hr * (sp.cat ? 1.19 : 1.2), -hr * .14, 0, head); mouthX = hr * 1.12; }
   else if (sp.bigmuzzle) { M(G.sph, m.belly, hr * .75, hr * .52, hr * .82, hr * .75, -hr * .35, 0, head); for (const s of [1, -1]) M(G.sph, m.dark, hr * .08, hr * .06, hr * .08, hr * 1.3, -hr * .02, s * hr * .3, head); mouthX = hr * 1.38; }
   else if (sp.snout) { const sn = M(G.cyl, m.dark, hr * .34, hr * .3, hr * .28, hr * .95, -hr * .2, 0, head); sn.rotation.z = PI / 2; for (const s of [1, -1]) M(G.sph, '#8a4a5a', hr * .05, hr * .1, hr * .07, hr * 1.1, -hr * .2, s * hr * .13, head); mouthX = hr * .95; }
   else if (sp.beak) { const bk = M(G.cone, '#f08a24', hr * .28, hr * .6, hr * .3, hr * 1.12, -hr * .12, 0, head); bk.rotation.z = -PI / 2; mouthX = hr * 1.0; }
@@ -1013,11 +1014,16 @@ function makePet(p) {
   if (sp.legs !== 2) legs.forEach(pv => M(G.sph, hoof ? mat('#4a3a30') : m.belly, lr * 1.45, lr * .95, lr * 1.4, lr * .45, -len + lr * .7, 0, pv));
   for (const s of [1, -1]) {
     if (sp.ear === 'round' && !sp.earCol) M(G.sph, '#f7b9c4', hr * .2 * es, hr * .2 * es, hr * .12, hr * .02, hr * .78, s * hr * .62, head);
-    if (sp.ear === 'pointy') { const ie = M(G.cone, '#f7b9c4', hr * .2, hr * .5, hr * .2, hr * .04, hr * .92, s * hr * .55, head); ie.rotation.x = s * .3; }
+    if (sp.ear === 'pointy') { const ie = M(G.cone, '#f7a8b4', hr * .21 * es, hr * .52 * es, hr * .21 * es, hr * .06, hr * (.92 + (es - 1) * .28), s * hr * .55, head); ie.rotation.x = s * .3; }
     if (sp.whisk) for (let i = -1; i <= 1; i++) { const w = M(G.cyl, '#ffffff', hr * .012, hr * .5, hr * .012, hr * .72, -hr * .2 + i * hr * .07, s * hr * .62, head); w.rotation.x = PI / 2 + i * .18 * s; w.rotation.y = -s * .35; }
   }
   if (sp.legs !== 2 && !sp.neck && !sp.trunk) { const cl = M(G.tor, mat(p.collar), hr * .78, hr * .78, hr * .9, bw * .46, by + bh * .34, 0, inner); cl.rotation.set(0, PI / 2, 0); cl.rotation.z = .0; M(G.sph, glossy('#ffd54a'), hr * .1, hr * .1, hr * .1, bw * .46 + hr * .1, by + bh * .34 - hr * .74, 0, inner); }
-  const smile = new THREE.Group(); smile.position.set(mouthX + hr * .03, -hr * .38, 0); smile.rotation.y = PI / 2; head.add(smile); const smArc = M(G.arc, '#5a2c2c', hr * .15, hr * .13, hr * .15, 0, 0, 0, smile);
+  const smile = new THREE.Group(); smile.position.set(mouthX + hr * .03, -hr * .38, 0); smile.rotation.y = PI / 2; head.add(smile); let smArc; if (sp.cat) { smArc = new THREE.Group(); smile.add(smArc); for (const q of [-1, 1]) M(G.arc, '#8a4a2c', .55, .55, .55, q * .55, 0, 0, smArc); smArc.scale.setScalar(hr * .15); } else smArc = M(G.arc, '#5a2c2c', hr * .15, hr * .13, hr * .15, 0, 0, 0, smile);
+  if (sp.cat) {   // 고양이: 이마 줄무늬 · 볼 털 · 가슴 털
+    for (let i = -1; i <= 1; i++) { const st = M(G.sph, m.dark, hr * .3, hr * .06, hr * .075, hr * .34, hr * (.86 - Math.abs(i) * .06), i * hr * .21, head); st.rotation.z = -.55; }
+    for (const s of [1, -1]) for (let i = 0; i < 3; i++) { const tf = M(G.cone, i === 2 ? m.belly : m.head, hr * .15, hr * .46, hr * .15, hr * .3, hr * (.02 - i * .2), s * hr * .9, head); tf.rotation.x = s * (1.25 + i * .22); }
+    for (let i = 0; i < 6; i++) M(G.sph, m.belly, r * .25, r * .27, r * .25, bw * (.62 - (i % 2) * .1), by - bh * .05 - i * r * .11, (i % 3 - 1) * r * .2, inner);
+  }
   // 상태 효과
   const top = by + bh + hr * 1.2 + (sp.neck || 0) * r;
   const flies = [0, 1, 2].map(() => M(G.sph, '#222222', 2.4, 2.4, 2.4, 0, top, 0, g));
@@ -1040,6 +1046,7 @@ function syncPet(p, dt) {
   // 위치와 방향
   const lying = p.lying && p.pause > 0 && !p.fleeing && p.state === 'free';
   let gx = p.x, gy = 0, gz = p.y, ang = null, tilt = 0, roll = 0, bob = 0, jit = 0, scl = 1;
+  const groom = p.idle === 'groom' && ex === 'normal' && !p.moving && p.state === 'free';   // 앉아서 앞발을 핥는다
   const mvx = p.x - md.lx, mvy = p.y - md.ly; md.lx = p.x; md.ly = p.y;
   if (p.state === 'free' || p.state === 'fight') {
     if (Math.hypot(mvx, mvy) > .15) ang = faceTo(mvx, mvy);
@@ -1056,21 +1063,23 @@ function syncPet(p, dt) {
   if (ex === 'hungry' && Math.sin(t * 2.3 + p.seed) > .55) jit = Math.sin(t * 34) * 1.4;
   if (ex === 'scared' && p.state === 'free') jit = Math.sin(t * 42); if (p.scratchT > 0 || p.state === 'fight') jit = Math.sin(t * 50) * 2.2;
   g.position.set(gx - CX, gy, gz - CZ); g.scale.setScalar(scl);
+  if (groom) { tilt = .3; bob = r * .1; }
   md.inner.position.set(jit, bob - (lying ? md.L * .9 : 0), 0); md.inner.rotation.z = tilt + (ex === 'sick' && !lying ? Math.sin(t * 2) * .07 : 0); md.inner.rotation.x = roll;
   md.shadow.position.y = (1 - gy) / scl; md.shadow.visible = (!hq || p.state === 'fly') && p.state !== 'wash';
   // 몸짓
   const moving = p.moving || p.state === 'carried' || p.state === 'fly' || p.state === 'gym', ph = p.state !== 'free' && p.state !== 'fight' ? t * 24 : p.phase, sw = moving ? Math.sin(ph) * .65 : 0;
-  md.legs.forEach((l, i) => { l.rotation.z = (i % 2 ? -sw : sw); l.visible = !lying; });
+  md.legs.forEach((l, i) => { l.rotation.z = (i % 2 ? -sw : sw); l.rotation.x = 0; l.visible = !lying; });
+  if (groom) { md.legs[0].rotation.z = 2.05 + Math.sin(t * 7) * .12; md.legs[0].rotation.x = .42; }
   const br = ex === 'thirsty' ? 1 + Math.sin(t * 16) * .04 : 1 + Math.sin(t * 2.4 + p.seed) * .015; const ft = p.fat / 100; md.body.scale.set(br * (1 + ft * .3), br * (1 + ft * .35), br * (1 + ft * .75)); md.legs.forEach(l => { l.scale.set(1 + ft * .5, 1, 1 + ft * .5); }); md.head.scale.setScalar(1 + ft * .12);
   md.tail.rotation.y = (ex === 'beg' || ex === 'happy') ? Math.sin(t * 22) * .8 : Math.sin(t * 3 + p.seed) * .2;
   const droop = ex === 'hungry' || ex === 'sick' || ex === 'thirsty' || ex === 'sad';
   md.head.position.y = md.hy0 - (droop ? r * .12 : 0) - (lying ? md.bh * .3 : 0);
-  md.head.rotation.z = (droop ? -.22 : 0) + (p.state === 'eat' ? -.45 + Math.sin(t * 16) * .18 : 0) + (ex === 'beg' ? .2 : 0);
+  md.head.rotation.z = (groom ? -.5 + Math.sin(t * 7) * .06 : 0) + (droop ? -.22 : 0) + (p.state === 'eat' ? -.45 + Math.sin(t * 16) * .18 : 0) + (ex === 'beg' ? .2 : 0);
   if (sp.ear === 'long') md.ears.forEach((e, i) => { e.rotation.x = (i ? -1 : 1) * (droop ? 1.3 : .15 + Math.sin(t * 3 + i) * .05); });
   if (sp.trunk) { const up = ex === 'beg' || ex === 'happy', sway = Math.sin(t * (up ? 10 : 2.5)) * .25; md.trunk.forEach((s, i) => { const u = (i + 1) / 6; s.position.set(hr * (.85 + u * (up ? .9 : .45)), hr * (-.25 + (up ? u * u * 1.1 : -u * 1.25)), sway * u * hr); }); }
   // 표정: 상태 표정이 우선이고, 평소에는 아이마다 다른 성격 표정에 가끔 윙크·하품·미소가 섞인다
   const blink = Math.sin(t * 1.3 + p.seed * 7) > .985, idle = ex === 'normal';
-  if (idle) { p.idleT = (p.idleT == null ? R(2, 6) : p.idleT) - dt; if (p.idleT <= 0) { if (p.idle) { p.idle = null; p.idleT = R(3, 7); } else { p.idle = pick(['wink', 'yawn', 'smiley', 'cute', 'look']); p.idleT = R(.9, 1.7); } } } else p.idle = null;
+  if (idle) { p.idleT = (p.idleT == null ? R(2, 6) : p.idleT) - dt; if (p.idleT <= 0) { if (p.idle) { p.idle = null; p.idleT = R(3, 7); } else { p.idle = sp.cat && !p.moving && Math.random() < .55 ? 'groom' : pick(['wink', 'yawn', 'smiley', 'cute', 'look']); p.idleT = p.idle === 'groom' ? R(3, 5) : R(.9, 1.7); } } } else p.idle = null;
   const fc = idle ? (p.idle || p.face) : '', shock = ex === 'shock';
   for (const e of md.eyes) {
     const X = ex === 'sick'; e.x1.visible = e.x2.visible = X; e.pupil.visible = !X; e.hl.visible = e.hl2.visible = !X && ex !== 'happy' && ex !== 'wash';
@@ -1079,7 +1088,7 @@ function syncPet(p, dt) {
     if (ex === 'happy' || ex === 'wash' || blink) sy = .14; else if (ex === 'thirsty') sy = .5; else if (ex === 'beg') sc = 1.55; else if (ex === 'scared') sc = .6; else if (shock) sc = .42;
     else if (ex === 'sad') lid = .35;
     else if (fc === 'cute') sc = 1.4; else if (fc === 'grumpy') lid = .6; else if (fc === 'sleepy') lid = .8; else if (fc === 'cool') lid = e.s > 0 ? .45 : 0;
-    else if (fc === 'derp') { py = e.s * hr * .05; sc = e.s > 0 ? 1.15 : .85; } else if (fc === 'wink') sy = e.s > 0 ? .14 : 1; else if (fc === 'yawn') sy = .14; else if (fc === 'look') pz = Math.sin(t * 4) * hr * .05;
+    else if (fc === 'derp') { py = e.s * hr * .05; sc = e.s > 0 ? 1.15 : .85; } else if (fc === 'wink') sy = e.s > 0 ? .14 : 1; else if (fc === 'yawn' || fc === 'groom') sy = .14; else if (fc === 'look') pz = Math.sin(t * 4) * hr * .05;
     e.pupil.scale.set(hr * .13 * sc, hr * .18 * sc * sy, hr * .14 * sc); e.pupil.position.set(hr * .03, py, pz);
     const big = ex === 'beg' || fc === 'cute'; e.hl.scale.setScalar(hr * (big ? .085 : .055)); e.hl2.visible = e.hl2.visible && big;
     e.lid.visible = lid > 0 && !X; e.lid.position.y = hr * (.36 - lid * .22);
@@ -1088,15 +1097,15 @@ function syncPet(p, dt) {
     e.brow.rotation.x = e.s * bAng; e.brow.position.y = hr * (ex === 'angry' || fc === 'grumpy' ? .27 : shock ? .42 : .34);
   }
   const eating = p.state === 'eat';
-  const open = ex === 'hungry' || ex === 'thirsty' || ex === 'beg' || ex === 'happy' || ex === 'angry' || ex === 'scared' || shock || eating || fc === 'smiley' || fc === 'yawn';
+  const open = ex === 'hungry' || ex === 'thirsty' || ex === 'beg' || ex === 'happy' || ex === 'angry' || ex === 'scared' || shock || eating || fc === 'smiley' || fc === 'yawn' || fc === 'groom';
   md.mouth.visible = open && !sp.beak;
   if (open) { const k = shock ? 1.9 : fc === 'yawn' ? 1.7 : ex === 'beg' || ex === 'happy' ? 1.3 : ex === 'scared' ? .7 : fc === 'smiley' ? .8 : 1; md.mouth.scale.set(hr * .1, hr * .16 * k * (eating ? .6 + Math.abs(Math.sin(t * 16)) * .7 : 1), hr * (shock ? .16 : .2) * k); }
   // 입꼬리: 귀여운 미소 / 뚱한 입 / 시무룩
   const arc = !open && !sp.beak && !sp.trunk && ex !== 'sick' ? (ex === 'sad' || fc === 'grumpy' ? -1 : fc === 'sleepy' ? 0 : idle || ex === 'wash' ? 1 : 0) : null;
   md.smile.visible = arc !== null; if (arc !== null) { md.smArc.rotation.z = arc >= 0 ? PI : 0; md.smArc.position.y = arc < 0 ? -hr * .1 : 0; md.smArc.scale.set(hr * .15 * (fc === 'cute' ? 1.25 : 1), hr * (arc === 0 ? .03 : fc === 'cool' ? .08 : .13), hr * .15); md.smile.rotation.x = fc === 'cool' ? .3 : 0; }
-  md.tongue.visible = ex === 'thirsty' || fc === 'derp'; if (md.tongue.visible) { const tl = fc === 'derp' ? hr * .22 : hr * (.5 + Math.sin(t * 16) * .12); md.tongue.scale.y = tl; md.tongue.position.y = -hr * (fc === 'derp' ? .4 : .45) - tl / 2; }
+  md.tongue.visible = ex === 'thirsty' || fc === 'derp' || fc === 'groom'; if (md.tongue.visible) { const tl = fc === 'groom' ? hr * (.2 + Math.abs(Math.sin(t * 7)) * .14) : fc === 'derp' ? hr * .22 : hr * (.5 + Math.sin(t * 16) * .12); md.tongue.scale.y = tl; md.tongue.position.y = -hr * (fc === 'derp' ? .4 : .45) - tl / 2; }
   md.drool.visible = ex === 'hungry'; if (md.drool.visible) { const d = (t * 1.2 + p.seed) % 1; md.drool.position.y = -hr * .6 - d * hr * .9; }
-  md.blush.forEach(b => { b.visible = ex === 'beg' || ex === 'happy' || fc === 'cute' || fc === 'smiley'; }); md.thermo.visible = ex === 'sick';
+  md.blush.forEach(b => { b.visible = ex === 'beg' || ex === 'happy' || fc === 'cute' || fc === 'smiley' || fc === 'groom'; }); md.thermo.visible = ex === 'sick';
   // 효과
   const washing = p.state === 'wash', top = md.top - (lying ? md.L : 0);
   md.flies.forEach((f, i) => { f.visible = dg >= .55 && !washing && i < (dg >= .8 ? 3 : 2); const a = t * (3 + i) + i * 2.1; f.position.set(Math.cos(a) * r * 1.1, top + Math.sin(a * 1.7) * r * .3, Math.sin(a) * r * .8); });
