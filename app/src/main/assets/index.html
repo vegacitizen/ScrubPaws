@@ -272,7 +272,7 @@ const UPG = [
 ];
 const throwRange = () => 170 + up.power * 95;
 /* 스테이지별 난이도: 앞 스테이지일수록 욕구·더러움·스트레스가 천천히 차고 합격선도 낮다 */
-const EASE = [.5, .65, .82, 1, 1], PASS_AVG = [50, 58, 65, 65, 65], PASS_MIN = [25, 32, 40, 40, 40], RANDOM_FIGHTS_FROM = 10;
+const EASE = [.5, .6, .66, .74, .82], PASS_AVG = [50, 55, 58, 60, 62], PASS_MIN = [25, 30, 32, 34, 36], RANDOM_FIGHTS_FROM = 10;
 const ease = () => EASE[stage] == null ? 1 : EASE[stage];
 const FACES = ['cute', 'grumpy', 'sleepy', 'smiley', 'derp', 'cool'], COLLARS = ['#e2493f', '#4f9de0', '#7bd66a', '#ffd54a', '#b79df2', '#ff8fa3'];   // 같은 동물이라도 표정과 목걸이가 다르다
 /* 저장: 돈 · 능력 · 시설 · 다음에 할 스테이지를 기기에 남겨서 앱을 껐다 켜도 이어진다 */
@@ -462,7 +462,7 @@ function breakFight(p) { const f = fights.find(f => !f.done && (f.a === p || f.b
 function updateFights(dt) {
   // 스트레스가 높을수록 자주 싸운다. 식구가 8마리 이상이면 가끔은 그냥도 싸운다.
   const hot = pets.filter(p => p.stress >= 60).length, mx = pets.reduce((m, p) => Math.max(m, p.stress), 0);
-  fightT -= dt * ((pets.length >= RANDOM_FIGHTS_FROM ? .5 : 0) + mx / 100 * 1.4 + hot * .3);
+  fightT -= dt * ((pets.length >= RANDOM_FIGHTS_FROM ? .3 : 0) + mx / 100 * 1.4 + hot * .3);
   if (fightT <= 0) {
     fightT = R(6, 10);
     const c = pets.filter(p => p.state === 'free' && p.health >= 40 && !p.fleeing);
