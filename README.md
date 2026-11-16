@@ -113,6 +113,12 @@ APK는 `app/build/outputs/apk/debug/app-debug.apk` 에 생성됩니다.
 디버그 APK는 저장소의 `app/debug.keystore`(디버그 전용 키)로 항상 같은 서명을 받으므로, 새 빌드를 기존 앱 위에 덮어 설치할 수 있고 저장 데이터가 유지됩니다.
 GitHub Actions 실행 결과의 `ScrubPaws-debug-apk` 아티팩트에서도 내려받을 수 있습니다.
 
+## 릴리즈
+
+`v1.2.3` 형식의 태그를 푸시하면 릴리즈 워크플로가 그 버전으로 APK를 빌드해 GitHub 릴리즈에 `ScrubPaws-v1.2.3.apk`로 올립니다.
+`release-notes/v1.2.3.md` 파일이 있으면 릴리즈 설명으로 쓰고, 없으면 커밋 목록으로 자동 작성합니다.
+새 버전을 낼 때는 `app/build.gradle`의 기본 버전도 함께 올립니다.
+
 ## 크레딧
 
 - 고양이 모델: "Toon Cat FREE" (https://sketchfab.com/3d-models/toon-cat-free-b2bd1ee7858444bda366110a2d960386) by Omabuarts Studio (https://sketchfab.com/omabuarts), CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
