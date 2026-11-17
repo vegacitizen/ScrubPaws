@@ -65,6 +65,12 @@
   .btn:disabled{background:#b9ada4;opacity:.7;cursor:default}
   .cert{background:#fffbe6;border:4px double #c9a56a;border-radius:10px;padding:14px 18px;margin:10px auto;max-width:440px;font-size:clamp(14px,2.6vw,17px);line-height:1.5}
   .cert b{display:block;font-weight:400;color:var(--accent);font-size:1.35em;margin-bottom:4px}
+  #bSwap{background:#6b5a8f;font-size:17px;letter-spacing:-2px}
+  #bDex{position:fixed;left:calc(122px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));width:46px;height:46px;border-radius:50%;border:3px solid var(--paper);background:rgba(74,50,38,.8);font-size:19px;cursor:pointer;padding:0;touch-action:none;z-index:5}
+  .dex{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:2px 0 6px}
+  .dex span{width:46px;height:46px;border-radius:12px;border:3px solid #cbb9a8;background:#efe6d6;display:flex;align-items:center;justify-content:center;font-size:20px;opacity:.55}
+  .dex span.on{border-color:var(--ink);background:#fff;opacity:1}
+  #card .dexh{margin:6px 0 0}
   .tabs{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:8px 0}
   .tab{font:clamp(14px,2.6vw,17px) var(--display);background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:12px;padding:6px 12px;cursor:pointer}
   .tab.on{background:var(--accent);color:#fff}
@@ -83,6 +89,7 @@
 <script src="panda_model.js"></script>
 <div id="pad" hidden>
  <div class="prow">
+  <button id="bSwap" class="pb sm" type="button" aria-label="도구 바꾸기">🔄</button>
   <button id="bWood" class="pb sm" type="button" hidden>목공</button>
   <button id="bWork" class="pb sm" type="button" hidden>일</button>
   <button id="bGun" class="pb sm off" type="button" hidden>총</button>
@@ -95,6 +102,7 @@
 <button id="bShop" type="button" hidden>🛒 상점</button>
 <button id="snd" type="button" aria-label="소리 켜기/끄기">🔊</button>
 <button id="pz" type="button" aria-label="일시정지" hidden>⏸</button>
+<button id="bDex" type="button" aria-label="도감" hidden>📖</button>
 <div id="ov"><div id="card"></div></div>
 <script>
 'use strict';
@@ -442,9 +450,9 @@ function rareChance(m) {   // 어미 m이 낳는 새끼가 희귀할 확률
   return .02 + .16 * h;                                    // 보통 가축: 2~18%
 }
 const PRED = {
-  fox: { n: '여우', hp: 2, breakT: 6, life: 1, reward: 300, bite: 10, speed: 150, scare: 170, sp: { r: 18, v: 'yap', col: '#e8823a', col2: '#fff3e0', dark: '#3a2a22', ear: 'pointy', tail: 'dog', muzzle: 1, leg: .45, cry: '캥', p: 1.3 } },
-  wolf: { n: '늑대', hp: 3, breakT: 5, life: 2, reward: 800, bite: 22, speed: 125, scare: 150, sp: { r: 26, v: 'howl', col: '#7d8590', col2: '#c9ced6', dark: '#4a5058', ear: 'pointy', tail: 'dog', muzzle: 1, leg: .5, cry: '아우~', p: .8 } },
-  bear: { n: '곰', hp: 5, breakT: 3.5, life: 5, reward: 3000, bite: 36, speed: 90, scare: 80, sp: { r: 46, v: 'roar', col: '#7a4f2c', col2: '#c9a078', dark: '#573620', ear: 'round', tail: 'short', muzzle: 1, leg: .35, cry: '크앙', p: .5 } }
+  fox: { n: '여우', hp: 2, breakT: 6, life: 1, reward: 150, bite: 10, speed: 150, scare: 170, sp: { r: 18, v: 'yap', col: '#e8823a', col2: '#fff3e0', dark: '#3a2a22', ear: 'pointy', tail: 'dog', muzzle: 1, leg: .45, cry: '캥', p: 1.3 } },
+  wolf: { n: '늑대', hp: 3, breakT: 5, life: 2, reward: 350, bite: 22, speed: 125, scare: 150, sp: { r: 26, v: 'howl', col: '#7d8590', col2: '#c9ced6', dark: '#4a5058', ear: 'pointy', tail: 'dog', muzzle: 1, leg: .5, cry: '아우~', p: .8 } },
+  bear: { n: '곰', hp: 5, breakT: 3.5, life: 5, reward: 1200, bite: 36, speed: 90, scare: 80, sp: { r: 46, v: 'roar', col: '#7a4f2c', col2: '#c9a078', dark: '#573620', ear: 'round', tail: 'short', muzzle: 1, leg: .35, cry: '크앙', p: .5 } }
 };
 const PEN_W = 520, PEN_H = 340, PEN_GAP = 70, PEN_X0 = 330, PEN_Y0 = 150, PEN_CAP = 8, TROUGH_CAP = 12;
 const PEN_PRICE = [0, 4000, 8000, 14000, 22000, 32000], GUN_PRICE = 6000, ELEC_PRICE = 5000;
@@ -478,7 +486,7 @@ function updatePlots(dt) { for (const q of plots) if (q.g < 1 && q.wet > 0) { q.
 let hayStock = 24, water = 60; const grass = []; for (let i = 0; i < 16; i++) grass.push({ x: 0, y: 0, t: 0, n: 2 });
 function placeGrass(g) { for (let k = 0; k < 30; k++) { const x = R(40, WORLD.w - 40), y = R(40, WORLD.h - 40); if (x < 330 && y < 620) continue; if (PENS.some(p => p.own && x > p.x - 40 && x < p.x + p.w + 40 && y > p.y - 40 && y < p.y + p.h + 40)) continue; g.x = x; g.y = y; break; } g.t = 0; }
 function nearGrass() { let b = null, bd = 60; for (const g of grass) { if (g.t > 0) continue; const d = Math.hypot(g.x - pl.x, g.y - pl.y); if (d < bd) { bd = d; b = g; } } return b; }
-const DAY_LEN = 75, NIGHT_LEN = 45, CYCLE = DAY_LEN + NIGHT_LEN;
+const DAY_LEN = 150, NIGHT_LEN = 60, CYCLE = DAY_LEN + NIGHT_LEN;
 
 /* ---------- 상태 ---------- */
 let state = 'title', gt = 0, money = 0, day = 1, clock = 0, pensOwned = 1, gun = false, animals = [], preds = [], says = [], parts = [], drops = [];
@@ -499,7 +507,7 @@ const ITEMS = {
   net: { n: '우박 그물', e: '🕸️', col: '#ffffff', op: .3, d: '우박을 받아내요' },
   brace: { n: '태풍 버팀목', e: '🪢', col: '#d9534f', op: .24, d: '태풍에 울타리를 붙들어요' }
 };
-const TIER = [{ n: '낡은', prot: .6, dur: 22, price: 0 }, { n: '튼튼한', prot: .85, dur: 50, price: 3000 }, { n: '최고급', prot: 1, dur: 999, price: 9000 }];
+const TIER = [{ n: '낡은', prot: .5, dur: 999, price: 0 }, { n: '튼튼한', prot: .8, dur: 999, price: 3000 }, { n: '최고급', prot: 1, dur: 999, price: 9000 }];   // 한 번 설치하면 그날 낮 내내 버틴다. 등급은 막는 정도만 다르다
 const BARN = { x: 120, y: 170 }, TRACTOR_PRICE = 15000, TR_CAP = 24;
 let wx = 'sunny', wxGear = { shade: 0, roof: 0, wind: 0, net: 0, brace: 0 }, wxSndT = 0, tractor = false;
 const tr = { x: 300, y: 440, stock: 0, riding: false, q: 1 };
@@ -528,7 +536,7 @@ function updateTractor() {   // 타고 있으면 건초 더미 옆에서 저절�
   if (tr.stock < TR_CAP && hayStock > 0 && Math.hypot(HAY.x - pl.x, HAY.y - pl.y) < 130) { const n = Math.min(TR_CAP - tr.stock, hayStock); tr.q = mixQ(tr.stock, tr.q, n, hayQ); tr.stock += n; hayStock -= n; SFX.take(); say(pl, '🌾 건초 +' + n, '#3fae6a', 1); if (tipStep === 0) tipStep = 1; }
   for (const g of grass) if (g.t <= 0 && tr.stock < TR_CAP && Math.hypot(g.x - pl.x, g.y - pl.y) < 70) { tr.q = mixQ(tr.stock, tr.q, g.n, 1); tr.stock = Math.min(TR_CAP, tr.stock + g.n); g.t = 35; noise(.12, 2600, 2, .3); say(pl, '🌿 풀 +' + g.n, '#3fae6a'); }   // 지나가며 풀을 벤다
   for (const p of PENS) { if (!p.own || p.food >= TROUGH_CAP || tr.stock <= 0 || Math.hypot(p.tx - pl.x, p.ty - pl.y) > 125) continue;
-    const n = Math.min(TROUGH_CAP - p.food, tr.stock); p.foodQ = mixQ(p.food, p.foodQ, n, tr.q); p.food += n; tr.stock -= n; SFX.sweep(); burst(p.tx, p.ty, 'dust', 8); say({ x: p.tx, y: p.ty }, '여물통을 채웠어요 (+' + n + ')', '#3fae6a', 1); if (tipStep <= 1) tipStep = 2; }
+    const n = Math.min(TROUGH_CAP - p.food, tr.stock); p.foodQ = mixQ(p.food, p.foodQ, n, tr.q); p.food += n; tr.stock -= n; stats.fed++; SFX.sweep(); burst(p.tx, p.ty, 'dust', 8); say({ x: p.tx, y: p.ty }, '여물통을 채웠어요 (+' + n + ')', '#3fae6a', 1); if (tipStep <= 1) tipStep = 2; }
 }
 let toast = { t: 0, text: '' }, shake = 0, lostTonight = 0, bornToday = 0, spawnT = 0, toSpawn = 0, shotFx = null, curAct = null, tipStep = 0;
 const pl = { x: 250, y: 330, ax: 1, ay: 0, phase: 0, moving: false, carry: null, gearType: '', hose: false, shootCd: 0, tool: 'torch', swingT: 0, swingCd: 0, hayN: 0, hayQ: 1, seedType: 'clover' };
@@ -545,7 +553,7 @@ function addAnimal(kind, pen, adult, at, rare) {
   const K = KINDS[kind], P = PENS[pen]; rare = !!rare;
   const a = { kind, K, rare, model: rare && K.rareModel || K.sp.model || '', sp: rare ? Object.assign({}, K.sp, RARE_SP) : K.sp, pen, adult, age: adult ? 1 : 0, thirst: R(10, 30), x: at ? at.x : R(P.x + 60, P.x + P.w - 60), y: at ? at.y : R(P.y + 110, P.y + P.h - 50), tx: 0, ty: 0, pause: R(0, 2), goal: 'wander',
     hunger: R(10, 35), dirt: R(5, 25), health: 100, happy: 20, preg: 0, cool: R(20, 50), state: 'free', eatT: 0, voiceT: R(3, 8), seed: R(0, 100), moving: false, phase: 0, attackedT: 0, cleanT: 0, collar: '#e2493f', prod: R(.2, .6), boost: 1 };
-  animals.push(a); return a;
+  animals.push(a); dexAdd((rare ? 'r:' : 'a:') + kind); return a;
 }
 function removeAnimal(a) { const i = animals.indexOf(a); if (i >= 0) animals.splice(i, 1); if (a.md && a.md.g.parent) a.md.g.parent.remove(a.md.g); if (pl.carry === a) pl.carry = null; }
 function sellPrice(a) { const cond = clamp((a.health / 100) * .7 + (a.happy / 100) * .5, .5, 1.2); return Math.round(a.K.sell * (a.adult ? 1 : .3 + .4 * a.age) * cond * (a.rare ? RARE_MULT : 1) / 10) * 10; }
@@ -570,7 +578,7 @@ function updateAnimal(a, dt) {
     // 잘 돌본 어미일수록 한 번에 여러 마리를 낳는다
     const litter = 1 + (Math.random() < (a.happy - 55) / 40 ? 1 : 0) + ((K.litter || 2) >= 3 && Math.random() < (a.happy - 75) / 40 ? 1 : 0) + (a.boost >= 1.4 && Math.random() < (a.boost - 1) * .6 ? 1 : 0); let born = 0, rareBorn = 0;
     for (let n = 0; n < litter && inPen(P).length < P.cap; n++) { const lucky = Math.random() < rareChance(a), b = addAnimal(a.kind, a.pen, false, { x: a.x + R(-34, 34), y: a.y + R(10, 34) }, lucky); b.hunger = 20; b.dirt = 0; b.thirst = 10; born++; if (lucky) rareBorn++; }
-    if (born) { bornToday += born; SFX.praise(); burst(a.x, a.y, 'heart', 10);
+    if (born) { bornToday += born; stats.born += born; SFX.praise(); burst(a.x, a.y, 'heart', 10);
       if (rareBorn) { say(a, '✨ 희귀한 새끼가 태어났어요!', '#d99a00', 1); showToast('✨ 희귀한 ' + (K.rareName || '황금 ' + K.n) + ' 새끼가 태어났어요! 다 크면 ' + RARE_MULT + '배 값에 팔려요', 5); burst(a.x, a.y, 'spark', 16); tone(1047, 1047, .15, 'triangle', .25, .6); tone(1568, 1568, .3, 'triangle', .25, .75); }
       else say(a, '🎉 ' + K.n + ' 새끼 ' + born + '마리가 태어났어요!', '#e2497f', 1); }
     else say(a, '울타리가 꽉 찼어요', '#7a6a4f'); } }
@@ -615,15 +623,16 @@ const TOOLS = {
 };
 const nightLevel = () => ({ n: Math.min(1 + Math.floor(day * .7), 9), speed: Math.min(1.6, 1 + (day - 1) * .06), gap: 1 / (1 + day * .06), bear: day >= 4 ? Math.min(.5, .2 + (day - 4) * .04) : 0 });
 function startNight() {
-  const L = nightLevel(); lostTonight = 0; toSpawn = L.n; spawnT = 4;
+  const L = nightLevel(); lostTonight = 0; killsTonight = 0; toSpawn = L.n; spawnT = 4;
   showToast('🌙 밤이 됐어요. 맹수 ' + L.n + '마리가 내려와요! ' + (pl.tool === 'torch' || pl.tool === 'gun' ? '' : '창고에서 횃불을 드세요. ') + '횃불로는 늑대를 세 번 쫓아야 완전히 달아나요', 5); emote({ sp: PRED.wolf.sp }, 'idle');
 }
 function startDay() {
   for (const q of preds) scarePred(q, '', true);
   day++; for (const a of animals.slice()) grow(a, .2 * a.boost); rollWeather(); saveGame();
-  showToast(WX[wx].e + ' ' + day + '일째 아침 · 오늘 날씨: ' + WX[wx].n + (WX[wx].item ? ' (창고의 ' + ITEMS[WX[wx].item].n + ' 필요)' : '') + (lostTonight ? ' · 밤새 가축 ' + lostTonight + '마리를 잃었어요' : ' · 밤새 모두 무사해요!') + (bornToday ? ' · 어제 새끼 ' + bornToday + '마리' : ''), 5); bornToday = 0;
+  showToast(WX[wx].e + ' ' + day + '일째 아침 · 오늘 날씨: ' + WX[wx].n + (WX[wx].item ? ' (창고의 ' + ITEMS[WX[wx].item].n + ' 필요)' : '') + ' · 🧺 새 주문이 왔어요' + (lostTonight ? ' · 밤새 가축 ' + lostTonight + '마리를 잃었어요' : ' · 밤새 모두 무사해요!') + (bornToday ? ' · 어제 새끼 ' + bornToday + '마리' : ''), 5); bornToday = 0;
   tone(523, 523, .2, 'triangle', .2); tone(659, 659, .2, 'triangle', .2, .2); tone(784, 784, .35, 'triangle', .2, .4);
   if (!animals.length && money < KINDS.chicken.buy) { addAnimal('chicken', 0, true); addAnimal('chicken', 0, true); showToast('이웃이 닭 두 마리를 빌려줬어요. 다시 시작해 봐요!', 5); }
+  newOrder(); if (LETTERS[day] && letterSeen < day) showLetter(day);
 }
 function spawnPred(kind0) {
   const L = nightLevel(), kind = kind0 || (L.bear && !preds.some(q => q.kind === 'bear') && Math.random() < L.bear ? 'bear' : day >= 2 && Math.random() < .3 ? 'fox' : 'wolf'), D = PRED[kind], side = Math.floor(R(0, 4));
@@ -635,7 +644,7 @@ function releasePrey(q) {   // 물고 가던 가축을 놓친다. 가축은 제 
   const t = q.carry; if (!t) return; q.carry = null; if (animals.indexOf(t) < 0) return; const P = PENS[t.pen];
   t.state = 'free'; t.x = clamp(q.x, P.x + 40, P.x + P.w - 40); t.y = clamp(q.y, P.y + 80, P.y + P.h - 40); t.pause = 2; t.goal = 'wander'; say(t, '살았다! 울타리로 돌아왔어요', '#3fae6a', 1); SFX.clean();
 }
-function scarePred(q, why, quiet) { if (q.flee) return; releasePrey(q); q.flee = true; q.target = null; q.breakT = 0; if (!quiet) { emote(q, 'scared'); say(q, why || '깨갱!', '#fff', 1); } }
+function scarePred(q, why, quiet) { if (q.flee) return; releasePrey(q); q.flee = true; q.target = null; q.breakT = 0; if (!quiet) { stats.repelled++; emote(q, 'scared'); say(q, why || '깨갱!', '#fff', 1); } }
 const WEAPON = { torch: 1 };
 /* 총: 조준선(바라보는 방향)에 정확히 맞혀야 한다. 빗나가면 총소리에 놀란 맹수가 달아나 보상이 없다.
    맞히면 체력을 깎고, 다 깎으면 잡아서 보상을 받는다. 큰 맹수일수록 여러 발이 필요하지만 보상이 크다 */
@@ -646,10 +655,11 @@ function gunRay() {   // 지금 쏘면 맞는 맹수 (조준선 위에서 가장
   for (const q of preds) { if (q.flee || q.dead) continue; const dx = q.x - pl.x, dy = q.y - pl.y, along = dx * pl.ax + dy * pl.ay; if (along < 10 || along > bd) continue; if (Math.abs(dx * pl.ay - dy * pl.ax) <= q.sp.r * .55 + G0.tol) { bd = along; b = q; } }
   return b;
 }
-function killPred(q) {
-  releasePrey(q); q.dead = 2.5; q.target = null; q.breakT = 0; q.retreatT = 0; money += q.D.reward; kills++; emote(q, 'sick'); say(q, '💰 +' + q.D.reward.toLocaleString() + '원', '#ffd27a', 1);
-  showToast('🎯 ' + q.D.n + '을(를) 잡았어요! +' + q.D.reward.toLocaleString() + '원', 3); SFX.praise(); burst(q.x, q.y, 'spark', 10); saveGame();
-}   // 한 번에 깎는 맹수의 기세. 늑대 3, 곰 5
+function killPred(q) {   // 하룻밤에 네 마리까지는 제값, 그 뒤로는 1/4 (사냥이 농장 일보다 벌이가 좋아지지 않게)
+  const rw = Math.round(q.D.reward * (killsTonight < 4 ? 1 : .25) / 10) * 10; killsTonight++; stats.repelled++; dexAdd('p:' + q.kind);
+  releasePrey(q); q.dead = 2.5; q.target = null; q.breakT = 0; q.retreatT = 0; money += rw; kills++; emote(q, 'sick'); say(q, '💰 +' + rw.toLocaleString() + '원', '#ffd27a', 1);
+  showToast('🎯 ' + q.D.n + '을(를) 잡았어요! +' + rw.toLocaleString() + '원' + (killsTonight === 4 ? ' · 오늘 밤은 이제부터 보상이 줄어요' : ''), 3); SFX.praise(); burst(q.x, q.y, 'spark', 10); saveGame();
+}
 function hitPred(q, dmg, why) {   // 기세가 남아 있으면 잠깐 멀리 달아났다가 다시 온다
   if (q.flee || (q.retreatT > 0 && dmg < 3)) return; q.hp -= dmg; releasePrey(q); burst(q.x, q.y, 'dust', 5);
   if (q.hp <= 0) { scarePred(q, why); return; }
@@ -719,7 +729,7 @@ function pressTool() {
 function openBarn() {
   if (state !== 'play') return; state = 'menu'; const it = !isNight() && WX[wx].item;
   const row = (icon, name, sub, btn, id, ok) => '<div class="shop"><span class="si">' + icon + '</span><span class="sn"><b>' + name + '</b><br><span class="sub">' + sub + '</span></span><button class="buy" data-id="' + id + '" type="button"' + (ok ? '' : ' disabled') + '>' + btn + '</button></div>';
-  let h = '<h2>🧰 창고</h2><p class="sub">손에 들 도구를 고르세요. 든 도구에 따라 도구 버튼이 바뀌어요.</p>';
+  let h = '<h2>🧰 창고</h2><p class="sub">손에 들 도구를 고르세요. 화면의 🔄 버튼으로도 바꿔 들 수 있어요.</p>';
   for (const k in TOOLS) { if (k === 'seed' || k === 'fert') continue; const T = TOOLS[k], has = k !== 'gun' || gun; h += row(T.e, T.n, T.d, pl.tool === k ? '들고 있음' : has ? '들기' : '상점에서 구매', 'tool:' + k, has && pl.tool !== k); }
   for (const k in CROPS) if (seeds[k] > 0) h += row(CROPS[k].e, CROPS[k].n + ' 씨앗 ' + seeds[k] + '개', '들판에 뿌리고 물을 주면 자라요. 다 자라면 먹이 ' + CROPS[k].y + ' · 품질 ×' + CROPS[k].q, pl.tool === 'seed' && pl.seedType === k ? '들고 있음' : '들기', 'seed:' + k, !(pl.tool === 'seed' && pl.seedType === k));
   if (fert > 0) h += row('💩', '비료 ' + fert + '개', '심은 작물 옆에서 뿌리면 ' + FERT_SPEED + '배 빨리, ' + FERT_YIELD + '배 많이 자라요', pl.tool === 'fert' ? '들고 있음' : '들기', 'fert:x', pl.tool !== 'fert');
@@ -759,13 +769,13 @@ function pressAct() {
   if (state !== 'play') return; initAudio(); const a = curAct = findAction(); if (!a) return;
   if (a.type === 'hay') { const n = Math.min(pl.tool === 'fork' ? 12 : 4, hayStock); hayStock -= n; pl.carry = 'hay'; pl.hayN = n; pl.hayQ = hayQ; SFX.take(); if (tipStep === 0) tipStep = 1; }
   else if (a.type === 'harvest') { const q = a.plot, C = CROPS[q.type], n = Math.round(C.y * (q.fert ? FERT_YIELD : 1)); if (pl.carry !== 'hay') { pl.carry = 'hay'; pl.hayN = 0; pl.hayQ = 1; }
-    pl.hayQ = mixQ(pl.hayN, pl.hayQ, n, C.q); pl.hayN += n; plots.splice(plots.indexOf(q), 1); SFX.take(); tone(660, 990, .12, 'triangle', .2); burst(q.x, q.y, 'spark', 6); say(pl, C.e + ' ' + C.n + ' +' + n + ' (먹이 품질 ×' + C.q + ')', '#3fae6a', 1); saveGame(); }
+    pl.hayQ = mixQ(pl.hayN, pl.hayQ, n, C.q); pl.hayN += n; plots.splice(plots.indexOf(q), 1); stats.harvested++; dexAdd('c:' + q.type); SFX.take(); tone(660, 990, .12, 'triangle', .2); burst(q.x, q.y, 'spark', 6); say(pl, C.e + ' ' + C.n + ' +' + n + ' (먹이 품질 ×' + C.q + ')', '#3fae6a', 1); saveGame(); }
   else if (a.type === 'grass') { if (pl.carry !== 'hay') { pl.carry = 'hay'; pl.hayN = 0; pl.hayQ = 1; } pl.hayQ = mixQ(pl.hayN, pl.hayQ, a.g.n, 1); pl.hayN += a.g.n; a.g.t = 35; noise(.12, 2600, 2, .3); burst(a.g.x, a.g.y, 'dust', 4); say(pl, '🌿 풀 +' + a.g.n, '#3fae6a'); if (tipStep === 0) tipStep = 1; }
   else if (a.type === 'stack') { const n = Math.min(pl.hayN, HAY_CAP - hayStock); hayQ = mixQ(hayStock, hayQ, n, pl.hayQ); hayStock += n; pl.hayN -= n; if (pl.hayN <= 0) pl.carry = null; SFX.sweep(); say(pl, n ? '건초 더미 +' + n : '건초 더미가 가득 찼어요', '#3fae6a', 1); }
   else if (a.type === 'empty') showToast('건초 더미가 비었어요. 들판에서 풀을 베어 오세요', 4);
   else if (a.type === 'pump') { if (water >= TANK_CAP) showToast('물탱크가 가득 찼어요'); else { water = Math.min(TANK_CAP, water + 7); pl.pumpT = .35; tone(200, 320, .12, 'sine', .3); noise(.15, 900, 1, .2, .08); } }
   else if (a.type === 'barn') openBarn();
-  else if (a.type === 'fill') { const n = Math.min(pl.hayN, TROUGH_CAP - a.pen.food); a.pen.foodQ = mixQ(a.pen.food, a.pen.foodQ, n, pl.hayQ); a.pen.food += n; pl.hayN -= n; if (pl.hayN <= 0) pl.carry = null; SFX.sweep(); burst(a.pen.tx, a.pen.ty, 'dust', 6); if (tipStep <= 1) tipStep = 2; }
+  else if (a.type === 'fill') { const n = Math.min(pl.hayN, TROUGH_CAP - a.pen.food); a.pen.foodQ = mixQ(a.pen.food, a.pen.foodQ, n, pl.hayQ); a.pen.food += n; pl.hayN -= n; if (n) stats.fed++; if (pl.hayN <= 0) pl.carry = null; SFX.sweep(); burst(a.pen.tx, a.pen.ty, 'dust', 6); if (tipStep <= 1) tipStep = 2; }
   else if (a.type === 'buildStart') { build.a = true; build.ax = pl.x; build.ay = pl.y; SFX.take(); showToast('반대쪽 모서리로 가서 [여기까지 짓기]를 누르세요', 4); }
   else if (a.type === 'buildEnd') finishBuild();
   else if (a.type === 'gear') { pl.carry = 'gear'; pl.gearType = a.item; SFX.take(); }
@@ -787,18 +797,19 @@ function updateHose(dt) {
   if (water <= 0) { pl.hose = false; if (!(pl.dryT > gt)) { pl.dryT = gt + 3; showToast('물탱크가 비었어요! 물탱크 옆에서 펌프질해 지하수를 끌어 올리세요', 4); } return; }
   water = Math.max(0, water - 5 * dt);
   for (const q of plots) { const dx = q.x - pl.x, dy = q.y - pl.y, d = Math.hypot(dx, dy); if (d > 240 || (d > 40 && (dx * pl.ax + dy * pl.ay) / d < .8)) continue; if (q.wet < WET_TIME - 1 && q.g < 1 && Math.random() < .3) burst(q.x, q.y, 'bubble', 1); q.wet = WET_TIME; }   // 작물에 물 주기
-  for (const p of PENS) { if (!p.own || p.water >= WATER_CAP) continue; const dx = p.wx - pl.x, dy = p.wy - pl.y, d = Math.hypot(dx, dy); if (d > 240 || (d > 40 && (dx * pl.ax + dy * pl.ay) / d < .8)) continue; p.water = Math.min(WATER_CAP, p.water + 4 * dt); if (Math.random() < dt * 6) burst(p.wx, p.wy, 'bubble', 1); if (p.water >= WATER_CAP) say({ x: p.wx, y: p.wy }, '물통이 가득 찼어요', '#2a9fb8', 1); }
+  for (const p of PENS) { if (!p.own || p.water >= WATER_CAP) continue; const dx = p.wx - pl.x, dy = p.wy - pl.y, d = Math.hypot(dx, dy); if (d > 240 || (d > 40 && (dx * pl.ax + dy * pl.ay) / d < .8)) continue; p.water = Math.min(WATER_CAP, p.water + 4 * dt); if (Math.random() < dt * 6) burst(p.wx, p.wy, 'bubble', 1); if (p.water >= WATER_CAP) stats.watered++; if (p.water >= WATER_CAP) say({ x: p.wx, y: p.wy }, '물통이 가득 찼어요', '#2a9fb8', 1); }
   if (Math.random() < dt * 60) drops.push({ x: pl.x + pl.ax * 24, y: pl.y + pl.ay * 24, h: 58, vx: pl.ax * 430 + R(-70, 70), vy: pl.ay * 430 + R(-70, 70), vh: R(40, 120), life: .55 });
   if (Math.random() < dt * 14) noise(.1, 4200, .8, .12, 0, 'highpass');
   for (const a of animals) { const dx = a.x - pl.x, dy = a.y - pl.y, d = Math.hypot(dx, dy); if (d > 250 || d < 1) continue; if ((dx * pl.ax + dy * pl.ay) / d < .86) continue;
-    if (a.dirt > 2) { a.dirt = Math.max(0, a.dirt - 75 * dt); if (a.dirt <= 0) { a.cleanT = 3; say(a, '뽀송뽀송!', '#2a9fb8'); SFX.clean(); if (tipStep === 2) tipStep = 3; } if (Math.random() < dt * 8) burst(a.x, a.y, 'bubble', 1); } }
+    if (a.dirt > 2) { a.dirt = Math.max(0, a.dirt - 75 * dt); if (a.dirt <= 0) { a.cleanT = 3; stats.washed++; say(a, '뽀송뽀송!', '#2a9fb8'); SFX.clean(); if (tipStep === 2) tipStep = 3; } if (Math.random() < dt * 8) burst(a.x, a.y, 'bubble', 1); } }
 }
 
 /* ---------- 상점 (낮밤 관계없이 열 수 있고, 여는 동안 시간은 멈춘다) ---------- */
 function openShop(tab) {
   if (state !== 'play' && state !== 'shop' && state !== 'exam') return; state = 'shop'; tab = tab || 'buy';
-  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['land', '울타리'], ['gear', '장비'], ['seed', '씨앗·비료'], ['wx', '날씨 장비'], ['lic', '자격증']];
-  let h = '<h2>농장 상점</h2><p class="pay">💰 <b>' + won(money) + '</b> · ' + day + '일째 · 가축 ' + animals.length + '마리</p><div class="tabs">' + tabs.map(t => '<button class="tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '" type="button">' + t[1] + '</button>').join('') + '</div>';
+  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['gear', '시설·장비'], ['seed', '씨앗·비료'], ['lic', '자격증']], lockMsg = k => '<p class="sub">🔒 ' + OPEN_NAME[k] + ': 목표 "' + QUESTS[openAt(k)].t + '"을(를) 이루면 열려요.</p>';
+  if (tab === 'land' || tab === 'wx') tab = 'gear';
+  let h = '<h2>농장 상점</h2><p class="pay">💰 <b>' + won(money) + '</b> · ' + day + '일째 · 가축 ' + animals.length + '마리</p><div class="tabs">' + tabs.map(t => '<button class="tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '" type="button">' + ((t[0] === 'seed' || t[0] === 'lic') && !isOpen(t[0]) ? '🔒 ' : '') + t[1] + '</button>').join('') + '</div>';
   const row = (icon, name, sub, btn, id, ok) => '<div class="shop"><span class="si">' + icon + '</span><span class="sn"><b>' + name + '</b><br><span class="sub">' + sub + '</span></span><button class="buy" data-id="' + id + '" type="button"' + (ok ? '' : ' disabled') + '>' + btn + '</button></div>';
   if (tab === 'buy') { const free = PENS.find(p => p.own && inPen(p).length < p.cap);
     for (const k in KINDS) { const K = KINDS[k]; h += row(K.e, K.n, '다 크면 약 ' + won(K.sell) + '에 팔려요' + (K.rareModel ? ' · 희귀한 소는 희귀 새끼를 더 잘 낳아요' : ''), won(K.buy), 'buy:' + k, money >= K.buy && !!free); }
@@ -807,9 +818,7 @@ function openShop(tab) {
   else if (tab === 'sell') { const list = animals.filter(a => a.state !== 'taken').sort((a, b) => sellPrice(b) - sellPrice(a));
     for (const a of list) { const K = a.K; h += row((a.rare ? '✨' : '') + K.e, (a.rare ? '희귀 ' + (K.rareName || '황금 ' + K.n) : K.n) + (a.adult ? '' : ' 새끼 (' + Math.round(a.age * 100) + '% 자람)'), (a.pen + 1) + '번 울타리 · 건강 ' + Math.round(a.health) + ' · 만족도 ' + Math.round(a.happy) + (a.boost > 1.05 ? ' · 먹이 ×' + a.boost.toFixed(2) : '') + (a.preg > 0 ? ' · 💗 임신 중' : ''), won(sellPrice(a)), 'sell:' + animals.indexOf(a), true); }
     if (!list.length) h += '<p class="sub">팔 가축이 없어요.</p>'; h += '<p class="sub">건강하고 만족도가 높을수록 비싸게 팔려요. 희귀한 가축은 ' + RARE_MULT + '배, 새끼는 덜 자란 만큼 싸요.</p>'; }
-  else if (tab === 'land') {
-    if (pensOwned < 6) h += row('🌾', (pensOwned + 1) + '번 울타리', '가축을 ' + PEN_CAP + '마리 더 키울 수 있어요. 가축을 들어서 옮길 수 있어요', won(PEN_PRICE[pensOwned]), 'pen', money >= PEN_PRICE[pensOwned]); else h += '<p class="sub">울타리를 모두 샀어요!</p>';
-    h += '<p class="sub">지금 울타리 ' + pensOwned + ' / 6 · 규격 울타리는 정해진 자리에만 생겨요. 목공 자격증이 있으면 목재로 빈터에 원하는 크기로 직접 지을 수 있어요.</p>'; }
+  else if ((tab === 'seed' || tab === 'lic') && !isOpen(tab)) h += lockMsg(tab);
   else if (tab === 'seed') {
     for (const k in CROPS) { const C = CROPS[k]; h += row(C.e, C.n + ' 씨앗 ' + SEED_PACK + '개 (보유 ' + seeds[k] + ')', '물을 주면 ' + C.t + '초 뒤 수확 · 한 포기에 먹이 ' + C.y + ' · 먹이 품질 ×' + C.q, won(C.price), 'seedbuy:' + k, money >= C.price); }
     h += row('💩', '비료 ' + FERT_PACK + '개 (보유 ' + fert + ')', '비료를 준 작물은 ' + FERT_SPEED + '배 빨리, ' + FERT_YIELD + '배 많이 자라요', won(FERT_PRICE), 'fertbuy', money >= FERT_PRICE);
@@ -818,21 +827,26 @@ function openShop(tab) {
     for (const k in LIC) { const L = LIC[k], lv = lic[k]; h += row(L.e, L.n + ' 자격증 · ' + (lv ? lv + '급' : '없음'), lv < 3 ? (lv + 1) + '급: ' + L.perk[lv] : '최고 등급이에요', lv < 3 ? '응시 ' + won(L.fee[lv]) : '최고', 'exam:' + k, lv < 3 && money >= L.fee[lv]); }
     h += row('🪵', '목재 ' + WOOD_PACK + '개 (보유 ' + wood + '개)', lic.carp ? '울타리를 직접 짓고 보강하는 데 써요' : '목공 자격증이 있어야 살 수 있어요', won(woodPrice()), 'wood', lic.carp > 0 && money >= woodPrice());
     h += '<p class="sub">응시료를 내고 시험을 통과해야 자격증을 받아요. 떨어지면 응시료는 돌아오지 않아요. 등급이 높을수록 시험이 어려워요.</p>'; }
-  else if (tab === 'wx') {
-    for (const k in ITEMS) { const I = ITEMS[k], lv = wxGear[k], T = TIER[lv], N = TIER[lv + 1], life = t => t.dur > 900 ? '하루 종일' : t.dur + '초';
-      h += row(I.e, T.n + ' ' + I.n, I.d + ' · 지금: ' + Math.round(T.prot * 100) + '% 막고 ' + life(T) + ' 버팀' + (N ? ' → ' + N.n + ': ' + Math.round(N.prot * 100) + '%, ' + life(N) : ''), N ? won(N.price) : '최고', 'wx:' + k, !!N && money >= N.price); }
-    h += '<p class="sub">날씨는 아침마다 바뀌어요. 그날 필요한 장비를 창고(헛간) 앞에서 꺼내 울타리 안에서 설치하세요. 낡은 장비는 금방 망가져 다시 설치해야 해요.</p>'; }
-  else { h += row('🚜', '트랙터', '타고 달리면 건초 더미 옆에서 저절로 싣고(' + TR_CAP + '마리 분), 여물통 옆을 지나면 저절로 채워요', tractor ? '보유' : won(TRACTOR_PRICE), 'tractor', !tractor && money >= TRACTOR_PRICE);
+  else {
+    if (isOpen('land')) {
+    if (pensOwned < 6) h += row('🌾', (pensOwned + 1) + '번 울타리', '가축을 ' + PEN_CAP + '마리 더 키울 수 있어요. 가축을 들어서 옮길 수 있어요', won(PEN_PRICE[pensOwned]), 'pen', money >= PEN_PRICE[pensOwned]); else h += '<p class="sub">울타리를 모두 샀어요!</p>';
+    h += '<p class="sub">지금 울타리 ' + pensOwned + ' / 6 · 규격 울타리는 정해진 자리에만 생겨요. 목공 자격증이 있으면 목재로 빈터에 원하는 크기로 직접 지을 수 있어요.</p>'; } else h += lockMsg('land');
+    if (isOpen('gear')) { h += row('🚜', '트랙터', '타고 달리면 건초 더미 옆에서 저절로 싣고(' + TR_CAP + '마리 분), 여물통 옆을 지나면 저절로 채워요', tractor ? '보유' : won(TRACTOR_PRICE), 'tractor', !tractor && money >= TRACTOR_PRICE);
     h += row('🔥', '횃불', '창고에서 들어요. 가까이 온 늑대가 달아나요(곰은 아주 가까이). 휘저으면 범위가 넓어져요', '기본 지급', 'x', false);
     { const C = GUNS[gunLv], N = GUNS[gunLv + 1], spec = g => '위력 ' + g.dmg + ' · 사거리 ' + g.range + ' · 장전 ' + g.cd + '초';
       h += row('🔫', C ? C.n + ' (보유)' : '사냥총', (C ? '지금: ' + spec(C) : '창고에서 들어요. 조준선에 정확히 맞혀야 잡혀요') + (N ? (C ? ' → ' + N.n + ': ' : ' · ') + spec(N) + (C ? ', 조준이 쉬워져요' : '') : ' · 최고 등급'), N ? won(N.price) : '최고', 'gun', !!N && money >= N.price); }
-    h += '<p class="sub">🎯 잡으면 여우 ' + won(PRED.fox.reward) + ' · 늑대 ' + won(PRED.wolf.reward) + ' · 곰 ' + won(PRED.bear.reward) + '. 필요한 발수(위력 1 기준): 여우 ' + PRED.fox.life + ' · 늑대 ' + PRED.wolf.life + ' · 곰 ' + PRED.bear.life + '발. 빗나가면 달아나서 보상이 없어요. 횃불은 쫓기만 해요.</p>';
-    for (const p of PENS) if (p.own) h += row('⚡', (p.i + 1) + '번 울타리 전기 울타리', '늑대와 곰이 이 울타리를 뚫지 못해요', p.elec ? '설치됨' : won(ELEC_PRICE), 'elec:' + p.i, !p.elec && money >= ELEC_PRICE); }
+    h += '<p class="sub">🎯 잡으면 여우 ' + won(PRED.fox.reward) + ' · 늑대 ' + won(PRED.wolf.reward) + ' · 곰 ' + won(PRED.bear.reward) + '. 필요한 발수(위력 1 기준): 여우 ' + PRED.fox.life + ' · 늑대 ' + PRED.wolf.life + ' · 곰 ' + PRED.bear.life + '발. 빗나가면 달아나서 보상이 없어요. 하룻밤에 다섯 마리째부터는 보상이 1/4이에요. 횃불은 쫓기만 해요.</p>';
+    for (const p of PENS) if (p.own) h += row('⚡', (p.i + 1) + '번 울타리 전기 울타리', '늑대와 곰이 이 울타리를 뚫지 못해요', p.elec ? '설치됨' : won(ELEC_PRICE), 'elec:' + p.i, !p.elec && money >= ELEC_PRICE); } else h += lockMsg('gear');
+    if (isOpen('wx')) {
+    for (const k in ITEMS) { const I = ITEMS[k], lv = wxGear[k], T = TIER[lv], N = TIER[lv + 1], life = t => t.dur > 900 ? '하루 종일' : t.dur + '초';
+      h += row(I.e, T.n + ' ' + I.n, I.d + ' · 지금: ' + Math.round(T.prot * 100) + '% 막음' + (N ? ' → ' + N.n + ': ' + Math.round(N.prot * 100) + '%' : ''), N ? won(N.price) : '최고', 'wx:' + k, !!N && money >= N.price); }
+    h += '<p class="sub">날씨는 아침마다 바뀌어요. 그날 필요한 장비를 창고(헛간) 앞에서 꺼내 울타리 안에서 설치하세요. 한 번 설치하면 그날 낮 동안 버텨요. 낡은 장비는 절반만 막아 줘요.</p>'; } else h += lockMsg('wx');
+  }
   showOv(h + '<button class="btn" id="go">농장으로</button>');
   document.querySelectorAll('#card .tab').forEach(b => { b.onclick = () => openShop(b.dataset.tab); });
   document.querySelectorAll('#card .buy').forEach(b => { b.onclick = () => { const [op, arg, arg2] = b.dataset.id.split(':'); initAudio();
     if (op === 'buy') { const K = KINDS[arg], free = PENS.find(p => p.own && inPen(p).length < p.cap); if (!free || money < K.buy) return; money -= K.buy; addAnimal(arg, free.i, true); SFX.clean(); }
-    else if (op === 'sell') { const an = animals[+arg]; if (!an) return; money += sellPrice(an); removeAnimal(an); SFX.praise(); }
+    else if (op === 'sell') { const an = animals[+arg]; if (!an) return; money += sellPrice(an); removeAnimal(an); stats.sold++; SFX.praise(); }
     else if (op === 'pen') { if (pensOwned >= 6 || money < PEN_PRICE[pensOwned]) return; money -= PEN_PRICE[pensOwned]; pensOwned++; buildFences(); SFX.clean(); }
     else if (op === 'seedbuy') { const C = CROPS[arg]; if (money < C.price) return; money -= C.price; seeds[arg] += SEED_PACK; SFX.take(); }
     else if (op === 'fertbuy') { if (money < FERT_PRICE) return; money -= FERT_PRICE; fert += FERT_PACK; SFX.take(); }
@@ -853,19 +867,19 @@ const LIC = {
   carp: { n: '목공', e: '🔨', fee: [2000, 6000, 15000], games: ['hammer', 'saw'],
     perk: ['목재로 빈터에 원하는 크기의 울타리를 직접 지어요 (2곳, 최대 600×400)', '울타리 보강: 늑대가 들어오지 못해요 · 직접 짓는 울타리 4곳, 최대 900×500', '철심 보강: 곰도 들어오지 못해요 · 직접 짓는 울타리 6곳, 최대 1200×600 · 목재 30% 할인'] },
   shear: { n: '양털깎기', e: '✂️', fee: [1500, 5000, 12000], games: ['shear'],
-    perk: ['양털 값이 한 마리 300원으로 올라요(자격증이 없으면 150원)', '양털 500원 · 털이 더 빨리 자라요', '양털 800원 · 털이 가장 빨리 자라요'] },
+    perk: ['양털 값이 한 마리 350원으로 올라요(자격증이 없으면 200원)', '양털 550원 · 털이 더 빨리 자라요', '양털 850원 · 털이 가장 빨리 자라요'] },
   milk: { n: '소 젖짜기', e: '🥛', fee: [2000, 6000, 14000], games: ['milk'],
-    perk: ['우유 값이 400원, 염소젖이 250원으로 올라요(자격증이 없으면 200원·120원)', '우유 700원 · 젖이 더 빨리 차요', '우유 1,100원 · 젖이 가장 빨리 차요'] }
+    perk: ['우유 값이 450원, 염소젖이 300원으로 올라요(자격증이 없으면 260원·160원)', '우유 750원 · 젖이 더 빨리 차요', '우유 1,150원 · 젖이 가장 빨리 차요'] }
 };
 const CARP = { max: [0, 2, 4, 6], w: [0, 600, 900, 1200], h: [0, 400, 500, 600] }, WOOD_PACK = 10;
 /* 가축에게서 얻는 것: 가까이 가면 '일' 버튼이 그 가축에 맞는 일로 바뀐다. 시간이 지나며 쌓이고(최대 200%), 쌓인 만큼 받는다.
    lic: 값을 올려 주는 자격증(없어도 할 수 있다) · anim: 일하는 동안의 연출 · tool: 연출에 쓰는 그림 */
 const WORK = {
-  chicken: { lic: null, pay: [60], cd: [50], label: '달걀 줍기', e: '🥚', done: '달걀', anim: 'rise', tool: '🥚', dur: 1.2 },
-  sheep: { lic: 'shear', pay: [150, 300, 500, 800], cd: [90, 70, 55, 40], label: '털 깎기', e: '✂️', done: '양털', anim: 'orbit', tool: '✂️', dur: 2.2 },
-  goat: { lic: 'milk', pay: [120, 250, 420, 650], cd: [80, 60, 48, 36], label: '염소 젖 짜기', e: '🥛', done: '염소젖', anim: 'milk', tool: '🪣', dur: 2 },
-  cow: { lic: 'milk', pay: [200, 400, 700, 1100], cd: [80, 60, 48, 36], label: '소 젖 짜기', e: '🥛', done: '우유', anim: 'milk', tool: '🪣', dur: 2.2 },
-  pig: { lic: null, pay: [350], cd: [100], label: '트러플 캐기', e: '🍄', done: '트러플', anim: 'dig', tool: '🍄', dur: 2 },
+  chicken: { lic: null, pay: [80], cd: [50], label: '달걀 줍기', e: '🥚', done: '달걀', anim: 'rise', tool: '🥚', dur: 1.2 },
+  sheep: { lic: 'shear', pay: [200, 350, 550, 850], cd: [90, 70, 55, 40], label: '털 깎기', e: '✂️', done: '양털', anim: 'orbit', tool: '✂️', dur: 2.2 },
+  goat: { lic: 'milk', pay: [160, 300, 480, 700], cd: [80, 60, 48, 36], label: '염소 젖 짜기', e: '🥛', done: '염소젖', anim: 'milk', tool: '🪣', dur: 2 },
+  cow: { lic: 'milk', pay: [260, 450, 750, 1150], cd: [80, 60, 48, 36], label: '소 젖 짜기', e: '🥛', done: '우유', anim: 'milk', tool: '🪣', dur: 2.2 },
+  pig: { lic: null, pay: [400], cd: [100], label: '트러플 캐기', e: '🍄', done: '트러플', anim: 'dig', tool: '🍄', dur: 2 },
   horse: { lic: null, pay: [0], cd: [90], item: 'fert', label: '거름 치우기', e: '💩', done: '거름', anim: 'dig', tool: '💩', dur: 1.8 },
   panda: { lic: null, pay: [900], cd: [110], label: '사진 찍기', e: '📸', done: '관람료', anim: 'photo', tool: '📸', dur: 1.5 }
 };
@@ -899,7 +913,7 @@ function updateWork(dt) {
     const k = a.rare ? RARE_MULT : 1; work = null; a.state = 'free'; a.pause = 1.2;
     if (w.item === 'fert') { const n = Math.max(1, Math.round(a.prod * k)); fert += n; say(a, '💩 거름으로 비료 +' + n, '#8a5a3a', 1); }
     else { const pay = prodValue(a); money += pay; say(a, w.e + ' ' + w.done + ' +' + pay.toLocaleString() + '원', '#3fae6a', 1); }
-    a.prod = 0; a.happy = Math.min(100, a.happy + 5); tone(660, 660, .1, 'triangle', .25); tone(990, 990, .16, 'triangle', .25, .1); burst(a.x, a.y, 'spark', 6); saveGame();
+    a.prod = 0; stats.worked++; a.happy = Math.min(100, a.happy + 5); tone(660, 660, .1, 'triangle', .25); tone(990, 990, .16, 'triangle', .25, .1); burst(a.x, a.y, 'spark', 6); saveGame();
   }
 }
 
@@ -1020,10 +1034,84 @@ function examEnd(pass, why) {
     $('go').onclick = () => { if (money >= fee) startExam(key); }; $('back').onclick = () => openShop('lic'); }
 }
 
+/* ---------- 목표 · 주문 · 도감 · 편지 · 부재 중 성장 ----------
+   목표: 하나씩 차례로 이루며 보상을 받고, 몇몇 목표는 상점의 새 기능을 연다 (처음부터 전부 보이지 않게)
+   주문: 아침마다 장터 상인이 내는 그날의 부탁 / 도감: 처음 만난 가축·작물·맹수를 모은다 / 편지: 며칠마다 오는 이야기 */
+const stats = { fed: 0, watered: 0, washed: 0, worked: 0, harvested: 0, born: 0, repelled: 0, sold: 0 };
+let questI = 0, allOpen = false, dex = {}, order = null, letterSeen = 0, killsTonight = 0, metaQuiet = true, metaT = 0, awayNote = '';
+const QUESTS = [
+  { t: '여물통에 먹이 놓기', hint: '건초 더미에서 건초를 들거나 들판의 풀을 베어, 울타리 안 여물통 옆에서 [먹이 놓기]', ok: () => stats.fed >= 1, pay: 300 },
+  { t: '물통 가득 채우기', hint: '🔄 버튼으로 물호스를 들고, 여물통 옆 물통 쪽으로 [물뿌리기]를 누르고 있기', ok: () => stats.watered >= 1, pay: 300 },
+  { t: '가축 한 마리 씻기기', hint: '물호스로 더러워진(💧) 가축에게 물 뿌리기', ok: () => stats.washed >= 1, pay: 300 },
+  { t: '가축에게서 얻기', hint: '닭이나 양 옆에 가면 나타나는 [달걀 줍기]·[털 깎기] 버튼 누르기 (조금 기다리면 쌓여요)', ok: () => stats.worked >= 1, pay: 500, open: 'seed' },
+  { t: '첫 밤 넘기기', hint: '밤이 되기 전에 🔄 버튼으로 횃불을 들고, 울타리로 다가오는 맹수에게 다가가 쫓아내기', ok: () => day >= 2, pay: 500, open: 'wx' },
+  { t: '작물 심어서 수확하기', hint: '상점에서 씨앗 사기 → 🔄로 씨앗 들기 → 들판에 뿌리고 물 주기 → 다 자라면 [수확하기]', ok: () => stats.harvested >= 1, pay: 800, open: 'lic' },
+  { t: '새끼 태어나게 하기', hint: '같은 종류의 어른 두 마리에게 먹이·물·깨끗함을 계속 챙겨 만족도를 가득 채우기', ok: () => stats.born >= 1, pay: 800, open: 'land' },
+  { t: '가축 6마리 키우기', hint: '새끼를 낳게 하거나 상점에서 사기', ok: () => animals.length >= 6, pay: 1000 },
+  { t: '울타리 하나 더 갖기', hint: '상점의 시설·장비에서 2번 울타리 사기', ok: () => PENS.filter(p => p.own).length >= 2, pay: 1500, open: 'gear' },
+  { t: '자격증 하나 따기', hint: '상점의 자격증에서 응시료를 내고 시험 통과하기', ok: () => lic.carp + lic.shear + lic.milk >= 1, pay: 2000 },
+  { t: '맹수 5번 물리치기', hint: '횃불로 쫓거나 총으로 잡기', ok: () => stats.repelled >= 5, pay: 2000 },
+  { t: '희귀 가축 얻기', hint: '만족도가 높은 어미에게서 가끔 황금빛 새끼가 태어나요', ok: () => animals.some(a => a.rare), pay: 3000 },
+  { t: '가축 15마리 키우기', hint: '울타리를 늘리고 새끼를 낳게 하기', ok: () => animals.length >= 15, pay: 4000 },
+  { t: '트랙터 사기', hint: '상점의 시설·장비', ok: () => tractor, pay: 3000 },
+  { t: '도감 15칸 채우기', hint: '여러 가축과 희귀 가축, 작물, 맹수를 만나기 (📖 버튼)', ok: () => Object.keys(dex).length >= 15, pay: 5000 },
+  { t: '50,000원 모으기', hint: '가축을 키워 팔고, 얻은 것을 팔기', ok: () => money >= 50000, pay: 10000 }
+];
+const OPEN_NAME = { seed: '씨앗·비료', wx: '날씨 장비', lic: '자격증', land: '울타리 구매', gear: '장비(트랙터·총·전기 울타리)' };
+const openAt = k => QUESTS.findIndex(q => q.open === k), isOpen = k => allOpen || openAt(k) < questI;
+function checkQuest() {
+  const q = QUESTS[questI]; if (!q || !q.ok()) return; questI++; money += q.pay; SFX.praise(); burst(pl.x, pl.y, 'spark', 12);
+  showToast('✅ 목표 달성: ' + q.t + ' · 보상 +' + q.pay.toLocaleString() + '원' + (q.open ? ' · 🔓 상점에 ' + OPEN_NAME[q.open] + ' 열림' : ''), 6); saveGame();
+}
+const ORDERS = [
+  { k: 'worked', t: n => '가축에게서 ' + n + '번 얻기 (달걀·털·젖 등)', n: [3, 5, 8] }, { k: 'harvested', t: n => '작물 ' + n + '포기 수확하기', n: [2, 4, 6], need: 'seed' }, { k: 'sold', t: n => '가축 ' + n + '마리 팔기', n: [1, 2, 3] },
+  { k: 'repelled', t: n => '맹수 ' + n + '번 물리치기', n: [2, 4, 6] }, { k: 'fed', t: n => '여물통 ' + n + '번 채우기', n: [3, 5, 7] }, { k: 'washed', t: n => '가축 ' + n + '마리 씻기기', n: [3, 5, 7] }
+];
+function newOrder() {   // 장터 상인 순이 아주머니의 그날 주문. 다음 날 아침까지 들어주면 보상
+  const c = ORDERS.filter(o => !o.need || isOpen(o.need)), o = pick(c), lv = Math.min(2, Math.floor(day / 4)), n = o.n[lv];
+  order = { k: o.k, n, base: stats[o.k], pay: Math.round((500 + day * 120) * (1 + lv * .5) / 50) * 50, text: o.t(n), done: false };
+}
+function checkOrder() { if (!order || order.done || stats[order.k] - order.base < order.n) return; order.done = true; money += order.pay; SFX.praise(); showToast('🧺 순이 아주머니: "고마워요, 덕분에 살았네!" 주문 완료 +' + order.pay.toLocaleString() + '원', 5); saveGame(); }
+const DEX = [['a', '가축', () => Object.keys(KINDS).map(k => [k, KINDS[k].e])], ['r', '희귀 가축', () => Object.keys(KINDS).map(k => [k, '✨' + KINDS[k].e])], ['c', '작물', () => Object.keys(CROPS).map(k => [k, CROPS[k].e])], ['p', '잡은 맹수', () => [['fox', '🦊'], ['wolf', '🐺'], ['bear', '🐻']]]];
+const dexTotal = () => DEX.reduce((t, s) => t + s[2]().length, 0);
+function dexAdd(key) { if (dex[key]) return; dex[key] = 1; if (metaQuiet) return; money += 300; showToast('📖 도감에 새로 올랐어요! (' + Object.keys(dex).length + ' / ' + dexTotal() + ') +300원', 4); tone(880, 880, .1, 'triangle', .2); tone(1175, 1175, .18, 'triangle', .2, .1); }
+function openDex() {
+  if (state !== 'play') return; state = 'menu'; let h = '<h2>📖 농장 도감</h2><p class="pay">' + Object.keys(dex).length + ' / ' + dexTotal() + ' · 새로 올릴 때마다 300원</p>';
+  for (const s of DEX) h += '<p class="sub dexh">' + s[1] + '</p><div class="dex">' + s[2]().map(q => '<span class="' + (dex[s[0] + ':' + q[0]] ? 'on' : '') + '">' + (dex[s[0] + ':' + q[0]] ? q[1] : '❓') + '</span>').join('') + '</div>';
+  h += '<p class="sub">목표 ' + Math.min(questI, QUESTS.length) + ' / ' + QUESTS.length + ' 달성 · 잡은 맹수 ' + kills + '마리 · ' + day + '일째</p>';
+  showOv(h + '<button class="btn" id="go">닫기</button>'); $('go').onclick = () => { state = 'play'; hideOv(); };
+}
+const LETTERS = {
+  2: { gift: 500, t: '첫 밤은 무사히 넘겼느냐. 늑대는 불을 무서워하니 밤에는 꼭 횃불을 들고 있거라.<br>아침마다 장터의 순이 아주머니가 주문을 넣을 게다. 들어주면 값을 후하게 쳐 주는 사람이니 잘 지내 두거라.' },
+  4: { gift: 1000, t: '산에 곰이 내려올 철이구나. 곰은 횃불쯤은 겁내지 않으니 조심하거라.<br>내가 젊을 적엔 울타리를 손수 보강했단다. 너도 목공을 배워 두면 든든할 게다. 응시료에 보태 쓰거라.' },
+  7: { gift: 1500, t: '들판 남쪽 빈터는 네 할머니가 호박을 심던 자리란다.<br>좋은 것을 먹고 자란 가축은 털에 윤이 나고, 그런 어미에게서 금빛 새끼가 난다는 옛말이 있지. 빈말이 아니더구나.' },
+  10: { gift: 2000, t: '네 농장 이야기가 장터에 자자하다더구나. 순이 아주머니가 편지에 네 칭찬을 한가득 적어 보냈다.<br>바닷바람이 좋아 이 할아비는 잘 지낸다. 걱정 말고 네 뜻대로 키워 보거라.' },
+  14: { gift: 3000, t: '이제 그 농장은 온전히 네 것이다.<br>도감을 다 채우는 날, 할머니와 함께 보러 가마. 그때까지 가축들을 잘 부탁한다.' }
+};
+function showLetter(d) {
+  const L = LETTERS[d]; letterSeen = d; money += L.gift; state = 'menu'; tone(523, 523, .15, 'triangle', .2); tone(784, 784, .25, 'triangle', .2, .15);
+  showOv('<h2>💌 할아버지의 편지</h2><div class="note"><b>' + d + '일째 아침</b>' + L.t + '</div><p class="pay">동봉한 용돈 <b>+' + L.gift.toLocaleString() + '원</b></p><button class="btn" id="go">잘 읽었어요</button>'); $('go').onclick = () => { state = 'play'; hideOv(); saveGame(); };
+}
+/* 도구 빠른 전환: 창고까지 가지 않아도 가진 도구를 차례로 바꿔 든다 */
+function toolList() { const l = ['torch', 'hose', 'fork']; if (gun) l.push('gun'); for (const k in CROPS) if (seeds[k] > 0) l.push('seed:' + k); if (fert > 0) l.push('fert'); return l; }
+function swapTool() {
+  if (state !== 'play' || work) return; initAudio(); const l = toolList(), cur = pl.tool === 'seed' ? 'seed:' + pl.seedType : pl.tool, nx = l[(l.indexOf(cur) + 1) % l.length];
+  if (nx.startsWith('seed:')) { pl.tool = 'seed'; pl.seedType = nx.slice(5); } else pl.tool = nx; SFX.tick();
+  say(pl, pl.tool === 'seed' ? CROPS[pl.seedType].e + ' ' + CROPS[pl.seedType].n + ' 씨앗' : TOOLS[pl.tool].e + ' ' + TOOLS[pl.tool].n, '#4a3226', 1);
+}
+function applyAway(sec) {   // 앱을 꺼 둔 동안에도 농장은 천천히 돌아간다 (절반 속도, 최대 8시간)
+  sec = Math.min(sec, 8 * 3600); if (!(sec > 120)) return; let grown = 0, ready = 0, ripe = 0;
+  for (const a of animals.slice()) { if (!a.adult) { const was = a.adult; grow(a, sec / CYCLE * .2 * .5); if (a.adult && !was) grown++; } const w = WORK[a.kind]; if (w && a.adult) { const p0 = a.prod; a.prod = Math.min(2, a.prod + sec * .5 / w.cd[wLv(w)]); if (p0 < 1 && a.prod >= 1) ready++; }
+    a.hunger = Math.min(90, a.hunger + sec / 20); a.thirst = Math.min(90, a.thirst + sec / 20); a.dirt = Math.min(80, a.dirt + sec / 40); }
+  for (const q of plots) if (q.g < 1) { q.g = Math.min(1, q.g + sec * .5 / CROPS[q.type].t * (q.fert ? FERT_SPEED : 1)); if (q.g >= 1) ripe++; }
+  const m = Math.round(sec / 60); awayNote = '🌙 자리를 비운 ' + (m >= 60 ? Math.floor(m / 60) + '시간 ' + (m % 60) + '분' : m + '분') + ' 동안: ' + ([grown && '새끼 ' + grown + '마리가 다 컸고', ready && '가축 ' + ready + '마리에게서 얻을 것이 쌓였고', ripe && '작물 ' + ripe + '포기가 다 자랐고'].filter(Boolean).join(' ') || '농장은 조용했고') + ' 가축들이 배고파해요';
+}
+
 /* ---------- 저장 ---------- */
 const SAVE_KEY = 'scrubpaws_farm';
-function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, gunLv, kills, seeds, fert, hayQ: +hayQ.toFixed(2), seedType: pl.seedType, plots: plots.map(q => [Math.round(q.x), Math.round(q.y), q.type, Math.round(q.g * 100), q.fert ? 1 : 0]), hayStock, water: Math.round(water), tool: pl.tool, money, day, clock, pensOwned, gun, wx, wxGear, tractor, lic, wood, cpens: PENS.filter(p => p.custom).map(p => [p.x, p.y, p.w, p.h, p.food, p.elec ? 1 : 0, p.fort, p.cap, Math.round(p.water)]), pens: PENS.slice(0, 6).map(p => [p.food, p.elec ? 1 : 0, p.fort, Math.round(p.water)]), animals: animals.map(a => [a.kind, a.pen, a.adult ? 1 : 0, Math.round(a.age * 100), Math.round(a.hunger), Math.round(a.dirt), Math.round(a.health), Math.round(a.happy), Math.round(a.preg), a.rare ? 1 : 0]) })); } catch (e) { } }
+function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, ts: Date.now(), questI, allOpen, stats, dex, letterSeen, order: order && { k: order.k, n: order.n, prog: stats[order.k] - order.base, pay: order.pay, text: order.text, done: order.done }, gunLv, kills, seeds, fert, hayQ: +hayQ.toFixed(2), seedType: pl.seedType, plots: plots.map(q => [Math.round(q.x), Math.round(q.y), q.type, Math.round(q.g * 100), q.fert ? 1 : 0]), hayStock, water: Math.round(water), tool: pl.tool, money, day, clock, pensOwned, gun, wx, wxGear, tractor, lic, wood, cpens: PENS.filter(p => p.custom).map(p => [p.x, p.y, p.w, p.h, p.food, p.elec ? 1 : 0, p.fort, p.cap, Math.round(p.water)]), pens: PENS.slice(0, 6).map(p => [p.food, p.elec ? 1 : 0, p.fort, Math.round(p.water)]), animals: animals.map(a => [a.kind, a.pen, a.adult ? 1 : 0, Math.round(a.age * 100), Math.round(a.hunger), Math.round(a.dirt), Math.round(a.health), Math.round(a.happy), Math.round(a.preg), a.rare ? 1 : 0, Math.round(a.prod * 100)]) })); } catch (e) { } }
 function loadGame() {
+  metaQuiet = true; awayNote = '';
   try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!d || !Array.isArray(d.animals)) return false;
     money = Math.max(0, +d.money || 0); day = Math.max(1, +d.day || 1); clock = clamp(+d.clock || 0, 0, DAY_LEN - 1); pensOwned = clamp(+d.pensOwned || 1, 1, 6); gun = !!d.gun; gunLv = gun ? clamp(+d.gunLv || 1, 1, 3) : 0; kills = +d.kills || 0; wx = WX[d.wx] ? d.wx : 'sunny'; for (const k in wxGear) wxGear[k] = clamp(+(d.wxGear || {})[k] || 0, 0, 2); tractor = !!d.tractor; tr.riding = false; tr.x = 300; tr.y = 440; tr.stock = 0; PENS.forEach(p => { p.gear = null; });
     PENS.length = 6; PENS.forEach((p, i) => { const q = (d.pens || [])[i] || [0, 0]; p.food = clamp(+q[0] || 0, 0, TROUGH_CAP); p.elec = !!q[1]; p.fort = clamp(+q[2] || 0, 0, 2); p.water = clamp(q[3] == null ? 6 : +q[3] || 0, 0, WATER_CAP); });
@@ -1033,13 +1121,17 @@ function loadGame() {
     for (const q of d.cpens || []) { const x = +q[0], y = +q[1], w = +q[2], h = +q[3]; if (!(w >= 200 && h >= 180 && x >= 0 && y >= 0 && x + w <= WORLD.w && y + h <= WORLD.h) || PENS.length >= 12) continue; PENS.push({ i: PENS.length, x, y, w, h, tx: x + w / 2, ty: y + 46, tw: Math.min(200, w - 60), food: clamp(+q[4] || 0, 0, TROUGH_CAP), elec: !!q[5], fort: clamp(+q[6] || 0, 0, 2), cap: clamp(+q[7] || 2, 2, 16), own: true, custom: true }); layoutPen(PENS[PENS.length - 1]); PENS[PENS.length - 1].water = clamp(+q[8] || 0, 0, WATER_CAP); }
     pl.tool = d.tool === '' || (TOOLS[d.tool] && (d.tool !== 'gun' || d.gun)) ? d.tool : 'torch'; pl.hayN = 0; pl.swingT = 0;
     for (const k in lic) lic[k] = clamp(+(d.lic || {})[k] || 0, 0, 3); wood = Math.max(0, +d.wood || 0); build = null;
-    animals.slice().forEach(removeAnimal); for (const q of d.animals) { if (!KINDS[q[0]] || !PENS[q[1]] || !PENS[q[1]].own) continue; const a = addAnimal(q[0], q[1], !!q[2], null, !!q[9]); a.age = a.adult ? 1 : clamp((+q[3] || 0) / 100, 0, .99); a.hunger = +q[4] || 0; a.dirt = +q[5] || 0; a.health = clamp(+q[6] || 100, 1, 100); a.happy = +q[7] || 0; a.preg = +q[8] || 0; }
-    return true; } catch (e) { return false; }
+    animals.slice().forEach(removeAnimal); for (const q of d.animals) { if (!KINDS[q[0]] || !PENS[q[1]] || !PENS[q[1]].own) continue; const a = addAnimal(q[0], q[1], !!q[2], null, !!q[9]); if (q[10] != null) a.prod = clamp(+q[10] / 100 || 0, 0, 2); a.age = a.adult ? 1 : clamp((+q[3] || 0) / 100, 0, .99); a.hunger = +q[4] || 0; a.dirt = +q[5] || 0; a.health = clamp(+q[6] || 100, 1, 100); a.happy = +q[7] || 0; a.preg = +q[8] || 0; }
+    allOpen = d.questI == null || !!d.allOpen; questI = clamp(+d.questI || 0, 0, QUESTS.length); for (const k in stats) stats[k] = Math.max(0, +(d.stats || {})[k] || 0); letterSeen = +d.letterSeen || (allOpen ? 99 : 0);
+    for (const k in d.dex || {}) dex[k] = 1; order = d.order && stats[d.order.k] != null ? { k: d.order.k, n: +d.order.n, base: stats[d.order.k] - (+d.order.prog || 0), pay: +d.order.pay || 0, text: String(d.order.text), done: !!d.order.done } : null;
+    if (d.ts) applyAway((Date.now() - d.ts) / 1000); metaQuiet = false;
+    return true; } catch (e) { metaQuiet = false; return false; }
 }
 function newGame() {
+  metaQuiet = true; questI = 0; allOpen = false; dex = {}; order = null; letterSeen = 0; awayNote = ''; for (const k in stats) stats[k] = 0;
   animals.slice().forEach(removeAnimal); preds.forEach(q => { q.gone = true; }); money = 3000; day = 1; clock = 0; pensOwned = 1; gun = false; gunLv = 0; kills = 0; tipStep = 0; wx = 'sunny'; for (const k in wxGear) wxGear[k] = 0; tractor = false; tr.riding = false; tr.stock = 0; PENS.forEach(p => { p.gear = null; });
   PENS.length = 6; PENS.forEach(p => { p.food = 0; p.elec = false; p.fort = 0; }); lic = { carp: 0, shear: 0, milk: 0 }; wood = 0; build = null; pl.tool = 'torch'; pl.hayN = 0; hayStock = 24; water = 60; hayQ = 1; plots = []; fert = 0; for (const k in seeds) seeds[k] = 0; pl.hayQ = 1; tr.q = 1; PENS.forEach(p => { p.water = 0; p.foodQ = 1; }); PENS[0].water = 6; grass.forEach(placeGrass); PENS[0].food = 4; addAnimal('sheep', 0, true); addAnimal('sheep', 0, true); addAnimal('chicken', 0, true); addAnimal('chicken', 0, true);
-  pl.x = 250; pl.y = 330; pl.carry = null; saveGame();
+  pl.x = 250; pl.y = 330; pl.carry = null; metaQuiet = false; saveGame();
 }
 
 /* ---------- 입력 ---------- */
@@ -1049,13 +1141,14 @@ window.addEventListener('keydown', e => {
   keys[e.code] = true; if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
   if (e.repeat) return;
   if (e.code === 'Space' || e.code === 'Enter') { if (document.activeElement && /btn|buy|tab/.test(document.activeElement.className)) return; pressAct(); }
-  else if (e.code === 'KeyX' || e.code === 'KeyH' || e.code === 'KeyC' || e.code === 'KeyF') { hoseHeld = true; pressTool(); } else if (e.code === 'KeyV') pressWork(); else if (e.code === 'KeyN') pressWood(); else if (e.code === 'KeyB' || e.code === 'KeyM') openShop(); else if (e.code === 'KeyP' || e.code === 'Escape') pressPause();
+  else if (e.code === 'KeyX' || e.code === 'KeyH' || e.code === 'KeyC' || e.code === 'KeyF') { hoseHeld = true; pressTool(); } else if (e.code === 'KeyQ') swapTool(); else if (e.code === 'KeyJ') openDex(); else if (e.code === 'KeyV') pressWork(); else if (e.code === 'KeyN') pressWood(); else if (e.code === 'KeyB' || e.code === 'KeyM') openShop(); else if (e.code === 'KeyP' || e.code === 'Escape') pressPause();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; if (state === 'exam' && e.code === 'Space') exUp(); if (e.code === 'KeyX' || e.code === 'KeyH' || e.code === 'KeyC' || e.code === 'KeyF') hoseHeld = false; });
 cv.addEventListener('pointerdown', e => { initAudio(); if (joy.id === null) { joy.id = e.pointerId; joy.ox = joy.x = e.clientX; joy.oy = joy.y = e.clientY; try { cv.setPointerCapture(e.pointerId); } catch (err) { } } });
 cv.addEventListener('pointermove', e => { if (e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
 const joyEnd = e => { if (e.pointerId === joy.id) joy.id = null; }; cv.addEventListener('pointerup', joyEnd); cv.addEventListener('pointercancel', joyEnd);
-const bAct = $('bAct'), bHose = $('bHose'), bGun = $('bGun'), bShop = $('bShop'), bWork = $('bWork'), bWood = $('bWood');
+const bAct = $('bAct'), bHose = $('bHose'), bGun = $('bGun'), bShop = $('bShop'), bWork = $('bWork'), bWood = $('bWood'), bSwap = $('bSwap'), bDex = $('bDex');
+bSwap.addEventListener('pointerdown', e => { e.preventDefault(); swapTool(); }); bDex.addEventListener('click', () => { initAudio(); openDex(); bDex.blur(); });
 bWork.addEventListener('pointerdown', e => { e.preventDefault(); pressWork(); }); bWood.addEventListener('click', () => { pressWood(); bWood.blur(); });
 bAct.addEventListener('pointerdown', e => { e.preventDefault(); pressAct(); }); bGun.addEventListener('pointerdown', e => { e.preventDefault(); pressShoot(); }); bShop.addEventListener('click', () => { initAudio(); openShop(); bShop.blur(); });
 bHose.addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); hoseHeld = true; pressTool(); try { bHose.setPointerCapture(e.pointerId); } catch (err) { } });
@@ -1087,7 +1180,7 @@ function update(dt) {
     pl.moving = l > .1; if (pl.moving) { const heavy = tr.riding ? 1.7 : pl.carry && typeof pl.carry === 'object' ? 1 - Math.min(.45, pl.carry.sp.r / 110) : pl.hose ? .6 : 1; pl.x = clamp(pl.x + mx * 250 * heavy * dt, 20, WORLD.w - 20); pl.y = clamp(pl.y + my * 250 * heavy * dt, 20, WORLD.h - 20); pl.phase += dt * 13; }
     if (pl.shootCd > 0) pl.shootCd -= dt; if (pl.swingT > 0) pl.swingT -= dt; if (pl.swingCd > 0) pl.swingCd -= dt;
     updateHose(dt); updateWeather(dt); updateTractor(); if (pl.pumpT > 0) pl.pumpT -= dt;
-    updatePlots(dt); updateWork(dt);
+    updatePlots(dt); updateWork(dt); metaT -= dt; if (metaT <= 0) { metaT = .5; checkQuest(); checkOrder(); }
     for (const g of grass) if (g.t > 0) { g.t -= dt; if (g.t <= 0) placeGrass(g); }
     for (const a of animals.slice()) updateAnimal(a, dt);
     if (isNight()) { if (toSpawn > 0) { spawnT -= dt; if (spawnT <= 0) { spawnT = R(5, 9) * nightLevel().gap; toSpawn--; if (animals.length) spawnPred(); } } }
@@ -1100,6 +1193,7 @@ function update(dt) {
   bHose.classList.toggle('off', !toolReady()); bHose.classList.toggle('on', pl.hose || pl.swingT > 0); bGun.hidden = true; const tl = toolLabel(); if (bHose.textContent !== tl) bHose.textContent = tl;
   bWork.hidden = !(play && curWork); if (curWork) { const wl = WORK[curWork.kind].label; if (bWork.textContent !== wl) bWork.textContent = wl; }
   bWood.hidden = !(play && lic.carp > 0); const wl2 = build ? '취소' : '목공'; if (bWood.textContent !== wl2) bWood.textContent = wl2;
+  bDex.hidden = !play; const sw = play ? (pl.tool === 'seed' ? CROPS[pl.seedType].e : pl.tool ? TOOLS[pl.tool].e : '✋') + '🔄' : ''; if (bSwap.textContent !== sw) bSwap.textContent = sw;
   $('pad').hidden = !play; $('pz').hidden = !play; bShop.hidden = !play;
 }
 
@@ -1109,13 +1203,13 @@ function hideOv() { $('ov').hidden = true; }
 function showTitle() {
   state = 'title'; let has = false; try { has = !!localStorage.getItem(SAVE_KEY); } catch (e) { }
   showOv('<h1>ScrubPaws 농장</h1><p class="sub">꼬질꼬질 목장 키우기</p>' +
-    '<div class="note"><b>할아버지의 편지</b>이 들판과 울타리 하나를 너에게 맡긴다. 양 두 마리와 닭 두 마리로 시작하거라. 잘 먹이고 깨끗이 씻겨 주면 새끼를 낳을 게다. 밤에는 늑대를 조심하고!</div>' +
+    '<div class="note"><b>할아버지의 편지</b>나는 이제 바닷가로 내려가 쉬려 한다. 이 들판과 울타리 하나를 너에게 맡긴다. 양 두 마리와 닭 두 마리로 시작하거라. 잘 먹이고 깨끗이 씻겨 주면 새끼를 낳을 게다. 밤에는 늑대를 조심하고!</div>' +
     '<div class="signs"><span>🌾 <b>먹이</b> 건초 더미에서 건초를 들어 여물통에 놓으면 가축이 와서 먹어요</span><span>🚿 <b>목욕</b> 호스를 누른 채 가축 쪽으로 물을 뿌려요</span>' +
     '<span>💗 <b>새끼</b> 잘 돌본 가축은 같은 종류의 짝이 있으면 새끼를 낳아요</span><span>✨ <b>희귀</b> 만족도가 높을수록 황금빛 희귀 새끼가 태어나요. ' + RARE_MULT + '배 값!</span><span>💰 <b>상점</b> 다 큰 가축을 팔아 새 가축·울타리·장비를 사요</span>' +
     '<span>⛅ <b>날씨</b> 아침마다 바뀌어요. 창고(헛간) 앞에서 그날의 장비를 꺼내 울타리에 설치하세요</span><span>🌱 <b>농사</b> 씨앗을 사서 들판에 뿌리고 물을 주면 자라요. 거둔 작물은 가축을 더 빨리 키우는 좋은 먹이예요</span><span>🥛 <b>얻는 것</b> 가축 옆에 가면 버튼이 달걀 줍기·털 깎기·젖 짜기 등으로 바뀌어요. 오래 둘수록 많이 쌓여요</span><span>📜 <b>자격증</b> 상점에서 응시료를 내고 시험을 통과하면 목공·양털깎기·젖짜기를 할 수 있어요</span><span>🧰 <b>도구</b> 횃불·물호스·쇠스랑은 창고(헛간)에서 바꿔 들어요. 든 도구에 따라 버튼이 바뀌어요</span><span>🌙 <b>밤</b> 늑대와 곰이 울타리를 뚫고 가축을 물어 가요. 횃불을 들고 다가가 휘젓거나 총·전기 울타리로 지켜요</span></div>' +
     '<p class="sub">이동: 화면 드래그 / 방향키·WASD · 행동: 스페이스 · 도구: X · 상점: B · 일시정지: P</p>' +
     (has ? '<button class="btn" id="go">이어하기</button> <button class="btn alt" id="fresh">새로 시작</button>' : '<button class="btn" id="go">농장 시작하기</button>'));
-  $('go').onclick = () => { initAudio(); if (!has || !loadGame()) newGame(); buildFences(); PENS.forEach(buildGear); state = 'play'; hideOv(); };
+  $('go').onclick = () => { initAudio(); if (!has || !loadGame()) newGame(); buildFences(); PENS.forEach(buildGear); state = 'play'; hideOv(); if (awayNote) { showToast(awayNote, 7); awayNote = ''; } };
   if ($('fresh')) $('fresh').onclick = () => { showOv('<h2>새로 시작할까요?</h2><p>지금 농장의 가축과 돈, 울타리, 장비가 모두 사라져요.</p><button class="btn" id="go">아니요</button> <button class="btn alt" id="yes">네, 처음부터</button>'); $('go').onclick = () => showTitle(); $('yes').onclick = () => { initAudio(); newGame(); buildFences(); PENS.forEach(buildGear); state = 'play'; hideOv(); }; };
 }
 
@@ -1377,10 +1471,15 @@ function drawHUD() {
   if (state === 'play' && world3.aimHit) { const q = world3.aimHit, [x, y, z] = proj(q.x, q.sp.r, q.y); if (z < 1) { c.strokeStyle = '#ff4a3a'; c.lineWidth = 3; c.beginPath(); c.arc(x, y, 22 + Math.sin(gt * 10) * 2, 0, TAU); c.moveTo(x - 30, y); c.lineTo(x + 30, y); c.moveTo(x, y - 30); c.lineTo(x, y + 30); c.stroke(); } }
   if (state === 'play' && work) { const a = work.a, [x, y, z] = proj(a.x, (a.md ? a.md.top : 60) + 34, a.y); if (z < 1) { rr(c, x - 50, y - 9, 100, 18, 9, 'rgba(74,50,38,.9)'); rr(c, x - 47, y - 6, 94 * clamp(work.t / work.dur, 0, 1), 12, 6, '#3fae6a'); txt(c, work.w.label, x, y - 22, 15, '#fff', 'center', '#4a3226'); } }
   if (flashT > 0) { c.globalAlpha = clamp(flashT * 4, 0, 1) * .85; c.fillStyle = '#fff'; c.fillRect(0, HUDH, VW, VH - HUDH); c.globalAlpha = 1; }
+  if (state === 'play') { const q = QUESTS[questI], lines = [];   // 지금의 목표와 오늘의 주문
+    if (q) lines.push(['📋 목표 ' + (questI + 1) + '/' + QUESTS.length + ' · ' + q.t + '  (+' + q.pay.toLocaleString() + '원)', 16, '#fff'], [q.hint, 13, '#ffe9b8']); else lines.push(['🏆 모든 목표를 이뤘어요!', 16, '#ffd27a']);
+    if (order) lines.push(['🧺 주문 · ' + order.text + '  ' + (order.done ? '✅ 완료' : Math.min(order.n, stats[order.k] - order.base) + '/' + order.n + '  (+' + order.pay.toLocaleString() + '원)'), 14, order.done ? '#b8f0c8' : '#fff']);
+    let w = 0; for (const l of lines) { c.font = l[1] + 'px Jua,sans-serif'; w = Math.max(w, c.measureText(l[0]).width); } w = Math.min(w + 24, VW - 190); const hgt = lines.reduce((t, l) => t + l[1] + 7, 8);
+    rr(c, 10, HUDH + 8, w, hgt, 12, 'rgba(59,42,34,.82)'); let y = HUDH + 8 + 6; for (const l of lines) { c.save(); c.beginPath(); c.rect(10, HUDH + 8, w, hgt); c.clip(); txt(c, l[0], 22, y + l[1] / 2 + 1, l[1], l[2], 'left'); c.restore(); y += l[1] + 7; } }
   if (state === 'play' && build) { const r = build.a ? buildRect() : null, t = r ? r.w + '×' + r.h + ' · 🪵 ' + r.need + '개 (보유 ' + wood + ') · 가축 ' + r.cap + '마리' + (r.why ? ' · ' + r.why : ' · 지을 수 있어요') : '첫 모서리로 가서 [모서리 찍기]를 누르세요';
     c.font = '17px Jua,sans-serif'; const w = c.measureText(t).width + 36; rr(c, VW / 2 - w / 2, VH - 100, w, 36, 14, r && r.why ? 'rgba(226,73,63,.93)' : 'rgba(63,174,106,.95)'); txt(c, t, VW / 2, VH - 81, 17, '#fff'); }
   if (state === 'play' && tr.riding) { rr(c, VW / 2 - 90, VH - 52, 180, 36, 14, 'rgba(74,50,38,.88)'); txt(c, '🚜 건초 ' + tr.stock + ' / ' + TR_CAP, VW / 2, VH - 33, 17, '#ffd27a'); }
-  if (state === 'play') { if (tipStep < 3 && day === 1 && !tr.riding && !build) { c.font = '18px Jua,sans-serif'; const t = TIPS[tipStep], tw = Math.min(VW - 40, c.measureText(t).width + 40); rr(c, VW / 2 - tw / 2, VH - 150, tw, 44, 16, 'rgba(63,174,106,.95)'); txt(c, t, VW / 2, VH - 127, tw < c.measureText(t).width + 36 ? 13 : 18, '#fff'); }
+  if (state === 'play') { if (false && tipStep < 3) { c.font = '18px Jua,sans-serif'; const t = TIPS[tipStep], tw = Math.min(VW - 40, c.measureText(t).width + 40); rr(c, VW / 2 - tw / 2, VH - 150, tw, 44, 16, 'rgba(63,174,106,.95)'); txt(c, t, VW / 2, VH - 127, tw < c.measureText(t).width + 36 ? 13 : 18, '#fff'); }
     if (toast.t > 0) { c.globalAlpha = clamp(toast.t, 0, 1); c.font = '18px Jua,sans-serif'; const tw = c.measureText(toast.text).width, w = Math.min(VW - 60, tw + 40); rr(c, VW / 2 - w / 2, HUDH + 12, w, 40, 14, 'rgba(74,50,38,.92)'); txt(c, toast.text, VW / 2, HUDH + 33, tw + 34 > w ? 13 : 18, '#fff'); c.globalAlpha = 1; } }
   if (joy.id !== null) { const jx = joy.ox / SC, jy = joy.oy / SC; c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 3; c.beginPath(); c.arc(jx, jy, 46, 0, TAU); c.stroke(); const dx = (joy.x - joy.ox) / SC, dy = (joy.y - joy.oy) / SC, l = Math.hypot(dx, dy), k = l > 46 ? 46 / l : 1; ell(c, jx + dx * k, jy + dy * k, 20, 20, 'rgba(255,255,255,.55)'); }
 }
@@ -1408,7 +1507,7 @@ function frame(now) {
 }
 window.addEventListener('resize', fit3D);
 window.__game = { get state() { return state; }, get animals() { return animals; }, get preds() { return preds; }, pl, PENS, KINDS, get money() { return money; }, set money(v) { money = v; }, get day() { return day; }, get clock() { return clock; }, set clock(v) { clock = v; }, get pensOwned() { return pensOwned; }, get gun() { return gun; },
-  lic, get licv() { return lic; }, get wood() { return wood; }, set wood(v) { wood = v; }, get exam() { return exam; }, get build() { return build; }, gunOn(v) { gun = true; gunLv = v || 1; }, gunRay, get gunLv() { return gunLv; }, seeds, get fert() { return fert; }, set fert(v) { fert = v; }, get plots() { return plots; }, CROPS, get hayQ() { return hayQ; }, get work() { return work; }, WORK, get hayStock() { return hayStock; }, set hayStock(v) { hayStock = v; }, get water() { return water; }, set water(v) { water = v; }, grass, TANK, HAY, hitPred, prodValue, grow, startDay, pressTool, openBarn, nightLevel, updatePred, startExam, exDown, exUp, exMove, pressWood, pressWork, findWork, buildRect, penSafe, get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, get dayv() { return day; }, set dayv(v) { day = v; }, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
+  lic, get licv() { return lic; }, get wood() { return wood; }, set wood(v) { wood = v; }, get exam() { return exam; }, get build() { return build; }, gunOn(v) { gun = true; gunLv = v || 1; }, gunRay, get gunLv() { return gunLv; }, seeds, get fert() { return fert; }, set fert(v) { fert = v; }, get plots() { return plots; }, CROPS, get hayQ() { return hayQ; }, get work() { return work; }, WORK, stats, QUESTS, get questI() { return questI; }, set questI(v) { questI = v; }, get order() { return order; }, get dex() { return dex; }, isOpen, swapTool, openDex, applyAway, newOrder, checkQuest, get hayStock() { return hayStock; }, set hayStock(v) { hayStock = v; }, get water() { return water; }, set water(v) { water = v; }, grass, TANK, HAY, hitPred, prodValue, grow, startDay, pressTool, openBarn, nightLevel, updatePred, startExam, exDown, exUp, exMove, pressWood, pressWork, findWork, buildRect, penSafe, get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, get dayv() { return day; }, set dayv(v) { day = v; }, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
 (function boot() { const ok = typeof THREE !== 'undefined' && init3D(); if (ok) showTitle(); else showOv('<h2>3D를 시작할 수 없어요</h2><p>이 기기나 브라우저에서 WebGL을 사용할 수 없습니다.</p>'); requestAnimationFrame(frame); })();
 </script>
 </body>
