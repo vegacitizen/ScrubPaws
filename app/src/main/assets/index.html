@@ -555,7 +555,7 @@ function updateAnimal(a, dt) {
   a.hunger = Math.min(100, a.hunger + .8 * slow * dt); a.thirst = Math.min(100, a.thirst + .7 * slow * dt); if (a.cleanT <= 0) a.dirt = Math.min(100, a.dirt + .5 * slow * dt);
   if (a.cleanT > 0) a.cleanT -= dt; if (a.attackedT > 0) a.attackedT -= dt; if (a.cool > 0) a.cool -= dt;
   const cared = a.hunger < 55 && a.dirt < 55 && a.thirst < 55;   // 먹이 · 물 · 깨끗함이 모두 갖춰졌는가
-  if (cared && a.adult && WORK[a.kind]) { const w = WORK[a.kind]; a.prod = Math.min(2, a.prod + dt * a.boost / w.cd[lic[w.lic]]); }   // 털이 자라고 젖이 찬다
+  if (cared && a.adult && WORK[a.kind]) { const w = WORK[a.kind]; a.prod = Math.min(2, a.prod + dt * a.boost / w.cd[wLv(w)]); }   // 털이 자라고 젖이 찬다
   a.happy = clamp(a.happy + (cared ? 2.4 : -3) * dt, 0, 100);
   const ex = wxExposure(P); if (ex > 0) { const W = WX[wx];
     if (W.happy) a.happy = Math.max(0, a.happy - W.happy * ex * dt); if (W.dirt && a.cleanT <= 0) a.dirt = Math.min(100, a.dirt + W.dirt * ex * dt); if (W.hunger) a.thirst = Math.min(100, a.thirst + W.hunger * 3 * ex * dt);
@@ -577,6 +577,7 @@ function updateAnimal(a, dt) {
   if (a.health <= 0) { showToast(K.n + '이(가) 병들어 떠났어요… 먹이와 물, 목욕을 챙겨 주세요', 4); removeAnimal(a); return; }
   if (a.state === 'carried') { a.x = pl.x; a.y = pl.y; a.moving = false; return; }
   if (a.state === 'taken') { a.moving = true; a.attackedT = 2; return; }
+  if (a.state === 'work') { a.moving = false; return; }
   // 울음
   a.voiceT -= dt;
   if (a.voiceT <= 0) { a.voiceT = R(5, 11); if (!night || a.attackedT > 0) { if (a.attackedT > 0) emote(a, 'scared'); else if (a.hunger >= 60) { emote(a, 'hungry'); say(a, a.sp.cry + '… 배고파', '#a0522d'); } else if (a.thirst >= 60) { emote(a, 'thirsty'); say(a, '목말라…', '#2a7fb8'); } else if (a.dirt >= 65) { emote(a, 'dirty'); say(a, '근질근질', '#7a6a4f'); } else if (Math.random() < .4) emote(a, 'idle'); } }
@@ -724,8 +725,6 @@ function openBarn() {
   if (fert > 0) h += row('💩', '비료 ' + fert + '개', '심은 작물 옆에서 뿌리면 ' + FERT_SPEED + '배 빨리, ' + FERT_YIELD + '배 많이 자라요', pl.tool === 'fert' ? '들고 있음' : '들기', 'fert:x', pl.tool !== 'fert');
   if (!Object.keys(CROPS).some(k => seeds[k] > 0)) h += '<p class="sub">🌱 씨앗과 비료는 상점에서 사면 여기에서 들 수 있어요.</p>';
   if (it) h += row(ITEMS[it].e, TIER[wxGear[it]].n + ' ' + ITEMS[it].n, '오늘 날씨(' + WX[wx].n + ')에 필요해요. 꺼내서 울타리 안에서 설치하세요', '꺼내기', 'gear:' + it, !pl.carry);
-  for (const k in WORK) { const w = WORK[k], lv = lic[w.lic], list = animals.filter(a => a.kind === k && a.adult && a.state !== 'taken'), sum = list.reduce((t, a) => t + prodValue(a), 0), avg = list.length ? list.reduce((t, a) => t + a.prod, 0) / list.length : 0;
-    h += row(w.e, KINDS[k].n + ' ' + w.label, list.length ? '다 큰 ' + KINDS[k].n + ' ' + list.length + '마리 · ' + w.done + ' ' + Math.round(avg * 100) + '% 모임 (최대 200%) · ' + (lv ? LIC[w.lic].n + ' ' + lv + '급' : '자격증 없음: 반값') : '다 큰 ' + KINDS[k].n + '이(가) 없어요', sum > 0 ? '수확 +' + sum.toLocaleString() + '원' : '아직', 'harv:' + k, sum > 0); }
   h += row('💰', '가축 팔기', '가축마다 값을 보고 골라 팔아요', '열기', 'sell:x', animals.length > 0);
   showOv(h + '<button class="btn" id="go">닫기</button>'); const close = () => { state = 'play'; hideOv(); }; $('go').onclick = close;
   document.querySelectorAll('#card .buy').forEach(b => { b.onclick = () => { const [op, arg] = b.dataset.id.split(':'); initAudio(); SFX.take();
@@ -854,25 +853,54 @@ const LIC = {
   carp: { n: '목공', e: '🔨', fee: [2000, 6000, 15000], games: ['hammer', 'saw'],
     perk: ['목재로 빈터에 원하는 크기의 울타리를 직접 지어요 (2곳, 최대 600×400)', '울타리 보강: 늑대가 들어오지 못해요 · 직접 짓는 울타리 4곳, 최대 900×500', '철심 보강: 곰도 들어오지 못해요 · 직접 짓는 울타리 6곳, 최대 1200×600 · 목재 30% 할인'] },
   shear: { n: '양털깎기', e: '✂️', fee: [1500, 5000, 12000], games: ['shear'],
-    perk: ['양털 값이 한 마리 300원으로 올라요(자격증이 없으면 150원). 들판에서도 바로 깎아요', '양털 500원 · 털이 더 빨리 자라요', '양털 800원 · 털이 가장 빨리 자라요'] },
+    perk: ['양털 값이 한 마리 300원으로 올라요(자격증이 없으면 150원)', '양털 500원 · 털이 더 빨리 자라요', '양털 800원 · 털이 가장 빨리 자라요'] },
   milk: { n: '소 젖짜기', e: '🥛', fee: [2000, 6000, 14000], games: ['milk'],
-    perk: ['우유 값이 한 마리 400원으로 올라요(자격증이 없으면 200원). 들판에서도 바로 짜요', '우유 700원 · 젖이 더 빨리 차요', '우유 1,100원 · 젖이 가장 빨리 차요'] }
+    perk: ['우유 값이 400원, 염소젖이 250원으로 올라요(자격증이 없으면 200원·120원)', '우유 700원 · 젖이 더 빨리 차요', '우유 1,100원 · 젖이 가장 빨리 차요'] }
 };
 const CARP = { max: [0, 2, 4, 6], w: [0, 600, 900, 1200], h: [0, 400, 500, 600] }, WOOD_PACK = 10;
-const WORK = { goat: { lic: 'milk', pay: [120, 250, 420, 650], cd: [80, 60, 48, 36], label: '젖 짜기', e: '🥛', done: '염소젖' }, sheep: { lic: 'shear', pay: [150, 300, 500, 800], cd: [90, 70, 55, 40], label: '털 깎기', e: '✂️', done: '양털' }, cow: { lic: 'milk', pay: [200, 400, 700, 1100], cd: [80, 60, 48, 36], label: '젖 짜기', e: '🥛', done: '우유' } };
-const prodValue = a => { const w = WORK[a.kind]; return w && a.adult && a.prod >= .1 ? Math.round(w.pay[lic[w.lic]] * a.prod * (a.rare ? RARE_MULT : 1) / 10) * 10 : 0; };   // 지금 수확하면 받는 돈
+/* 가축에게서 얻는 것: 가까이 가면 '일' 버튼이 그 가축에 맞는 일로 바뀐다. 시간이 지나며 쌓이고(최대 200%), 쌓인 만큼 받는다.
+   lic: 값을 올려 주는 자격증(없어도 할 수 있다) · anim: 일하는 동안의 연출 · tool: 연출에 쓰는 그림 */
+const WORK = {
+  chicken: { lic: null, pay: [60], cd: [50], label: '달걀 줍기', e: '🥚', done: '달걀', anim: 'rise', tool: '🥚', dur: 1.2 },
+  sheep: { lic: 'shear', pay: [150, 300, 500, 800], cd: [90, 70, 55, 40], label: '털 깎기', e: '✂️', done: '양털', anim: 'orbit', tool: '✂️', dur: 2.2 },
+  goat: { lic: 'milk', pay: [120, 250, 420, 650], cd: [80, 60, 48, 36], label: '염소 젖 짜기', e: '🥛', done: '염소젖', anim: 'milk', tool: '🪣', dur: 2 },
+  cow: { lic: 'milk', pay: [200, 400, 700, 1100], cd: [80, 60, 48, 36], label: '소 젖 짜기', e: '🥛', done: '우유', anim: 'milk', tool: '🪣', dur: 2.2 },
+  pig: { lic: null, pay: [350], cd: [100], label: '트러플 캐기', e: '🍄', done: '트러플', anim: 'dig', tool: '🍄', dur: 2 },
+  horse: { lic: null, pay: [0], cd: [90], item: 'fert', label: '거름 치우기', e: '💩', done: '거름', anim: 'dig', tool: '💩', dur: 1.8 },
+  panda: { lic: null, pay: [900], cd: [110], label: '사진 찍기', e: '📸', done: '관람료', anim: 'photo', tool: '📸', dur: 1.5 }
+};
+const wLv = w => w.lic ? lic[w.lic] : 0;
+const prodValue = a => { const w = WORK[a.kind]; return w && a.adult && a.prod >= .1 ? Math.round(w.pay[wLv(w)] * a.prod * (a.rare ? RARE_MULT : 1) / 10) * 10 : 0; };   // 지금 수확하면 받는 돈
 let lic = { carp: 0, shear: 0, milk: 0 }, wood = 0, exam = null, build = null, curWork = null;
 const woodPrice = () => lic.carp >= 3 ? 1050 : 1500;
-const workReady = a => { const w = WORK[a.kind]; return !!w && a.adult && lic[w.lic] > 0 && a.prod >= 1; };
+const workReady = a => { const w = WORK[a.kind]; return !!w && a.adult && a.prod >= 1; };
+const workable = a => !!WORK[a.kind] && a.adult && a.prod >= .5;
 function findWork() {
-  if (pl.carry || tr.riding || build) return null; let b = null, bd = 60;
-  for (const a of animals) { if (a.state !== 'free' || !workReady(a)) continue; const d = Math.hypot(a.x - pl.x, a.y - pl.y) - a.sp.r * .5; if (d < bd) { bd = d; b = a; } }
+  if (pl.carry || tr.riding || build || work) return null; let b = null, bd = 60;
+  for (const a of animals) { if (a.state !== 'free' || !workable(a)) continue; const d = Math.hypot(a.x - pl.x, a.y - pl.y) - a.sp.r * .5; if (d < bd) { bd = d; b = a; } }
   return b;
 }
-function pressWork() {
-  if (state !== 'play') return; initAudio(); const a = findWork(); if (!a) return; const w = WORK[a.kind], pay = prodValue(a);
-  money += pay; a.prod = 0; a.pause = Math.max(a.pause, 1.2); say(a, w.e + ' ' + w.done + ' +' + pay.toLocaleString() + '원', '#3fae6a', 1); burst(a.x, a.y, a.kind === 'sheep' ? 'bubble' : 'spark', 8);
-  if (a.kind === 'sheep') for (let i = 0; i < 4; i++) noise(.06, 3000, 3, .25, i * .09); else for (let i = 0; i < 3; i++) tone(700 - i * 60, 300, .09, 'sine', .25, i * .14); tone(880, 1320, .12, 'triangle', .2, .4);
+let work = null, flashT = 0;
+function pressWork() {   // 가축 옆에서 일을 시작한다. 끝날 때까지 주인공과 가축이 그 자리에 머문다
+  if (state !== 'play' || work) return; initAudio(); const a = findWork(); if (!a) return; const w = WORK[a.kind];
+  const dx = a.x - pl.x, dy = a.y - pl.y, d = Math.hypot(dx, dy) || 1; pl.ax = dx / d; pl.ay = dy / d;
+  work = { a, w, t: 0, dur: w.dur, tick: 0 }; a.state = 'work'; a.moving = false; SFX.take();
+}
+function updateWork(dt) {
+  if (!work) return; const a = work.a, w = work.w; if (animals.indexOf(a) < 0 || a.state !== 'work') { work = null; return; }
+  work.t += dt; work.tick -= dt;
+  if (work.tick <= 0) { work.tick = .24;
+    if (w.anim === 'orbit') { noise(.05, 3200, 3, .3); noise(.05, 2600, 3, .25, .09); burst(a.x, a.y, 'bubble', 2); }             // 싹둑싹둑, 털이 날린다
+    else if (w.anim === 'milk') { tone(760, 320, .1, 'sine', .28); noise(.08, 1500, 1, .15, .04); parts.push({ x: a.x + R(-4, 4), y: a.y + 10, h: a.sp.r * .7, vx: R(-8, 8), vy: 60, life: .35, kind: 'bubble', s: .6 }); }   // 쭉쭉
+    else if (w.anim === 'dig') { noise(.1, 420, 1, .4, 0, 'lowpass'); burst(a.x + R(-10, 10), a.y + 14, 'dust', 3); }               // 땅을 판다
+    else if (w.anim === 'rise') tone(520 + work.t * 300, 700 + work.t * 300, .07, 'triangle', .2);
+    else if (w.anim === 'photo' && work.t > work.dur - .5 && !work.shot) { work.shot = true; flashT = .25; tone(1800, 1200, .05, 'square', .2); noise(.06, 3000, 2, .3, .05); } }
+  if (work.t >= work.dur) {
+    const k = a.rare ? RARE_MULT : 1; work = null; a.state = 'free'; a.pause = 1.2;
+    if (w.item === 'fert') { const n = Math.max(1, Math.round(a.prod * k)); fert += n; say(a, '💩 거름으로 비료 +' + n, '#8a5a3a', 1); }
+    else { const pay = prodValue(a); money += pay; say(a, w.e + ' ' + w.done + ' +' + pay.toLocaleString() + '원', '#3fae6a', 1); }
+    a.prod = 0; a.happy = Math.min(100, a.happy + 5); tone(660, 660, .1, 'triangle', .25); tone(990, 990, .16, 'triangle', .25, .1); burst(a.x, a.y, 'spark', 6); saveGame();
+  }
 }
 
 /* 목공: 직접 짓기와 보강 */
@@ -1045,7 +1073,7 @@ document.addEventListener('visibilitychange', () => { last = performance.now(); 
 /* ---------- 업데이트 ---------- */
 const TIPS = ['① 건초 더미에서 건초를 들거나 들판의 풀을 베어(행동 버튼) 울타리 안 여물통에 놓으세요', '② 여물통 옆에서 [먹이 놓기]! 배고픈 가축이 와서 먹어요', '③ 창고에서 물호스를 들고 [물뿌리기]를 누른 채 더러운 가축을 씻기고, 여물통 옆 물통도 채우세요', ''];
 function update(dt) {
-  gt += dt; if (toast.t > 0) toast.t -= dt; if (shake > 0) shake -= dt; if (shotFx) { shotFx.t -= dt; if (shotFx.t <= 0) shotFx = null; }
+  gt += dt; if (flashT > 0) flashT -= dt; if (toast.t > 0) toast.t -= dt; if (shake > 0) shake -= dt; if (shotFx) { shotFx.t -= dt; if (shotFx.t <= 0) shotFx = null; }
   for (const s of says) { s.life -= dt; s.h += 16 * dt; } says = says.filter(s => s.life > 0);
   for (const q of parts) { q.life -= dt; q.x += q.vx * dt; q.h = Math.max(0, q.h - q.vy * dt); if (q.kind === 'dust') q.vy += 160 * dt; } parts = parts.filter(q => q.life > 0);
   for (const d of drops) { d.life -= dt; d.x += d.vx * dt; d.y += d.vy * dt; d.vh -= 420 * dt; d.h = Math.max(2, d.h + d.vh * dt); } drops = drops.filter(d => d.life > 0);
@@ -1054,11 +1082,12 @@ function update(dt) {
     // 주인공
     let mx = 0, my = 0; if (keys.ArrowLeft || keys.KeyA) mx -= 1; if (keys.ArrowRight || keys.KeyD) mx += 1; if (keys.ArrowUp || keys.KeyW) my -= 1; if (keys.ArrowDown || keys.KeyS) my += 1;
     if (joy.id !== null) { const dx = joy.x - joy.ox, dy = joy.y - joy.oy, l = Math.hypot(dx, dy); if (l > 10) { const k = Math.min(1, l / 50); mx = dx / l * k; my = dy / l * k; } }
+    if (work) { mx = 0; my = 0; }   // 일하는 동안은 움직이지 않는다
     const l = Math.hypot(mx, my); if (l > 1) { mx /= l; my /= l; } if (l > .25) { pl.ax = mx / l; pl.ay = my / l; }
     pl.moving = l > .1; if (pl.moving) { const heavy = tr.riding ? 1.7 : pl.carry && typeof pl.carry === 'object' ? 1 - Math.min(.45, pl.carry.sp.r / 110) : pl.hose ? .6 : 1; pl.x = clamp(pl.x + mx * 250 * heavy * dt, 20, WORLD.w - 20); pl.y = clamp(pl.y + my * 250 * heavy * dt, 20, WORLD.h - 20); pl.phase += dt * 13; }
     if (pl.shootCd > 0) pl.shootCd -= dt; if (pl.swingT > 0) pl.swingT -= dt; if (pl.swingCd > 0) pl.swingCd -= dt;
     updateHose(dt); updateWeather(dt); updateTractor(); if (pl.pumpT > 0) pl.pumpT -= dt;
-    updatePlots(dt);
+    updatePlots(dt); updateWork(dt);
     for (const g of grass) if (g.t > 0) { g.t -= dt; if (g.t <= 0) placeGrass(g); }
     for (const a of animals.slice()) updateAnimal(a, dt);
     if (isNight()) { if (toSpawn > 0) { spawnT -= dt; if (spawnT <= 0) { spawnT = R(5, 9) * nightLevel().gap; toSpawn--; if (animals.length) spawnPred(); } } }
@@ -1083,7 +1112,7 @@ function showTitle() {
     '<div class="note"><b>할아버지의 편지</b>이 들판과 울타리 하나를 너에게 맡긴다. 양 두 마리와 닭 두 마리로 시작하거라. 잘 먹이고 깨끗이 씻겨 주면 새끼를 낳을 게다. 밤에는 늑대를 조심하고!</div>' +
     '<div class="signs"><span>🌾 <b>먹이</b> 건초 더미에서 건초를 들어 여물통에 놓으면 가축이 와서 먹어요</span><span>🚿 <b>목욕</b> 호스를 누른 채 가축 쪽으로 물을 뿌려요</span>' +
     '<span>💗 <b>새끼</b> 잘 돌본 가축은 같은 종류의 짝이 있으면 새끼를 낳아요</span><span>✨ <b>희귀</b> 만족도가 높을수록 황금빛 희귀 새끼가 태어나요. ' + RARE_MULT + '배 값!</span><span>💰 <b>상점</b> 다 큰 가축을 팔아 새 가축·울타리·장비를 사요</span>' +
-    '<span>⛅ <b>날씨</b> 아침마다 바뀌어요. 창고(헛간) 앞에서 그날의 장비를 꺼내 울타리에 설치하세요</span><span>🌱 <b>농사</b> 씨앗을 사서 들판에 뿌리고 물을 주면 자라요. 거둔 작물은 가축을 더 빨리 키우는 좋은 먹이예요</span><span>📜 <b>자격증</b> 상점에서 응시료를 내고 시험을 통과하면 목공·양털깎기·젖짜기를 할 수 있어요</span><span>🧰 <b>도구</b> 횃불·물호스·쇠스랑은 창고(헛간)에서 바꿔 들어요. 든 도구에 따라 버튼이 바뀌어요</span><span>🌙 <b>밤</b> 늑대와 곰이 울타리를 뚫고 가축을 물어 가요. 횃불을 들고 다가가 휘젓거나 총·전기 울타리로 지켜요</span></div>' +
+    '<span>⛅ <b>날씨</b> 아침마다 바뀌어요. 창고(헛간) 앞에서 그날의 장비를 꺼내 울타리에 설치하세요</span><span>🌱 <b>농사</b> 씨앗을 사서 들판에 뿌리고 물을 주면 자라요. 거둔 작물은 가축을 더 빨리 키우는 좋은 먹이예요</span><span>🥛 <b>얻는 것</b> 가축 옆에 가면 버튼이 달걀 줍기·털 깎기·젖 짜기 등으로 바뀌어요. 오래 둘수록 많이 쌓여요</span><span>📜 <b>자격증</b> 상점에서 응시료를 내고 시험을 통과하면 목공·양털깎기·젖짜기를 할 수 있어요</span><span>🧰 <b>도구</b> 횃불·물호스·쇠스랑은 창고(헛간)에서 바꿔 들어요. 든 도구에 따라 버튼이 바뀌어요</span><span>🌙 <b>밤</b> 늑대와 곰이 울타리를 뚫고 가축을 물어 가요. 횃불을 들고 다가가 휘젓거나 총·전기 울타리로 지켜요</span></div>' +
     '<p class="sub">이동: 화면 드래그 / 방향키·WASD · 행동: 스페이스 · 도구: X · 상점: B · 일시정지: P</p>' +
     (has ? '<button class="btn" id="go">이어하기</button> <button class="btn alt" id="fresh">새로 시작</button>' : '<button class="btn" id="go">농장 시작하기</button>'));
   $('go').onclick = () => { initAudio(); if (!has || !loadGame()) newGame(); buildFences(); PENS.forEach(buildGear); state = 'play'; hideOv(); };
@@ -1113,6 +1142,7 @@ function init3D() {
   B('#8a5a3a', 70, 12, 48, -104, 24, 0, trM, 3); B('#5a3a24', 22, 4, 4, -58, 24, 0, trM, 1); trHay = B('#e9cf8c', 62, 30, 42, -104, 45, 0, trM, 6); scene.add(trM); sh(trM); trM.visible = false;
   wxMat = new THREE.MeshBasicMaterial({ color: '#cfe6ff', transparent: true, opacity: .75, depthWrite: false }); for (let i = 0; i < 140; i++) { const m = M(G.box, wxMat, 1, 1, 1, 0, -50, 0, scene); m.userData = { x: 0, z: 0, h: -1, k: '' }; m.visible = false; wxPool.push(m); }
   world3.gearG = new THREE.Group(); scene.add(world3.gearG);
+  world3.workSpr = sprite('✂️', scene, 34); world3.workSpr.visible = false; world3.workCh = '✂️';
   world3.aim = M(G.box, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .5, depthWrite: false }), 1, 1.5, 3, 0, 36, 0, scene); world3.aim.visible = false;
   world3.plotM = []; for (let i = 0; i < MAX_PLOTS; i++) { const g = new THREE.Group(), soil = M(G.cyl, new THREE.MeshLambertMaterial({ color: '#9c7a52' }), 26, 3, 26, 0, 1.5, 0, g), fm = M(G.cyl, '#3a2a1c', 30, 2, 30, 0, 1, 0, g), sp = sprite('🌱', g, 30); soil.receiveShadow = true; g.visible = false; scene.add(g); world3.plotM.push({ g, soil, fm, sp, ch: '🌱' }); }
   world3.grassM = grass.map(() => { const g = new THREE.Group(); for (const q of [[0, 0, 1], [-9, 4, .8], [8, -5, .9], [3, 9, .7], [-6, -8, .75]]) M(G.cone, q[2] > .85 ? '#3f9a3a' : '#57b84a', 6, 30 * q[2], 6, q[0], 15 * q[2], q[1], g); scene.add(g); return g; });
@@ -1262,17 +1292,18 @@ function syncCreature(a, dt, pred) {
     if (n && x.act !== n) { if (x.act) x.act.fadeOut(.25); n.reset().fadeIn(.25).play(); x.act = n; }
     x.mixer.update(sleeping && !x.acts.sleep ? 0 : dt * (want === 'walk' ? 1.3 : 1));
     for (const q of x.mats) q.m.color.copy(q.base).lerp(grime, dg * .6);
-    x.holder.scale.set(1, 1, pg); x.holder.position.x = scared && !carried ? Math.sin(t * 40) : 0; }
+    const shorn = a.kind === 'sheep' ? .8 + .2 * Math.min(1, a.prod) : 1; x.holder.scale.set(1, shorn, pg * shorn); x.holder.position.x = scared && !carried ? Math.sin(t * 40) : 0; }
   if (md.icon) { const ch = pred ? '' : a.attackedT > 0 ? ICONS.attack : sick ? ICONS.sick : hungry ? ICONS.hungry : a.thirst >= 60 ? ICONS.thirsty : a.dirt >= 60 ? ICONS.dirty : workReady(a) ? WORK[a.kind].e : a.preg > 0 ? ICONS.preg : ''; md.icon.visible = !!ch && !sleeping;
     if (ch) { if (md.iconCh !== ch) { md.iconCh = ch; md.icon.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; md.icon.material.needsUpdate = true; } md.icon.position.set(0, md.top / 1 + 26 + Math.sin(t * 4 + a.seed) * 3, 0); md.icon.scale.setScalar(30 / sc); } }
 }
 function syncKid(dt) {
-  const k = plM, sw = pl.moving && !tr.riding ? Math.sin(pl.phase) * .7 : 0, hold = !!pl.carry;
+  const k = plM, sw = pl.moving && !tr.riding ? Math.sin(pl.phase) * .7 : 0, hold = !!pl.carry || !!work;
   turn(k.g, faceTo(pl.ax, pl.ay), Math.min(1, dt * 12)); k.g.position.set(pl.x, tr.riding ? 46 : 0, pl.y); k.legs[0].rotation.z = sw; k.legs[1].rotation.z = -sw;
-  if (hold) k.arms[0].rotation.z = k.arms[1].rotation.z = pl.carry === 'hay' ? 1.5 : 2.9; else if (pl.hose) { k.arms[0].rotation.z = 1.5; k.arms[1].rotation.z = 1.3; } else { k.arms[0].rotation.z = -sw; k.arms[1].rotation.z = sw; }
+  if (hold) k.arms[0].rotation.z = k.arms[1].rotation.z = work ? 1.2 + Math.sin(gt * 18) * .4 : pl.carry === 'hay' ? 1.5 : 2.9; else if (pl.hose) { k.arms[0].rotation.z = 1.5; k.arms[1].rotation.z = 1.3; } else { k.arms[0].rotation.z = -sw; k.arms[1].rotation.z = sw; }
   k.inner.position.y = pl.moving ? Math.abs(Math.sin(pl.phase)) * 2 : 0; k.shadow.visible = false;
   gearM.visible = pl.carry === 'gear'; if (gearM.visible) { gearM.position.set(pl.x + pl.ax * 22, 104, pl.y + pl.ay * 22); gearM.rotation.y = k.g.rotation.y + PI / 2; }
   trM.visible = tractor; if (tractor) { if (tr.riding) { trM.position.set(pl.x, 0, pl.y); trM.rotation.y = k.g.rotation.y; } else trM.position.set(tr.x, 0, tr.y); trHay.visible = tr.stock > 0; trHay.scale.y = .35 + .65 * tr.stock / TR_CAP; trHay.position.y = 30 + 15 * trHay.scale.y; }
+  if (work && (work.w.anim === 'milk' || work.w.anim === 'dig' || work.w.anim === 'rise')) k.inner.position.y = -12 + Math.sin(gt * 12) * 1.5;   // 쪼그려 앉는다
   hayM.visible = pl.carry === 'hay'; hayM.scale.set(1, pl.hayN > 4 ? 2.4 : 1, pl.hayN > 4 ? 1.3 : 1); if (hayM.visible) { hayM.position.set(pl.x + pl.ax * 26, 52, pl.y + pl.ay * 26); hayM.rotation.y = k.g.rotation.y; }
 }
 function render3D(dt) {
@@ -1289,6 +1320,14 @@ function render3D(dt) {
   const sw = pl.swingT > 0, hasT = pl.tool === 'torch'; torch.intensity = hasT ? n * 2.2 * (sw ? 1.7 : 1) * (1 + Math.sin(gt * 17) * .08) : 0; torch.position.set(pl.x + pl.ax * 14, 96, pl.y + pl.ay * 14);
   flame.visible = !!pl.tool && !pl.carry; if (flame.visible) { const ch = TOOLS[pl.tool].e; if (world3.toolCh !== ch) { world3.toolCh = ch; flame.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; flame.material.needsUpdate = true; }
     const an = gt * 16, fr = sw ? 46 : 20, fx0 = sw ? Math.cos(an) : pl.ax, fy0 = sw ? Math.sin(an) : pl.ay; flame.position.set(pl.x + fx0 * fr, (tr.riding ? 150 : 112) + Math.sin(gt * 20) * 2, pl.y + fy0 * fr); flame.scale.setScalar((hasT ? 46 * (1 + Math.sin(gt * 23) * .08) : 38) * (sw ? 1.7 : 1)); }
+  const wsp = world3.workSpr; wsp.visible = !!work; if (work) { const a = work.a, w = work.w, k = work.t / work.dur, r = a.sp.r, top = a.md ? a.md.top : r * 2;   // 일하는 도구 그림
+    if (world3.workCh !== w.tool) { world3.workCh = w.tool; wsp.material.map = sprCache[w.tool] || sprite(w.tool, null, 1).material.map; wsp.material.needsUpdate = true; }
+    let sz = 34;
+    if (w.anim === 'orbit') wsp.position.set(a.x + Math.cos(gt * 9) * r * 1.1, top * .6 + Math.sin(gt * 13) * r * .35, a.y + Math.sin(gt * 9) * r * .8 + 6);          // 가위가 양 둘레를 돈다
+    else if (w.anim === 'milk') { wsp.position.set(a.x + pl.ax * -r * .2, 16 + Math.abs(Math.sin(gt * 12)) * 2, a.y + r * .5 + 12); sz = 30 + 10 * k; }                 // 배 밑의 양동이가 차오른다
+    else if (w.anim === 'photo') { wsp.position.set(pl.x + pl.ax * 26, 96, pl.y + pl.ay * 26); sz = 36; }
+    else { wsp.position.set(a.x + (w.anim === 'dig' ? 0 : -r * .6), 6 + k * (w.anim === 'dig' ? 46 : 60), a.y + 16); sz = 16 + 26 * k; }                                    // 땅에서/몸 밑에서 솟아오른다
+    wsp.scale.set(sz, sz, 1); }
   const aimM = world3.aim; aimM.visible = pl.tool === 'gun' && gun && state === 'play' && !pl.carry; if (aimM.visible) { const L0 = GUNS[gunLv || 1].range, hit = gunRay(), L1 = hit ? Math.hypot(hit.x - pl.x, hit.y - pl.y) : L0;   // 조준선: 맞을 때 빨갛게
     aimM.scale.set(L1, 1.5, hit ? 5 : 3); aimM.position.set(pl.x + pl.ax * L1 / 2, tr.riding ? 80 : 36, pl.y + pl.ay * L1 / 2); aimM.rotation.y = faceTo(pl.ax, pl.ay); aimM.material.color.set(hit ? '#ff4a3a' : '#ffffff'); aimM.material.opacity = hit ? .85 : pl.shootCd > 0 ? .2 : .5; world3.aimHit = hit; }
   else world3.aimHit = null;
@@ -1336,6 +1375,8 @@ function drawHUD() {
     for (const q of preds) { if (q.flee || q.dead) continue; const [x, y, z] = proj(q.x, q.sp.r * 2 + 16, q.y); if (z > 1 || x < 20 || x > VW - 20 || y < HUDH + 10 || y > VH - 20) continue; if (pl.tool === 'gun') txt(c, '🎯' + Math.ceil(q.life / GUNS[gunLv || 1].dmg) + '발 · ' + q.D.reward.toLocaleString() + '원', x, y, 14, '#ffd27a', 'center', '#4a3226'); else txt(c, '♥'.repeat(Math.max(0, q.hp)), x, y, 15, '#ff5a4a', 'center', '#fff'); } }
   if (state === 'play') for (const q of plots) { if (q.g >= 1 || q.wet > 0) continue; const [x, y, z] = proj(q.x, 70, q.y); if (z > 1 || x < 20 || x > VW - 20 || y < HUDH + 10 || y > VH - 20) continue; c.globalAlpha = .6 + Math.sin(gt * 5) * .3; emo(c, '💧', x, y, 18); c.globalAlpha = 1; }   // 물이 필요한 작물
   if (state === 'play' && world3.aimHit) { const q = world3.aimHit, [x, y, z] = proj(q.x, q.sp.r, q.y); if (z < 1) { c.strokeStyle = '#ff4a3a'; c.lineWidth = 3; c.beginPath(); c.arc(x, y, 22 + Math.sin(gt * 10) * 2, 0, TAU); c.moveTo(x - 30, y); c.lineTo(x + 30, y); c.moveTo(x, y - 30); c.lineTo(x, y + 30); c.stroke(); } }
+  if (state === 'play' && work) { const a = work.a, [x, y, z] = proj(a.x, (a.md ? a.md.top : 60) + 34, a.y); if (z < 1) { rr(c, x - 50, y - 9, 100, 18, 9, 'rgba(74,50,38,.9)'); rr(c, x - 47, y - 6, 94 * clamp(work.t / work.dur, 0, 1), 12, 6, '#3fae6a'); txt(c, work.w.label, x, y - 22, 15, '#fff', 'center', '#4a3226'); } }
+  if (flashT > 0) { c.globalAlpha = clamp(flashT * 4, 0, 1) * .85; c.fillStyle = '#fff'; c.fillRect(0, HUDH, VW, VH - HUDH); c.globalAlpha = 1; }
   if (state === 'play' && build) { const r = build.a ? buildRect() : null, t = r ? r.w + '×' + r.h + ' · 🪵 ' + r.need + '개 (보유 ' + wood + ') · 가축 ' + r.cap + '마리' + (r.why ? ' · ' + r.why : ' · 지을 수 있어요') : '첫 모서리로 가서 [모서리 찍기]를 누르세요';
     c.font = '17px Jua,sans-serif'; const w = c.measureText(t).width + 36; rr(c, VW / 2 - w / 2, VH - 100, w, 36, 14, r && r.why ? 'rgba(226,73,63,.93)' : 'rgba(63,174,106,.95)'); txt(c, t, VW / 2, VH - 81, 17, '#fff'); }
   if (state === 'play' && tr.riding) { rr(c, VW / 2 - 90, VH - 52, 180, 36, 14, 'rgba(74,50,38,.88)'); txt(c, '🚜 건초 ' + tr.stock + ' / ' + TR_CAP, VW / 2, VH - 33, 17, '#ffd27a'); }
@@ -1367,7 +1408,7 @@ function frame(now) {
 }
 window.addEventListener('resize', fit3D);
 window.__game = { get state() { return state; }, get animals() { return animals; }, get preds() { return preds; }, pl, PENS, KINDS, get money() { return money; }, set money(v) { money = v; }, get day() { return day; }, get clock() { return clock; }, set clock(v) { clock = v; }, get pensOwned() { return pensOwned; }, get gun() { return gun; },
-  lic, get licv() { return lic; }, get wood() { return wood; }, set wood(v) { wood = v; }, get exam() { return exam; }, get build() { return build; }, gunOn(v) { gun = true; gunLv = v || 1; }, gunRay, get gunLv() { return gunLv; }, seeds, get fert() { return fert; }, set fert(v) { fert = v; }, get plots() { return plots; }, CROPS, get hayQ() { return hayQ; }, get hayStock() { return hayStock; }, set hayStock(v) { hayStock = v; }, get water() { return water; }, set water(v) { water = v; }, grass, TANK, HAY, hitPred, prodValue, grow, startDay, pressTool, openBarn, nightLevel, updatePred, startExam, exDown, exUp, exMove, pressWood, pressWork, findWork, buildRect, penSafe, get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, get dayv() { return day; }, set dayv(v) { day = v; }, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
+  lic, get licv() { return lic; }, get wood() { return wood; }, set wood(v) { wood = v; }, get exam() { return exam; }, get build() { return build; }, gunOn(v) { gun = true; gunLv = v || 1; }, gunRay, get gunLv() { return gunLv; }, seeds, get fert() { return fert; }, set fert(v) { fert = v; }, get plots() { return plots; }, CROPS, get hayQ() { return hayQ; }, get work() { return work; }, WORK, get hayStock() { return hayStock; }, set hayStock(v) { hayStock = v; }, get water() { return water; }, set water(v) { water = v; }, grass, TANK, HAY, hitPred, prodValue, grow, startDay, pressTool, openBarn, nightLevel, updatePred, startExam, exDown, exUp, exMove, pressWood, pressWork, findWork, buildRect, penSafe, get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, get dayv() { return day; }, set dayv(v) { day = v; }, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
 (function boot() { const ok = typeof THREE !== 'undefined' && init3D(); if (ok) showTitle(); else showOv('<h2>3D를 시작할 수 없어요</h2><p>이 기기나 브라우저에서 WebGL을 사용할 수 없습니다.</p>'); requestAnimationFrame(frame); })();
 </script>
 </body>
