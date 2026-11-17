@@ -442,8 +442,9 @@ function rareChance(m) {   // 어미 m이 낳는 새끼가 희귀할 확률
   return .02 + .16 * h;                                    // 보통 가축: 2~18%
 }
 const PRED = {
-  wolf: { n: '늑대', hp: 3, breakT: 5, bite: 22, speed: 125, scare: 150, sp: { r: 26, v: 'howl', col: '#7d8590', col2: '#c9ced6', dark: '#4a5058', ear: 'pointy', tail: 'dog', muzzle: 1, leg: .5, cry: '아우~', p: .8 } },
-  bear: { n: '곰', hp: 5, breakT: 3.5, bite: 36, speed: 90, scare: 80, sp: { r: 46, v: 'roar', col: '#7a4f2c', col2: '#c9a078', dark: '#573620', ear: 'round', tail: 'short', muzzle: 1, leg: .35, cry: '크앙', p: .5 } }
+  fox: { n: '여우', hp: 2, breakT: 6, life: 1, reward: 300, bite: 10, speed: 150, scare: 170, sp: { r: 18, v: 'yap', col: '#e8823a', col2: '#fff3e0', dark: '#3a2a22', ear: 'pointy', tail: 'dog', muzzle: 1, leg: .45, cry: '캥', p: 1.3 } },
+  wolf: { n: '늑대', hp: 3, breakT: 5, life: 2, reward: 800, bite: 22, speed: 125, scare: 150, sp: { r: 26, v: 'howl', col: '#7d8590', col2: '#c9ced6', dark: '#4a5058', ear: 'pointy', tail: 'dog', muzzle: 1, leg: .5, cry: '아우~', p: .8 } },
+  bear: { n: '곰', hp: 5, breakT: 3.5, life: 5, reward: 3000, bite: 36, speed: 90, scare: 80, sp: { r: 46, v: 'roar', col: '#7a4f2c', col2: '#c9a078', dark: '#573620', ear: 'round', tail: 'short', muzzle: 1, leg: .35, cry: '크앙', p: .5 } }
 };
 const PEN_W = 520, PEN_H = 340, PEN_GAP = 70, PEN_X0 = 330, PEN_Y0 = 150, PEN_CAP = 8, TROUGH_CAP = 12;
 const PEN_PRICE = [0, 4000, 8000, 14000, 22000, 32000], GUN_PRICE = 6000, ELEC_PRICE = 5000;
@@ -609,7 +610,7 @@ const TOOLS = {
   seed: { n: '씨앗', e: '🌱', act: '씨 뿌리기', d: '' }, fert: { n: '비료', e: '💩', act: '비료 주기', d: '' },
   hose: { n: '물호스', e: '🚿', act: '물뿌리기', d: '누르고 있으면 물을 뿌려 가축을 씻기고 물통을 채우고 작물에 물을 줘요' },
   fork: { n: '쇠스랑', e: '🔱', act: '짚 잡기', d: '건초를 한 번에 3묶음(12마리 분) 집어요. 맨손은 1묶음' },
-  gun: { n: '사냥총', e: '🔫', act: '쏘기', d: '멀리 있는 늑대를 한 방, 곰은 두 방에 쫓아요' }
+  gun: { n: '사냥총', e: '🔫', act: '쏘기', d: '조준선에 정확히 맞혀 맹수를 잡으면 보상을 받아요. 빗나가면 놀라 달아나요' }
 };
 const nightLevel = () => ({ n: Math.min(1 + Math.floor(day * .7), 9), speed: Math.min(1.6, 1 + (day - 1) * .06), gap: 1 / (1 + day * .06), bear: day >= 4 ? Math.min(.5, .2 + (day - 4) * .04) : 0 });
 function startNight() {
@@ -624,9 +625,9 @@ function startDay() {
   if (!animals.length && money < KINDS.chicken.buy) { addAnimal('chicken', 0, true); addAnimal('chicken', 0, true); showToast('이웃이 닭 두 마리를 빌려줬어요. 다시 시작해 봐요!', 5); }
 }
 function spawnPred(kind0) {
-  const L = nightLevel(), kind = kind0 || (L.bear && !preds.some(q => q.kind === 'bear') && Math.random() < L.bear ? 'bear' : 'wolf'), D = PRED[kind], side = Math.floor(R(0, 4));
+  const L = nightLevel(), kind = kind0 || (L.bear && !preds.some(q => q.kind === 'bear') && Math.random() < L.bear ? 'bear' : day >= 2 && Math.random() < .3 ? 'fox' : 'wolf'), D = PRED[kind], side = Math.floor(R(0, 4));
   const x = side === 0 ? -40 : side === 1 ? WORLD.w + 40 : R(0, WORLD.w), y = side === 2 ? -40 : side === 3 ? WORLD.h + 40 : R(0, WORLD.h);
-  const q = { kind, D, sp: D.sp, x, y, hp: D.hp, speed: D.speed * L.speed, target: null, breakT: 0, inside: -1, carry: null, retreatT: 0, rx: 0, ry: 0, flee: false, moving: true, phase: 0, seed: R(0, 100), stun: 0 }; preds.push(q);
+  const q = { kind, D, sp: D.sp, x, y, hp: D.hp, life: D.life, dead: 0, speed: D.speed * L.speed, target: null, breakT: 0, inside: -1, carry: null, retreatT: 0, rx: 0, ry: 0, flee: false, moving: true, phase: 0, seed: R(0, 100), stun: 0 }; preds.push(q);
   emote(q, 'idle'); say({ x: clamp(x, 60, WORLD.w - 60), y: clamp(y, 60, WORLD.h - 60), sp: D.sp }, D.sp.cry, '#e2493f', 1); return q;
 }
 function releasePrey(q) {   // 물고 가던 가축을 놓친다. 가축은 제 울타리로 돌아간다
@@ -634,7 +635,20 @@ function releasePrey(q) {   // 물고 가던 가축을 놓친다. 가축은 제 
   t.state = 'free'; t.x = clamp(q.x, P.x + 40, P.x + P.w - 40); t.y = clamp(q.y, P.y + 80, P.y + P.h - 40); t.pause = 2; t.goal = 'wander'; say(t, '살았다! 울타리로 돌아왔어요', '#3fae6a', 1); SFX.clean();
 }
 function scarePred(q, why, quiet) { if (q.flee) return; releasePrey(q); q.flee = true; q.target = null; q.breakT = 0; if (!quiet) { emote(q, 'scared'); say(q, why || '깨갱!', '#fff', 1); } }
-const WEAPON = { torch: 1, gun: 3 };   // 한 번에 깎는 맹수의 기세. 늑대 3, 곰 5
+const WEAPON = { torch: 1 };
+/* 총: 조준선(바라보는 방향)에 정확히 맞혀야 한다. 빗나가면 총소리에 놀란 맹수가 달아나 보상이 없다.
+   맞히면 체력을 깎고, 다 깎으면 잡아서 보상을 받는다. 큰 맹수일수록 여러 발이 필요하지만 보상이 크다 */
+const GUNS = [null, { n: '사냥총', price: 6000, dmg: 1, range: 420, tol: 14, cd: 1.2 }, { n: '연발총', price: 9000, dmg: 2, range: 520, tol: 20, cd: .8 }, { n: '저격총', price: 18000, dmg: 3, range: 680, tol: 26, cd: .55 }];
+let gunLv = 0, kills = 0;
+function gunRay() {   // 지금 쏘면 맞는 맹수 (조준선 위에서 가장 가까운 것)
+  const G0 = GUNS[gunLv || 1]; let b = null, bd = G0.range;
+  for (const q of preds) { if (q.flee || q.dead) continue; const dx = q.x - pl.x, dy = q.y - pl.y, along = dx * pl.ax + dy * pl.ay; if (along < 10 || along > bd) continue; if (Math.abs(dx * pl.ay - dy * pl.ax) <= q.sp.r * .55 + G0.tol) { bd = along; b = q; } }
+  return b;
+}
+function killPred(q) {
+  releasePrey(q); q.dead = 2.5; q.target = null; q.breakT = 0; q.retreatT = 0; money += q.D.reward; kills++; emote(q, 'sick'); say(q, '💰 +' + q.D.reward.toLocaleString() + '원', '#ffd27a', 1);
+  showToast('🎯 ' + q.D.n + '을(를) 잡았어요! +' + q.D.reward.toLocaleString() + '원', 3); SFX.praise(); burst(q.x, q.y, 'spark', 10); saveGame();
+}   // 한 번에 깎는 맹수의 기세. 늑대 3, 곰 5
 function hitPred(q, dmg, why) {   // 기세가 남아 있으면 잠깐 멀리 달아났다가 다시 온다
   if (q.flee || (q.retreatT > 0 && dmg < 3)) return; q.hp -= dmg; releasePrey(q); burst(q.x, q.y, 'dust', 5);
   if (q.hp <= 0) { scarePred(q, why); return; }
@@ -642,6 +656,7 @@ function hitPred(q, dmg, why) {   // 기세가 남아 있으면 잠깐 멀리 �
 }
 const torchR = D => pl.tool === 'torch' ? D.scare * (pl.swingT > 0 ? 1.9 : 1) : 0;
 function updatePred(q, dt) {
+  if (q.dead) { q.dead -= dt; q.moving = false; if (q.dead <= 0) q.gone = true; return; }
   const D = q.D; q.phase += dt * 14; if (q.stun > 0) { q.stun -= dt; return; }
   if (q.retreatT > 0 && !q.flee) { q.retreatT -= dt; q.moving = true; q.x = clamp(q.x + q.rx * q.speed * 1.9 * dt, -60, WORLD.w + 60); q.y = clamp(q.y + q.ry * q.speed * 1.9 * dt, -60, WORLD.h + 60); return; }   // 물러났다가 다시 온다
   if (!q.flee && Math.hypot(q.x - pl.x, q.y - pl.y) < torchR(D)) hitPred(q, WEAPON.torch, pl.swingT > 0 ? '앗 뜨거! 깨갱' : '횃불이다! 깨갱');
@@ -670,11 +685,16 @@ function updatePred(q, dt) {
   q.moving = true; q.x = nx; q.y = ny;
 }
 function pressShoot() {
-  if (state !== 'play' || pl.tool !== 'gun' || !gun || pl.shootCd > 0) return; initAudio();
-  pl.shootCd = 1; noise(.25, 900, .6, .9); tone(160, 50, .2, 'square', .4); shake = Math.max(shake, .25);
-  let b = null, bd = 460; for (const q of preds) { if (q.flee) continue; const d = Math.hypot(q.x - pl.x, q.y - pl.y); if (d < bd) { bd = d; b = q; } }
-  if (!b) { shotFx = { x0: pl.x, y0: pl.y, x1: pl.x + pl.ax * 300, y1: pl.y + pl.ay * 300, t: .12 }; return; }
-  shotFx = { x0: pl.x, y0: pl.y, x1: b.x, y1: b.y, t: .12 }; hitPred(b, WEAPON.gun, '깨갱!!');
+  if (state !== 'play' || pl.tool !== 'gun' || !gun || pl.shootCd > 0) return; initAudio(); const G0 = GUNS[gunLv || 1];
+  pl.shootCd = G0.cd; noise(.25, 900, .6, .9); tone(160, 50, .2, 'square', .4); shake = Math.max(shake, .25);
+  const b = gunRay();
+  if (!b) {   // 빗나감: 근처 맹수는 총소리에 놀라 달아난다 (보상 없음)
+    shotFx = { x0: pl.x, y0: pl.y, x1: pl.x + pl.ax * G0.range, y1: pl.y + pl.ay * G0.range, t: .12 }; let n = 0;
+    for (const q of preds) if (!q.flee && !q.dead && Math.hypot(q.x - pl.x, q.y - pl.y) < G0.range * 1.1) { scarePred(q, '탕! 깨갱'); n++; }
+    if (n) showToast('빗나갔어요! 맹수가 총소리에 놀라 달아났어요 (보상 없음)', 3); return; }
+  shotFx = { x0: pl.x, y0: pl.y, x1: b.x, y1: b.y, t: .12 }; b.life -= G0.dmg; burst(b.x, b.y, 'dust', 6);
+  if (b.life <= 0) { killPred(b); return; }
+  releasePrey(b); const dx = b.x - pl.x, dy = b.y - pl.y, d = Math.hypot(dx, dy) || 1; b.rx = dx / d; b.ry = dy / d; b.retreatT = 1.6; b.breakT = 0; b.target = null; emote(b, 'angry'); say(b, '맞았다! 앞으로 ' + Math.ceil(b.life / G0.dmg) + '발', '#ffd27a', 1);
 }
 /* 손에 든 도구: 창고에서 바꾼다. 도구에 따라 도구 버튼이 하는 일이 달라진다 */
 function toolLabel() { const t = pl.tool; if (!t) return '맨손'; if (t === 'fork') return curAct && curAct.type === 'fill' ? '먹이 놓기' : curAct && curAct.type === 'stack' ? '건초 쌓기' : curAct && curAct.type === 'grass' ? '풀 베기' : '짚 잡기'; if (t === 'seed') return '씨 뿌리기 ' + seeds[pl.seedType]; if (t === 'fert') return '비료 주기 ' + fert; return TOOLS[t].act; }
@@ -805,7 +825,9 @@ function openShop(tab) {
     h += '<p class="sub">날씨는 아침마다 바뀌어요. 그날 필요한 장비를 창고(헛간) 앞에서 꺼내 울타리 안에서 설치하세요. 낡은 장비는 금방 망가져 다시 설치해야 해요.</p>'; }
   else { h += row('🚜', '트랙터', '타고 달리면 건초 더미 옆에서 저절로 싣고(' + TR_CAP + '마리 분), 여물통 옆을 지나면 저절로 채워요', tractor ? '보유' : won(TRACTOR_PRICE), 'tractor', !tractor && money >= TRACTOR_PRICE);
     h += row('🔥', '횃불', '창고에서 들어요. 가까이 온 늑대가 달아나요(곰은 아주 가까이). 휘저으면 범위가 넓어져요', '기본 지급', 'x', false);
-    h += row('🔫', '사냥총', '사면 창고에서 들 수 있어요. 멀리 있는 늑대를 한 방, 곰은 두 방', gun ? '보유' : won(GUN_PRICE), 'gun', !gun && money >= GUN_PRICE);
+    { const C = GUNS[gunLv], N = GUNS[gunLv + 1], spec = g => '위력 ' + g.dmg + ' · 사거리 ' + g.range + ' · 장전 ' + g.cd + '초';
+      h += row('🔫', C ? C.n + ' (보유)' : '사냥총', (C ? '지금: ' + spec(C) : '창고에서 들어요. 조준선에 정확히 맞혀야 잡혀요') + (N ? (C ? ' → ' + N.n + ': ' : ' · ') + spec(N) + (C ? ', 조준이 쉬워져요' : '') : ' · 최고 등급'), N ? won(N.price) : '최고', 'gun', !!N && money >= N.price); }
+    h += '<p class="sub">🎯 잡으면 여우 ' + won(PRED.fox.reward) + ' · 늑대 ' + won(PRED.wolf.reward) + ' · 곰 ' + won(PRED.bear.reward) + '. 필요한 발수(위력 1 기준): 여우 ' + PRED.fox.life + ' · 늑대 ' + PRED.wolf.life + ' · 곰 ' + PRED.bear.life + '발. 빗나가면 달아나서 보상이 없어요. 횃불은 쫓기만 해요.</p>';
     for (const p of PENS) if (p.own) h += row('⚡', (p.i + 1) + '번 울타리 전기 울타리', '늑대와 곰이 이 울타리를 뚫지 못해요', p.elec ? '설치됨' : won(ELEC_PRICE), 'elec:' + p.i, !p.elec && money >= ELEC_PRICE); }
   showOv(h + '<button class="btn" id="go">농장으로</button>');
   document.querySelectorAll('#card .tab').forEach(b => { b.onclick = () => openShop(b.dataset.tab); });
@@ -819,7 +841,7 @@ function openShop(tab) {
     else if (op === 'wood') { if (!lic.carp || money < woodPrice()) return; money -= woodPrice(); wood += WOOD_PACK; SFX.take(); }
     else if (op === 'tractor') { if (tractor || money < TRACTOR_PRICE) return; money -= TRACTOR_PRICE; tractor = true; tr.x = 300; tr.y = 440; tr.stock = 0; SFX.clean(); }
     else if (op === 'wx') { const N = TIER[wxGear[arg] + 1]; if (!N || money < N.price) return; money -= N.price; wxGear[arg]++; SFX.clean(); }
-    else if (op === 'gun') { if (gun || money < GUN_PRICE) return; money -= GUN_PRICE; gun = true; SFX.clean(); }
+    else if (op === 'gun') { const N = GUNS[gunLv + 1]; if (!N || money < N.price) return; money -= N.price; gunLv++; gun = true; SFX.clean(); }
     else if (op === 'elec') { const p = PENS[+arg]; if (p.elec || money < ELEC_PRICE) return; money -= ELEC_PRICE; p.elec = true; buildFences(); SFX.clean(); }
     saveGame(); openShop(tab); }; });
   $('go').onclick = () => { initAudio(); state = 'play'; hideOv(); };
@@ -972,10 +994,10 @@ function examEnd(pass, why) {
 
 /* ---------- 저장 ---------- */
 const SAVE_KEY = 'scrubpaws_farm';
-function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, seeds, fert, hayQ: +hayQ.toFixed(2), seedType: pl.seedType, plots: plots.map(q => [Math.round(q.x), Math.round(q.y), q.type, Math.round(q.g * 100), q.fert ? 1 : 0]), hayStock, water: Math.round(water), tool: pl.tool, money, day, clock, pensOwned, gun, wx, wxGear, tractor, lic, wood, cpens: PENS.filter(p => p.custom).map(p => [p.x, p.y, p.w, p.h, p.food, p.elec ? 1 : 0, p.fort, p.cap, Math.round(p.water)]), pens: PENS.slice(0, 6).map(p => [p.food, p.elec ? 1 : 0, p.fort, Math.round(p.water)]), animals: animals.map(a => [a.kind, a.pen, a.adult ? 1 : 0, Math.round(a.age * 100), Math.round(a.hunger), Math.round(a.dirt), Math.round(a.health), Math.round(a.happy), Math.round(a.preg), a.rare ? 1 : 0]) })); } catch (e) { } }
+function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, gunLv, kills, seeds, fert, hayQ: +hayQ.toFixed(2), seedType: pl.seedType, plots: plots.map(q => [Math.round(q.x), Math.round(q.y), q.type, Math.round(q.g * 100), q.fert ? 1 : 0]), hayStock, water: Math.round(water), tool: pl.tool, money, day, clock, pensOwned, gun, wx, wxGear, tractor, lic, wood, cpens: PENS.filter(p => p.custom).map(p => [p.x, p.y, p.w, p.h, p.food, p.elec ? 1 : 0, p.fort, p.cap, Math.round(p.water)]), pens: PENS.slice(0, 6).map(p => [p.food, p.elec ? 1 : 0, p.fort, Math.round(p.water)]), animals: animals.map(a => [a.kind, a.pen, a.adult ? 1 : 0, Math.round(a.age * 100), Math.round(a.hunger), Math.round(a.dirt), Math.round(a.health), Math.round(a.happy), Math.round(a.preg), a.rare ? 1 : 0]) })); } catch (e) { } }
 function loadGame() {
   try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!d || !Array.isArray(d.animals)) return false;
-    money = Math.max(0, +d.money || 0); day = Math.max(1, +d.day || 1); clock = clamp(+d.clock || 0, 0, DAY_LEN - 1); pensOwned = clamp(+d.pensOwned || 1, 1, 6); gun = !!d.gun; wx = WX[d.wx] ? d.wx : 'sunny'; for (const k in wxGear) wxGear[k] = clamp(+(d.wxGear || {})[k] || 0, 0, 2); tractor = !!d.tractor; tr.riding = false; tr.x = 300; tr.y = 440; tr.stock = 0; PENS.forEach(p => { p.gear = null; });
+    money = Math.max(0, +d.money || 0); day = Math.max(1, +d.day || 1); clock = clamp(+d.clock || 0, 0, DAY_LEN - 1); pensOwned = clamp(+d.pensOwned || 1, 1, 6); gun = !!d.gun; gunLv = gun ? clamp(+d.gunLv || 1, 1, 3) : 0; kills = +d.kills || 0; wx = WX[d.wx] ? d.wx : 'sunny'; for (const k in wxGear) wxGear[k] = clamp(+(d.wxGear || {})[k] || 0, 0, 2); tractor = !!d.tractor; tr.riding = false; tr.x = 300; tr.y = 440; tr.stock = 0; PENS.forEach(p => { p.gear = null; });
     PENS.length = 6; PENS.forEach((p, i) => { const q = (d.pens || [])[i] || [0, 0]; p.food = clamp(+q[0] || 0, 0, TROUGH_CAP); p.elec = !!q[1]; p.fort = clamp(+q[2] || 0, 0, 2); p.water = clamp(q[3] == null ? 6 : +q[3] || 0, 0, WATER_CAP); });
     hayStock = clamp(d.hayStock == null ? 24 : +d.hayStock || 0, 0, HAY_CAP); water = clamp(d.water == null ? 60 : +d.water || 0, 0, TANK_CAP); grass.forEach(placeGrass);
     for (const k in seeds) seeds[k] = Math.max(0, +(d.seeds || {})[k] || 0); fert = Math.max(0, +d.fert || 0); hayQ = clamp(+d.hayQ || 1, 1, 2); pl.seedType = CROPS[d.seedType] ? d.seedType : 'clover'; pl.hayQ = 1; tr.q = 1; PENS.forEach(p => { p.foodQ = 1; });
@@ -987,7 +1009,7 @@ function loadGame() {
     return true; } catch (e) { return false; }
 }
 function newGame() {
-  animals.slice().forEach(removeAnimal); preds.forEach(q => { q.gone = true; }); money = 3000; day = 1; clock = 0; pensOwned = 1; gun = false; tipStep = 0; wx = 'sunny'; for (const k in wxGear) wxGear[k] = 0; tractor = false; tr.riding = false; tr.stock = 0; PENS.forEach(p => { p.gear = null; });
+  animals.slice().forEach(removeAnimal); preds.forEach(q => { q.gone = true; }); money = 3000; day = 1; clock = 0; pensOwned = 1; gun = false; gunLv = 0; kills = 0; tipStep = 0; wx = 'sunny'; for (const k in wxGear) wxGear[k] = 0; tractor = false; tr.riding = false; tr.stock = 0; PENS.forEach(p => { p.gear = null; });
   PENS.length = 6; PENS.forEach(p => { p.food = 0; p.elec = false; p.fort = 0; }); lic = { carp: 0, shear: 0, milk: 0 }; wood = 0; build = null; pl.tool = 'torch'; pl.hayN = 0; hayStock = 24; water = 60; hayQ = 1; plots = []; fert = 0; for (const k in seeds) seeds[k] = 0; pl.hayQ = 1; tr.q = 1; PENS.forEach(p => { p.water = 0; p.foodQ = 1; }); PENS[0].water = 6; grass.forEach(placeGrass); PENS[0].food = 4; addAnimal('sheep', 0, true); addAnimal('sheep', 0, true); addAnimal('chicken', 0, true); addAnimal('chicken', 0, true);
   pl.x = 250; pl.y = 330; pl.carry = null; saveGame();
 }
@@ -1091,6 +1113,7 @@ function init3D() {
   B('#8a5a3a', 70, 12, 48, -104, 24, 0, trM, 3); B('#5a3a24', 22, 4, 4, -58, 24, 0, trM, 1); trHay = B('#e9cf8c', 62, 30, 42, -104, 45, 0, trM, 6); scene.add(trM); sh(trM); trM.visible = false;
   wxMat = new THREE.MeshBasicMaterial({ color: '#cfe6ff', transparent: true, opacity: .75, depthWrite: false }); for (let i = 0; i < 140; i++) { const m = M(G.box, wxMat, 1, 1, 1, 0, -50, 0, scene); m.userData = { x: 0, z: 0, h: -1, k: '' }; m.visible = false; wxPool.push(m); }
   world3.gearG = new THREE.Group(); scene.add(world3.gearG);
+  world3.aim = M(G.box, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .5, depthWrite: false }), 1, 1.5, 3, 0, 36, 0, scene); world3.aim.visible = false;
   world3.plotM = []; for (let i = 0; i < MAX_PLOTS; i++) { const g = new THREE.Group(), soil = M(G.cyl, new THREE.MeshLambertMaterial({ color: '#9c7a52' }), 26, 3, 26, 0, 1.5, 0, g), fm = M(G.cyl, '#3a2a1c', 30, 2, 30, 0, 1, 0, g), sp = sprite('🌱', g, 30); soil.receiveShadow = true; g.visible = false; scene.add(g); world3.plotM.push({ g, soil, fm, sp, ch: '🌱' }); }
   world3.grassM = grass.map(() => { const g = new THREE.Group(); for (const q of [[0, 0, 1], [-9, 4, .8], [8, -5, .9], [3, 9, .7], [-6, -8, .75]]) M(G.cone, q[2] > .85 ? '#3f9a3a' : '#57b84a', 6, 30 * q[2], 6, q[0], 15 * q[2], q[1], g); scene.add(g); return g; });
   world3.tRing = M(new THREE.TorusGeometry(1, .012, 6, 64), new THREE.MeshBasicMaterial({ color: '#ffb347', transparent: true, opacity: .4, depthWrite: false }), 150, 150, 150, 0, 3, 0, scene); world3.tRing.rotation.x = PI / 2; world3.tRing.visible = false;
@@ -1209,13 +1232,13 @@ function makeAnimalModel(a) {
 const cG = { g: null };
 function syncCreature(a, dt, pred) {
   const md = a.md || (a.md = makeAnimalModel(a)), sp = a.sp, r = sp.r, t = gt, g = md.g, hr = md.hr, grime = cG.g || (cG.g = new THREE.Color(GRIME));
-  const carried = a.state === 'carried', sleeping = !pred && a.sleeping && !carried, scared = !pred && (a.attackedT > 0 || carried), hungry = !pred && a.hunger >= 60, sick = !pred && a.health < 35, dg = pred ? 0 : a.dirt / 100;
+  const carried = a.state === 'carried', sleeping = !pred && a.sleeping && !carried, scared = !pred && (a.attackedT > 0 || carried), hungry = !pred && a.hunger >= 60, sick = pred ? !!a.dead : a.health < 35, dg = pred ? 0 : a.dirt / 100;
   const sc = pred ? 1 : a.adult ? 1 : .5 + .45 * clamp(a.age, 0, 1); g.scale.setScalar(sc);
   const mvx = a.x - md.lx, mvy = a.y - md.ly; md.lx = a.x; md.ly = a.y;
   if (carried) { g.position.set(pl.x, 104, pl.y); g.rotation.y = plM.g.rotation.y; } else { g.position.set(a.x, 0, a.y); if (Math.hypot(mvx, mvy) > .1) turn(g, faceTo(mvx, mvy), Math.min(1, dt * 10)); else if (!pred && a.state === 'eat') turn(g, PI / 2, Math.min(1, dt * 8)); }
-  const moving = pred ? !a.stun : a.moving || carried, sw = moving ? Math.sin(pred || carried ? t * 16 + a.seed : a.phase) * .65 : 0;
+  const moving = pred ? !a.stun && !a.dead : a.moving || carried, sw = moving ? Math.sin(pred || carried ? t * 16 + a.seed : a.phase) * .65 : 0;
   md.legs.forEach((l, i) => { l.rotation.z = i % 2 ? -sw : sw; l.visible = !sleeping; });
-  md.inner.position.set(scared && !carried ? Math.sin(t * 40) : carried ? Math.sin(t * 22) * 1.5 : 0, sleeping ? -md.L * .9 : 0, 0); md.inner.rotation.z = 0;
+  md.inner.position.set(scared && !carried ? Math.sin(t * 40) : carried ? Math.sin(t * 22) * 1.5 : 0, sleeping ? -md.L * .9 : 0, 0); md.inner.rotation.z = 0; md.inner.rotation.x = pred && a.dead ? PI / 2 * Math.min(1, (2.5 - a.dead) * 5) : 0; if (pred && a.dead) md.inner.position.y = r * .45;
   if (!pred) { md.m.body.color.copy(md.base.body).lerp(grime, dg * .65); md.m.belly.color.copy(md.base.belly).lerp(grime, dg * .6); md.m.dark.color.copy(md.base.dark).lerp(grime, dg * .3); if (a.kind !== 'sheep') md.m.head.color.copy(md.m.body.color); const nb = Math.min(7, Math.ceil((dg - .3) * 10)); md.blots.forEach((b, i) => { b.visible = i < nb; }); }
   else md.blots.forEach(b => { b.visible = false; });
   const pg = !pred && a.preg > 0 ? 1.22 : 1, br = 1 + Math.sin(t * (sleeping ? 1.4 : 2.4) + a.seed) * .02; md.body.scale.set(br, br * (pg > 1 ? 1.1 : 1), br * pg);
@@ -1227,7 +1250,7 @@ function syncCreature(a, dt, pred) {
     e.brow.visible = hungry || !!pred; e.brow.rotation.x = e.s * (pred ? -.6 : .5); e.brow.position.y = hr * (pred ? .27 : .34); }
   const open = hungry || scared || !!pred || (!pred && a.state === 'eat'); md.mouth.visible = open && !sp.beak; if (open) md.mouth.scale.set(hr * .1, hr * .16 * (!pred && a.state === 'eat' ? .6 + Math.abs(Math.sin(t * 16)) * .7 : 1), hr * .2);
   md.smile.visible = !open && !sp.beak && !sleeping; md.smArc.rotation.z = sick ? 0 : PI;
-  md.tongue.visible = false; md.thermo.visible = sick; md.drool.visible = hungry; if (hungry) { const d = (t * 1.2 + a.seed) % 1; md.drool.position.y = -hr * .6 - d * hr * .9; }
+  md.tongue.visible = false; md.thermo.visible = sick && !pred; md.drool.visible = hungry; if (hungry) { const d = (t * 1.2 + a.seed) % 1; md.drool.position.y = -hr * .6 - d * hr * .9; }
   md.blush.forEach(b => { b.visible = !pred && a.happy >= 80 && !sleeping; });
   md.flies.forEach((f, i) => { f.visible = dg >= .6 && i < 2; const an = t * (3 + i) + i * 2.1; f.position.set(Math.cos(an) * r * 1.1, md.top + Math.sin(an * 1.7) * r * .3, Math.sin(an) * r * .8); });
   md.stink.forEach(s => { s.visible = false; }); md.sweat.forEach(s => { s.visible = false; }); md.anger.visible = false; md.star.forEach(s => { s.visible = false; }); md.food.visible = false;
@@ -1266,6 +1289,9 @@ function render3D(dt) {
   const sw = pl.swingT > 0, hasT = pl.tool === 'torch'; torch.intensity = hasT ? n * 2.2 * (sw ? 1.7 : 1) * (1 + Math.sin(gt * 17) * .08) : 0; torch.position.set(pl.x + pl.ax * 14, 96, pl.y + pl.ay * 14);
   flame.visible = !!pl.tool && !pl.carry; if (flame.visible) { const ch = TOOLS[pl.tool].e; if (world3.toolCh !== ch) { world3.toolCh = ch; flame.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; flame.material.needsUpdate = true; }
     const an = gt * 16, fr = sw ? 46 : 20, fx0 = sw ? Math.cos(an) : pl.ax, fy0 = sw ? Math.sin(an) : pl.ay; flame.position.set(pl.x + fx0 * fr, (tr.riding ? 150 : 112) + Math.sin(gt * 20) * 2, pl.y + fy0 * fr); flame.scale.setScalar((hasT ? 46 * (1 + Math.sin(gt * 23) * .08) : 38) * (sw ? 1.7 : 1)); }
+  const aimM = world3.aim; aimM.visible = pl.tool === 'gun' && gun && state === 'play' && !pl.carry; if (aimM.visible) { const L0 = GUNS[gunLv || 1].range, hit = gunRay(), L1 = hit ? Math.hypot(hit.x - pl.x, hit.y - pl.y) : L0;   // 조준선: 맞을 때 빨갛게
+    aimM.scale.set(L1, 1.5, hit ? 5 : 3); aimM.position.set(pl.x + pl.ax * L1 / 2, tr.riding ? 80 : 36, pl.y + pl.ay * L1 / 2); aimM.rotation.y = faceTo(pl.ax, pl.ay); aimM.material.color.set(hit ? '#ff4a3a' : '#ffffff'); aimM.material.opacity = hit ? .85 : pl.shootCd > 0 ? .2 : .5; world3.aimHit = hit; }
+  else world3.aimHit = null;
   const tR = world3.tRing; tR.visible = hasT && n > .3 && state === 'play'; if (tR.visible) { const r0 = PRED.wolf.scare * (sw ? 1.9 : 1), k = tR.scale.x + (r0 - tR.scale.x) * Math.min(1, dt * 10); tR.scale.set(k, k, k); tR.position.set(pl.x, 3, pl.y); tR.material.opacity = sw ? .8 : .4; }
   const tp = state === 'play' && curAct && curAct.pet; ring.visible = !!tp; if (tp) { ring.position.set(tp.x, 2, tp.y); const s = tp.sp.r * 1.2 + 8 + Math.sin(gt * 8) * 2; ring.scale.set(s, s, s); }
   dropPool.forEach((m, i) => { const d = drops[i]; m.visible = !!d; if (d) m.position.set(d.x, d.h, d.y); });
@@ -1287,9 +1313,9 @@ function drawHUD() {
     if (q.kind === 'bubble') { ell(c, x, y, 6 * q.s * k, 6 * q.s * k, 'rgba(255,255,255,.85)'); } else if (q.kind === 'heart') txt(c, '♥', x, y, 18 * q.s * k, '#ff6b8a'); else if (q.kind === 'spark') txt(c, '✦', x, y, 18 * q.s * k, '#ffd54a'); else ell(c, x, y, 5 * q.s * k, 4 * q.s * k, '#b89a70'); c.globalAlpha = 1; }
   if (shotFx) { const [x0, y0] = proj(shotFx.x0, 70, shotFx.y0), [x1, y1] = proj(shotFx.x1, 30, shotFx.y1); c.strokeStyle = 'rgba(255,240,160,.95)'; c.lineWidth = 4; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); }
   for (const s of says) { const [x, y] = proj(s.x, s.h, s.y); c.globalAlpha = clamp(s.life * 2, 0, 1); txt(c, s.text, clamp(x, 60, VW - 60), clamp(y, HUDH + 14, VH - 30), s.big ? 21 : 17, s.col, 'center', '#fff'); c.globalAlpha = 1; }
-  if (state === 'play') for (const q of preds) { if (q.flee) continue; const [x, y, z] = proj(q.x, 40, q.y); if (z < 1 && x > 20 && x < VW - 20 && y > HUDH + 10 && y < VH - 20) continue;   // 화면 밖 맹수 방향
+  if (state === 'play') for (const q of preds) { if (q.flee || q.dead) continue; const [x, y, z] = proj(q.x, 40, q.y); if (z < 1 && x > 20 && x < VW - 20 && y > HUDH + 10 && y < VH - 20) continue;   // 화면 밖 맹수 방향
     const cx2 = VW / 2, cy2 = (VH + HUDH) / 2, a = Math.atan2(y - cy2, x - cx2), ex = clamp(cx2 + Math.cos(a) * 2000, 46, VW - 46), ey = clamp(cy2 + Math.sin(a) * 2000, HUDH + 46, VH - 46);
-    ell(c, ex, ey, 24, 24, 'rgba(226,73,63,' + (.75 + Math.sin(gt * 10) * .2) + ')'); emo(c, q.kind === 'bear' ? '🐻' : '🐺', ex, ey + 1, 26); }
+    ell(c, ex, ey, 24, 24, 'rgba(226,73,63,' + (.75 + Math.sin(gt * 10) * .2) + ')'); emo(c, q.kind === 'bear' ? '🐻' : q.kind === 'fox' ? '🦊' : '🐺', ex, ey + 1, 26); }
   if (state === 'play' || state === 'pause' || state === 'shop' || state === 'menu' || state === 'exam') {
     c.fillStyle = '#3b2a22'; c.fillRect(0, 0, VW, HUDH);
     rr(c, 10, 6, 170, 50, 14, 'rgba(255,246,227,.94)'); txt(c, '💰 ' + money.toLocaleString() + '원', 22, 31, 19, '#4a3226', 'left');
@@ -1304,11 +1330,12 @@ function drawHUD() {
     for (const p of PENS) { if (!p.own) continue; const [x, y, z] = proj(p.x + p.w / 2, 150, p.y + 10); if (z > 1 || x < 70 || x > VW - 70 || y < HUDH + 16 || y > VH - 40) continue;
       if (p.gear) { const k = p.gear.max > 900 ? 1 : clamp(p.gear.t / p.gear.max, 0, 1), ok = p.gear.type === need; rr(c, x - 62, y - 15, 124, 30, 12, 'rgba(74,50,38,.88)'); emo(c, ITEMS[p.gear.type].e, x - 44, y + 1, 18); rr(c, x - 28, y - 5, 80, 10, 5, '#2a1c14'); rr(c, x - 26, y - 3, 76 * k, 6, 3, !ok ? '#9c8b80' : k > .3 ? '#3fae6a' : '#e2493f'); }
       else if (need && inPen(p).length && Math.sin(gt * 6) > -.4) { rr(c, x - 78, y - 15, 156, 30, 12, 'rgba(226,73,63,.92)'); txt(c, '⚠️ ' + ITEMS[need].n + ' 필요', x, y + 1, 16, '#fff'); } } }
-  if (state === 'play') for (const q of preds) { if (q.flee || (!(q.breakT > 0) && !q.carry)) continue; const [x, y, z] = proj(q.x, q.sp.r * 2 + 40, q.y); if (z > 1) continue;   // 울타리를 뚫는 중 / 물고 가는 중
+  if (state === 'play') for (const q of preds) { if (q.flee || q.dead || (!(q.breakT > 0) && !q.carry)) continue; const [x, y, z] = proj(q.x, q.sp.r * 2 + 40, q.y); if (z > 1) continue;   // 울타리를 뚫는 중 / 물고 가는 중
     if (q.carry) txt(c, '❗ 물고 가요!', x, y, 18, '#ff5a4a', 'center', '#fff'); else { rr(c, x - 44, y - 8, 88, 16, 8, 'rgba(74,50,38,.9)'); rr(c, x - 41, y - 5, 82 * clamp(q.breakT / q.D.breakT, 0, 1), 10, 5, '#e2493f'); txt(c, '울타리 뚫는 중', x, y - 20, 14, '#fff', 'center', '#4a3226'); } }
   if (state === 'play') { for (const q of [[HAY.x, 120, HAY.y, '🌾 건초 ' + hayStock + ' / ' + HAY_CAP, hayStock <= 4], [TANK.x, 150, TANK.y, '💧 물 ' + Math.round(water) + '%', water <= 10]]) { const [x, y, z] = proj(q[0], q[1], q[2]); if (z > 1 || x < 60 || x > VW - 60 || y < HUDH + 14 || y > VH - 30) continue; c.font = '15px Jua,sans-serif'; const w = c.measureText(q[3]).width + 22; rr(c, x - w / 2, y - 13, w, 26, 11, q[4] ? 'rgba(226,73,63,.92)' : 'rgba(74,50,38,.85)'); txt(c, q[3], x, y + 1, 15, '#fff'); }
-    for (const q of preds) { if (q.flee) continue; const [x, y, z] = proj(q.x, q.sp.r * 2 + 16, q.y); if (z > 1 || x < 20 || x > VW - 20 || y < HUDH + 10 || y > VH - 20) continue; txt(c, '♥'.repeat(Math.max(0, q.hp)), x, y, 15, '#ff5a4a', 'center', '#fff'); } }
+    for (const q of preds) { if (q.flee || q.dead) continue; const [x, y, z] = proj(q.x, q.sp.r * 2 + 16, q.y); if (z > 1 || x < 20 || x > VW - 20 || y < HUDH + 10 || y > VH - 20) continue; if (pl.tool === 'gun') txt(c, '🎯' + Math.ceil(q.life / GUNS[gunLv || 1].dmg) + '발 · ' + q.D.reward.toLocaleString() + '원', x, y, 14, '#ffd27a', 'center', '#4a3226'); else txt(c, '♥'.repeat(Math.max(0, q.hp)), x, y, 15, '#ff5a4a', 'center', '#fff'); } }
   if (state === 'play') for (const q of plots) { if (q.g >= 1 || q.wet > 0) continue; const [x, y, z] = proj(q.x, 70, q.y); if (z > 1 || x < 20 || x > VW - 20 || y < HUDH + 10 || y > VH - 20) continue; c.globalAlpha = .6 + Math.sin(gt * 5) * .3; emo(c, '💧', x, y, 18); c.globalAlpha = 1; }   // 물이 필요한 작물
+  if (state === 'play' && world3.aimHit) { const q = world3.aimHit, [x, y, z] = proj(q.x, q.sp.r, q.y); if (z < 1) { c.strokeStyle = '#ff4a3a'; c.lineWidth = 3; c.beginPath(); c.arc(x, y, 22 + Math.sin(gt * 10) * 2, 0, TAU); c.moveTo(x - 30, y); c.lineTo(x + 30, y); c.moveTo(x, y - 30); c.lineTo(x, y + 30); c.stroke(); } }
   if (state === 'play' && build) { const r = build.a ? buildRect() : null, t = r ? r.w + '×' + r.h + ' · 🪵 ' + r.need + '개 (보유 ' + wood + ') · 가축 ' + r.cap + '마리' + (r.why ? ' · ' + r.why : ' · 지을 수 있어요') : '첫 모서리로 가서 [모서리 찍기]를 누르세요';
     c.font = '17px Jua,sans-serif'; const w = c.measureText(t).width + 36; rr(c, VW / 2 - w / 2, VH - 100, w, 36, 14, r && r.why ? 'rgba(226,73,63,.93)' : 'rgba(63,174,106,.95)'); txt(c, t, VW / 2, VH - 81, 17, '#fff'); }
   if (state === 'play' && tr.riding) { rr(c, VW / 2 - 90, VH - 52, 180, 36, 14, 'rgba(74,50,38,.88)'); txt(c, '🚜 건초 ' + tr.stock + ' / ' + TR_CAP, VW / 2, VH - 33, 17, '#ffd27a'); }
@@ -1340,7 +1367,7 @@ function frame(now) {
 }
 window.addEventListener('resize', fit3D);
 window.__game = { get state() { return state; }, get animals() { return animals; }, get preds() { return preds; }, pl, PENS, KINDS, get money() { return money; }, set money(v) { money = v; }, get day() { return day; }, get clock() { return clock; }, set clock(v) { clock = v; }, get pensOwned() { return pensOwned; }, get gun() { return gun; },
-  lic, get licv() { return lic; }, get wood() { return wood; }, set wood(v) { wood = v; }, get exam() { return exam; }, get build() { return build; }, gunOn() { gun = true; }, seeds, get fert() { return fert; }, set fert(v) { fert = v; }, get plots() { return plots; }, CROPS, get hayQ() { return hayQ; }, get hayStock() { return hayStock; }, set hayStock(v) { hayStock = v; }, get water() { return water; }, set water(v) { water = v; }, grass, TANK, HAY, hitPred, prodValue, grow, startDay, pressTool, openBarn, nightLevel, updatePred, startExam, exDown, exUp, exMove, pressWood, pressWork, findWork, buildRect, penSafe, get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, get dayv() { return day; }, set dayv(v) { day = v; }, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
+  lic, get licv() { return lic; }, get wood() { return wood; }, set wood(v) { wood = v; }, get exam() { return exam; }, get build() { return build; }, gunOn(v) { gun = true; gunLv = v || 1; }, gunRay, get gunLv() { return gunLv; }, seeds, get fert() { return fert; }, set fert(v) { fert = v; }, get plots() { return plots; }, CROPS, get hayQ() { return hayQ; }, get hayStock() { return hayStock; }, set hayStock(v) { hayStock = v; }, get water() { return water; }, set water(v) { water = v; }, grass, TANK, HAY, hitPred, prodValue, grow, startDay, pressTool, openBarn, nightLevel, updatePred, startExam, exDown, exUp, exMove, pressWood, pressWork, findWork, buildRect, penSafe, get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, get dayv() { return day; }, set dayv(v) { day = v; }, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
 (function boot() { const ok = typeof THREE !== 'undefined' && init3D(); if (ok) showTitle(); else showOv('<h2>3D를 시작할 수 없어요</h2><p>이 기기나 브라우저에서 WebGL을 사용할 수 없습니다.</p>'); requestAnimationFrame(frame); })();
 </script>
 </body>
