@@ -32,14 +32,14 @@ jobs:
           case "$V" in ''|*[!0-9.]*) echo "잘못된 버전: $V"; exit 1;; esac
           echo "version=$V" >> "$GITHUB_OUTPUT"
       - name: Build APK
-        run: ./gradlew --no-daemon assembleDebug -PappVersion="${{ steps.v.outputs.version }}"
+        run: ./gradlew --no-daemon assembleRelease -PappVersion="${{ steps.v.outputs.version }}"
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.v.outputs.version }}
         run: |
           APK="ScrubPaws-v$V.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$APK"
+          cp app/build/outputs/apk/release/app-release.apk "$APK"
           NOTES="release-notes/v$V.md"
           if [ -f "$NOTES" ]; then set -- --notes-file "$NOTES"; else set -- --generate-notes; fi
           gh release create "v$V" "$APK" --title "ScrubPaws v$V" --target "$GITHUB_SHA" "$@"
