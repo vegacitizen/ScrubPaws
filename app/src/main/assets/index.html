@@ -444,8 +444,53 @@ const DAY_LEN = 75, NIGHT_LEN = 45, CYCLE = DAY_LEN + NIGHT_LEN;
 
 /* ---------- 상태 ---------- */
 let state = 'title', gt = 0, money = 0, day = 1, clock = 0, pensOwned = 1, gun = false, animals = [], preds = [], says = [], parts = [], drops = [];
+/* 날씨: 아침마다 바뀐다. 수치는 보호 장비가 없을 때 가축이 1초마다 받는 영향 */
+const WX = {
+  sunny: { n: '화창', e: '🌤️', item: null },
+  hot: { n: '땡볕', e: '🥵', item: 'shade', happy: 5, hunger: .5, health: .4 },
+  drizzle: { n: '흐리고 약한 비', e: '🌦️', item: 'roof', dirt: 1 },
+  rain: { n: '비', e: '🌧️', item: 'roof', dirt: 2.2, happy: 2 },
+  wind: { n: '바람', e: '💨', item: 'wind', happy: 3.5, blow: .1 },
+  hail: { n: '우박', e: '🧊', item: 'net', health: 1.8, happy: 3 },
+  typhoon: { n: '태풍', e: '🌀', item: 'brace', dirt: 1.5, happy: 4, health: 1.6, blow: .125 }
+};
+const ITEMS = {
+  shade: { n: '그늘막', e: '⛱️', col: '#ffb347', op: .34, d: '땡볕을 가려요' },
+  roof: { n: '처마', e: '🏠', col: '#5d7fa8', op: .4, d: '비를 막아요' },
+  wind: { n: '바람막이', e: '🧱', col: '#4f9d5d', op: 1, d: '바람을 막아 건초가 날아가지 않아요' },
+  net: { n: '우박 그물', e: '🕸️', col: '#ffffff', op: .3, d: '우박을 받아내요' },
+  brace: { n: '태풍 버팀목', e: '🪢', col: '#d9534f', op: .24, d: '태풍에 울타리를 붙들어요' }
+};
+const TIER = [{ n: '낡은', prot: .6, dur: 22, price: 0 }, { n: '튼튼한', prot: .85, dur: 50, price: 3000 }, { n: '최고급', prot: 1, dur: 999, price: 9000 }];
+const BARN = { x: 120, y: 170 }, TRACTOR_PRICE = 15000, TR_CAP = 24;
+let wx = 'sunny', wxGear = { shade: 0, roof: 0, wind: 0, net: 0, brace: 0 }, wxSndT = 0, tractor = false;
+const tr = { x: 300, y: 440, stock: 0, riding: false };
+function rollWeather() {
+  const t = [['sunny', 30], ['hot', 16], ['drizzle', 15], ['rain', 14], ['wind', 12]]; if (day >= 3) t.push(['hail', 8]); if (day >= 5) t.push(['typhoon', 6]);
+  let r = Math.random() * t.reduce((a, b) => a + b[1], 0); for (const q of t) { r -= q[1]; if (r <= 0) { wx = q[0]; break; } }
+  PENS.forEach(p => { if (p.gear) { p.gear = null; buildGear(p); } });
+}
+function wxExposure(p) { const it = WX[wx].item; if (!it || isNight()) return 0; return p.gear && p.gear.type === it ? 1 - p.gear.prot : 1; }   // 0 완전 보호 … 1 무방비
+function installGear(p, type) { const T = TIER[wxGear[type]]; p.gear = { type, t: T.dur, max: T.dur, prot: T.prot, lvl: wxGear[type] }; buildGear(p); SFX.sweep(); tone(520, 780, .12, 'triangle', .25); say({ x: p.x + p.w / 2, y: p.y + p.h / 2 }, ITEMS[type].e + ' ' + T.n + ' ' + ITEMS[type].n + ' 설치!', '#3fae6a', 1); }
+function updateWeather(dt) {
+  if (isNight()) return; const W = WX[wx];
+  for (const p of PENS) { if (p.i >= pensOwned) continue;
+    if (p.gear && p.gear.max < 900) { p.gear.t -= dt; if (p.gear.t <= 0) { const it = ITEMS[p.gear.type]; p.gear = null; buildGear(p); say({ x: p.x + p.w / 2, y: p.y + p.h / 2 }, it.n + '이(가) 망가졌어요!', '#e2493f', 1); showToast((p.i + 1) + '번 울타리의 ' + it.n + '이(가) 망가졌어요. 창고에서 다시 꺼내 설치하세요', 4); noise(.25, 300, 1, .5, 0, 'lowpass'); } }
+    if (W.blow && p.food > 0 && Math.random() < dt * W.blow * wxExposure(p)) { p.food--; burst(p.tx, p.ty, 'dust', 6); say({ x: p.tx, y: p.ty }, '건초가 날아갔어요!', '#a0522d'); } }
+  wxSndT -= dt; if (wxSndT <= 0) {
+    if (wx === 'drizzle') { wxSndT = .6; noise(.6, 5200, .5, .04, 0, 'highpass'); } else if (wx === 'rain') { wxSndT = .5; noise(.6, 4600, .5, .09, 0, 'highpass'); }
+    else if (wx === 'wind') { wxSndT = 1.1; noise(1.3, R(300, 600), .8, .16, 0, 'bandpass'); } else if (wx === 'hail') { wxSndT = .12; tone(R(1500, 2600), 900, .03, 'square', .05); }
+    else if (wx === 'typhoon') { wxSndT = .5; noise(.7, 4200, .5, .1, 0, 'highpass'); noise(1.2, R(250, 500), .8, .2, 0, 'bandpass'); if (Math.random() < .06) { noise(1.2, 110, .6, .8, 0, 'lowpass'); shake = Math.max(shake, .35); } }
+    else wxSndT = 1; }
+}
+function updateTractor() {   // 타고 있으면 건초 더미 옆에서 저절로 싣고, 여물통 옆에서 저절로 채운다
+  if (!tr.riding) return; tr.x = pl.x; tr.y = pl.y;
+  if (tr.stock < TR_CAP && Math.hypot(HAY.x - pl.x, HAY.y - pl.y) < 130) { tr.stock = TR_CAP; SFX.take(); say(pl, '🌾 건초를 가득 실었어요', '#3fae6a', 1); if (tipStep === 0) tipStep = 1; }
+  for (const p of PENS) { if (p.i >= pensOwned || p.food >= TROUGH_CAP || tr.stock <= 0 || Math.hypot(p.tx - pl.x, p.ty - pl.y) > 125) continue;
+    const n = Math.min(TROUGH_CAP - p.food, tr.stock); p.food += n; tr.stock -= n; SFX.sweep(); burst(p.tx, p.ty, 'dust', 8); say({ x: p.tx, y: p.ty }, '여물통을 채웠어요 (+' + n + ')', '#3fae6a', 1); if (tipStep <= 1) tipStep = 2; }
+}
 let toast = { t: 0, text: '' }, shake = 0, lostTonight = 0, bornToday = 0, spawnT = 0, toSpawn = 0, shotFx = null, curAct = null, tipStep = 0;
-const pl = { x: 250, y: 330, ax: 1, ay: 0, phase: 0, moving: false, carry: null, hose: false, shootCd: 0 };
+const pl = { x: 250, y: 330, ax: 1, ay: 0, phase: 0, moving: false, carry: null, gearType: '', hose: false, shootCd: 0 };
 const isNight = () => clock >= DAY_LEN;
 const nightK = () => { const d = 6; if (clock < d) return 1 - clock / d; if (clock < DAY_LEN - d) return 0; if (clock < DAY_LEN) return (clock - (DAY_LEN - d)) / d; return 1; };   // 0 낮 … 1 밤 (새벽·저녁에 서서히)
 function showToast(t, sec) { toast.text = t; toast.t = sec || 3; }
@@ -469,6 +514,9 @@ function updateAnimal(a, dt) {
   if (a.cleanT > 0) a.cleanT -= dt; if (a.attackedT > 0) a.attackedT -= dt; if (a.cool > 0) a.cool -= dt;
   const cared = a.hunger < 55 && a.dirt < 55;
   a.happy = clamp(a.happy + (cared ? 2.4 : -3) * dt, 0, 100);
+  const ex = wxExposure(P); if (ex > 0) { const W = WX[wx];
+    if (W.happy) a.happy = Math.max(0, a.happy - W.happy * ex * dt); if (W.dirt && a.cleanT <= 0) a.dirt = Math.min(100, a.dirt + W.dirt * ex * dt); if (W.hunger) a.hunger = Math.min(100, a.hunger + W.hunger * ex * dt);
+    if (W.health && a.health > 15) a.health = Math.max(15, a.health - W.health * ex * dt); }
   if (a.hunger >= 100 || a.dirt >= 90) a.health = Math.max(0, a.health - 1.6 * dt); else if (cared) a.health = Math.min(100, a.health + 1.2 * dt);
   if (!a.adult) { if (a.hunger < 80) a.age += dt; if (a.age >= K.grow) { a.adult = true; say(a, '다 컸어요!', '#3fae6a', 1); SFX.clean(); burst(a.x, a.y, 'spark', 8); } }
   // 임신과 출산: 잘 돌본 어른 가축이 같은 종류의 짝과 한 울타리에 있으면 새끼를 밴다
@@ -512,8 +560,8 @@ function startNight() {
 }
 function startDay() {
   for (const q of preds) q.flee = true;
-  day++; saveGame();
-  showToast('☀️ ' + day + '일째 아침' + (lostTonight ? ' · 밤새 가축 ' + lostTonight + '마리를 잃었어요' : ' · 밤새 모두 무사해요!') + (bornToday ? ' · 어제 새끼 ' + bornToday + '마리' : ''), 5); bornToday = 0;
+  day++; rollWeather(); saveGame();
+  showToast(WX[wx].e + ' ' + day + '일째 아침 · 오늘 날씨: ' + WX[wx].n + (WX[wx].item ? ' (창고의 ' + ITEMS[WX[wx].item].n + ' 필요)' : '') + (lostTonight ? ' · 밤새 가축 ' + lostTonight + '마리를 잃었어요' : ' · 밤새 모두 무사해요!') + (bornToday ? ' · 어제 새끼 ' + bornToday + '마리' : ''), 5); bornToday = 0;
   tone(523, 523, .2, 'triangle', .2); tone(659, 659, .2, 'triangle', .2, .2); tone(784, 784, .35, 'triangle', .2, .4);
   if (!animals.length && money < KINDS.chicken.buy) { addAnimal('chicken', 0, true); addAnimal('chicken', 0, true); showToast('이웃이 닭 두 마리를 빌려줬어요. 다시 시작해 봐요!', 5); }
 }
@@ -549,9 +597,13 @@ function pressShoot() {
 
 /* ---------- 주인공의 일: 건초 나르기 · 가축 옮기기 · 호스 ---------- */
 function findAction() {
+  if (tr.riding) return { type: 'off', label: '내리기' };
+  if (pl.carry === 'gear') { const P = penAt(pl.x, pl.y); return P ? { type: 'install', pen: P, label: '설치하기' } : { type: 'dropHay', label: '내려놓기' }; }
   if (pl.carry === 'hay') { const P = PENS.find(p => p.i < pensOwned && Math.hypot(p.tx - pl.x, p.ty - pl.y) < 90); return P ? (P.food >= TROUGH_CAP ? { type: 'full', label: '가득 참' } : { type: 'fill', pen: P, label: '먹이 놓기' }) : { type: 'dropHay', label: '내려놓기' }; }
   if (pl.carry) return { type: 'drop', label: '내려놓기' };
+  if (tractor && Math.hypot(tr.x - pl.x, tr.y - pl.y) < 80) return { type: 'ride', label: '트랙터 타기' };
   if (Math.hypot(HAY.x - pl.x, HAY.y - pl.y) < 90) return { type: 'hay', label: '건초 들기' };
+  const it = !isNight() && WX[wx].item; if (it && Math.hypot(BARN.x - pl.x, BARN.y - pl.y) < 85) return { type: 'gear', item: it, label: ITEMS[it].n + ' 꺼내기' };
   let b = null, bd = 50; for (const a of animals) { if (a.state !== 'free' && a.state !== 'eat') continue; const d = Math.hypot(a.x - pl.x, a.y - pl.y) - a.sp.r * .5; if (d < bd) { bd = d; b = a; } }
   return b ? { type: 'grab', pet: b, label: '옮기기' } : null;
 }
@@ -559,6 +611,10 @@ function pressAct() {
   if (state !== 'play') return; initAudio(); const a = curAct = findAction(); if (!a) return;
   if (a.type === 'hay') { pl.carry = 'hay'; SFX.take(); if (tipStep === 0) tipStep = 1; }
   else if (a.type === 'fill') { a.pen.food = Math.min(TROUGH_CAP, a.pen.food + 4); pl.carry = null; SFX.sweep(); burst(a.pen.tx, a.pen.ty, 'dust', 6); if (tipStep <= 1) tipStep = 2; }
+  else if (a.type === 'gear') { pl.carry = 'gear'; pl.gearType = a.item; SFX.take(); }
+  else if (a.type === 'install') { installGear(a.pen, pl.gearType); pl.carry = null; }
+  else if (a.type === 'ride') { tr.riding = true; pl.x = tr.x; pl.y = tr.y; SFX.grab(); tone(90, 70, .5, 'sawtooth', .3); }
+  else if (a.type === 'off') { tr.riding = false; tr.x = pl.x; tr.y = pl.y; pl.x = clamp(pl.x + (pl.x > WORLD.w - 100 ? -70 : 70), 20, WORLD.w - 20); SFX.take(); }
   else if (a.type === 'dropHay') { pl.carry = null; }
   else if (a.type === 'full') showToast('여물통이 가득 찼어요');
   else if (a.type === 'grab') { a.pet.state = 'carried'; pl.carry = a.pet; SFX.grab(); emote(a.pet, 'scared'); }
@@ -570,7 +626,7 @@ function pressAct() {
   }
 }
 function updateHose(dt) {
-  pl.hose = hoseHeld && state === 'play' && !pl.carry; if (!pl.hose) return;
+  pl.hose = hoseHeld && state === 'play' && !pl.carry && !tr.riding; if (!pl.hose) return;
   if (Math.random() < dt * 60) drops.push({ x: pl.x + pl.ax * 24, y: pl.y + pl.ay * 24, h: 58, vx: pl.ax * 430 + R(-70, 70), vy: pl.ay * 430 + R(-70, 70), vh: R(40, 120), life: .55 });
   if (Math.random() < dt * 14) noise(.1, 4200, .8, .12, 0, 'highpass');
   for (const a of animals) { const dx = a.x - pl.x, dy = a.y - pl.y, d = Math.hypot(dx, dy); if (d > 250 || d < 1) continue; if ((dx * pl.ax + dy * pl.ay) / d < .86) continue;
@@ -580,7 +636,7 @@ function updateHose(dt) {
 /* ---------- 상점 (낮밤 관계없이 열 수 있고, 여는 동안 시간은 멈춘다) ---------- */
 function openShop(tab) {
   if (state !== 'play' && state !== 'shop') return; state = 'shop'; tab = tab || 'buy';
-  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['land', '울타리'], ['gear', '장비']];
+  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['land', '울타리'], ['gear', '장비'], ['wx', '날씨 장비']];
   let h = '<h2>농장 상점</h2><p class="pay">💰 <b>' + won(money) + '</b> · ' + day + '일째 · 가축 ' + animals.length + '마리</p><div class="tabs">' + tabs.map(t => '<button class="tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '" type="button">' + t[1] + '</button>').join('') + '</div>';
   const row = (icon, name, sub, btn, id, ok) => '<div class="shop"><span class="si">' + icon + '</span><span class="sn"><b>' + name + '</b><br><span class="sub">' + sub + '</span></span><button class="buy" data-id="' + id + '" type="button"' + (ok ? '' : ' disabled') + '>' + btn + '</button></div>';
   if (tab === 'buy') { const free = PENS.find(p => p.i < pensOwned && inPen(p).length < PEN_CAP);
@@ -594,7 +650,12 @@ function openShop(tab) {
   else if (tab === 'land') {
     if (pensOwned < 6) h += row('🌾', (pensOwned + 1) + '번 울타리', '가축을 ' + PEN_CAP + '마리 더 키울 수 있어요. 가축을 들어서 옮길 수 있어요', won(PEN_PRICE[pensOwned]), 'pen', money >= PEN_PRICE[pensOwned]); else h += '<p class="sub">울타리를 모두 샀어요!</p>';
     h += '<p class="sub">지금 울타리 ' + pensOwned + ' / 6</p>'; }
-  else { h += row('🔥', '횃불', '밤에 저절로 켜져요. 가까이 가면 늑대가 달아나요 (곰은 아주 가까이 가야 해요)', '기본 지급', 'x', false);
+  else if (tab === 'wx') {
+    for (const k in ITEMS) { const I = ITEMS[k], lv = wxGear[k], T = TIER[lv], N = TIER[lv + 1], life = t => t.dur > 900 ? '하루 종일' : t.dur + '초';
+      h += row(I.e, T.n + ' ' + I.n, I.d + ' · 지금: ' + Math.round(T.prot * 100) + '% 막고 ' + life(T) + ' 버팀' + (N ? ' → ' + N.n + ': ' + Math.round(N.prot * 100) + '%, ' + life(N) : ''), N ? won(N.price) : '최고', 'wx:' + k, !!N && money >= N.price); }
+    h += '<p class="sub">날씨는 아침마다 바뀌어요. 그날 필요한 장비를 창고(헛간) 앞에서 꺼내 울타리 안에서 설치하세요. 낡은 장비는 금방 망가져 다시 설치해야 해요.</p>'; }
+  else { h += row('🚜', '트랙터', '타고 달리면 건초 더미 옆에서 저절로 싣고(' + TR_CAP + '마리 분), 여물통 옆을 지나면 저절로 채워요', tractor ? '보유' : won(TRACTOR_PRICE), 'tractor', !tractor && money >= TRACTOR_PRICE);
+    h += row('🔥', '횃불', '밤에 저절로 켜져요. 가까이 가면 늑대가 달아나요 (곰은 아주 가까이 가야 해요)', '기본 지급', 'x', false);
     h += row('🔫', '사냥총', '멀리 있는 늑대를 한 방에 쫓아요. 곰은 두 방', gun ? '보유' : won(GUN_PRICE), 'gun', !gun && money >= GUN_PRICE);
     for (const p of PENS) if (p.i < pensOwned) h += row('⚡', (p.i + 1) + '번 울타리 전기 울타리', '늑대와 곰이 이 울타리에 들어오지 못해요', p.elec ? '설치됨' : won(ELEC_PRICE), 'elec:' + p.i, !p.elec && money >= ELEC_PRICE); }
   showOv(h + '<button class="btn" id="go">농장으로</button>');
@@ -603,6 +664,8 @@ function openShop(tab) {
     if (op === 'buy') { const K = KINDS[arg], free = PENS.find(p => p.i < pensOwned && inPen(p).length < PEN_CAP); if (!free || money < K.buy) return; money -= K.buy; addAnimal(arg, free.i, true); SFX.clean(); }
     else if (op === 'sell') { const ad = animals.filter(a => a.kind === arg && a.adult && a.rare === (arg2 === '1')).sort((a, b) => sellPrice(b) - sellPrice(a)); if (!ad.length) return; money += sellPrice(ad[0]); removeAnimal(ad[0]); SFX.praise(); }
     else if (op === 'pen') { if (pensOwned >= 6 || money < PEN_PRICE[pensOwned]) return; money -= PEN_PRICE[pensOwned]; pensOwned++; buildFences(); SFX.clean(); }
+    else if (op === 'tractor') { if (tractor || money < TRACTOR_PRICE) return; money -= TRACTOR_PRICE; tractor = true; tr.x = 300; tr.y = 440; tr.stock = 0; SFX.clean(); }
+    else if (op === 'wx') { const N = TIER[wxGear[arg] + 1]; if (!N || money < N.price) return; money -= N.price; wxGear[arg]++; SFX.clean(); }
     else if (op === 'gun') { if (gun || money < GUN_PRICE) return; money -= GUN_PRICE; gun = true; SFX.clean(); }
     else if (op === 'elec') { const p = PENS[+arg]; if (p.elec || money < ELEC_PRICE) return; money -= ELEC_PRICE; p.elec = true; buildFences(); SFX.clean(); }
     saveGame(); openShop(tab); }; });
@@ -611,16 +674,16 @@ function openShop(tab) {
 
 /* ---------- 저장 ---------- */
 const SAVE_KEY = 'scrubpaws_farm';
-function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, money, day, clock, pensOwned, gun, pens: PENS.map(p => [p.food, p.elec ? 1 : 0]), animals: animals.map(a => [a.kind, a.pen, a.adult ? 1 : 0, Math.round(a.age), Math.round(a.hunger), Math.round(a.dirt), Math.round(a.health), Math.round(a.happy), Math.round(a.preg), a.rare ? 1 : 0]) })); } catch (e) { } }
+function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, money, day, clock, pensOwned, gun, wx, wxGear, tractor, pens: PENS.map(p => [p.food, p.elec ? 1 : 0]), animals: animals.map(a => [a.kind, a.pen, a.adult ? 1 : 0, Math.round(a.age), Math.round(a.hunger), Math.round(a.dirt), Math.round(a.health), Math.round(a.happy), Math.round(a.preg), a.rare ? 1 : 0]) })); } catch (e) { } }
 function loadGame() {
   try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!d || !Array.isArray(d.animals)) return false;
-    money = Math.max(0, +d.money || 0); day = Math.max(1, +d.day || 1); clock = clamp(+d.clock || 0, 0, DAY_LEN - 1); pensOwned = clamp(+d.pensOwned || 1, 1, 6); gun = !!d.gun;
+    money = Math.max(0, +d.money || 0); day = Math.max(1, +d.day || 1); clock = clamp(+d.clock || 0, 0, DAY_LEN - 1); pensOwned = clamp(+d.pensOwned || 1, 1, 6); gun = !!d.gun; wx = WX[d.wx] ? d.wx : 'sunny'; for (const k in wxGear) wxGear[k] = clamp(+(d.wxGear || {})[k] || 0, 0, 2); tractor = !!d.tractor; tr.riding = false; tr.x = 300; tr.y = 440; tr.stock = 0; PENS.forEach(p => { p.gear = null; });
     PENS.forEach((p, i) => { const q = (d.pens || [])[i] || [0, 0]; p.food = clamp(+q[0] || 0, 0, TROUGH_CAP); p.elec = !!q[1]; });
     animals.slice().forEach(removeAnimal); for (const q of d.animals) { if (!KINDS[q[0]] || q[1] >= pensOwned) continue; const a = addAnimal(q[0], q[1], !!q[2], null, !!q[9]); a.age = +q[3] || 0; a.hunger = +q[4] || 0; a.dirt = +q[5] || 0; a.health = clamp(+q[6] || 100, 1, 100); a.happy = +q[7] || 0; a.preg = +q[8] || 0; }
     return true; } catch (e) { return false; }
 }
 function newGame() {
-  animals.slice().forEach(removeAnimal); preds.forEach(q => { q.gone = true; }); money = 3000; day = 1; clock = 0; pensOwned = 1; gun = false; tipStep = 0;
+  animals.slice().forEach(removeAnimal); preds.forEach(q => { q.gone = true; }); money = 3000; day = 1; clock = 0; pensOwned = 1; gun = false; tipStep = 0; wx = 'sunny'; for (const k in wxGear) wxGear[k] = 0; tractor = false; tr.riding = false; tr.stock = 0; PENS.forEach(p => { p.gear = null; });
   PENS.forEach(p => { p.food = 0; p.elec = false; }); PENS[0].food = 4; addAnimal('sheep', 0, true); addAnimal('sheep', 0, true); addAnimal('chicken', 0, true); addAnimal('chicken', 0, true);
   pl.x = 250; pl.y = 330; pl.carry = null; saveGame();
 }
@@ -664,9 +727,9 @@ function update(dt) {
     let mx = 0, my = 0; if (keys.ArrowLeft || keys.KeyA) mx -= 1; if (keys.ArrowRight || keys.KeyD) mx += 1; if (keys.ArrowUp || keys.KeyW) my -= 1; if (keys.ArrowDown || keys.KeyS) my += 1;
     if (joy.id !== null) { const dx = joy.x - joy.ox, dy = joy.y - joy.oy, l = Math.hypot(dx, dy); if (l > 10) { const k = Math.min(1, l / 50); mx = dx / l * k; my = dy / l * k; } }
     const l = Math.hypot(mx, my); if (l > 1) { mx /= l; my /= l; } if (l > .25) { pl.ax = mx / l; pl.ay = my / l; }
-    pl.moving = l > .1; if (pl.moving) { const heavy = pl.carry && pl.carry !== 'hay' ? 1 - Math.min(.45, pl.carry.sp.r / 110) : pl.hose ? .6 : 1; pl.x = clamp(pl.x + mx * 250 * heavy * dt, 20, WORLD.w - 20); pl.y = clamp(pl.y + my * 250 * heavy * dt, 20, WORLD.h - 20); pl.phase += dt * 13; }
+    pl.moving = l > .1; if (pl.moving) { const heavy = tr.riding ? 1.7 : pl.carry && typeof pl.carry === 'object' ? 1 - Math.min(.45, pl.carry.sp.r / 110) : pl.hose ? .6 : 1; pl.x = clamp(pl.x + mx * 250 * heavy * dt, 20, WORLD.w - 20); pl.y = clamp(pl.y + my * 250 * heavy * dt, 20, WORLD.h - 20); pl.phase += dt * 13; }
     if (pl.shootCd > 0) pl.shootCd -= dt;
-    updateHose(dt);
+    updateHose(dt); updateWeather(dt); updateTractor();
     for (const a of animals.slice()) updateAnimal(a, dt);
     if (isNight()) { if (toSpawn > 0) { spawnT -= dt; if (spawnT <= 0) { spawnT = R(5, 9); toSpawn--; if (animals.length) spawnPred(); } } }
     for (const q of preds) updatePred(q, dt);
@@ -675,7 +738,7 @@ function update(dt) {
   }
   const play = state === 'play', lab = play && curAct ? curAct.label : '행동';
   if (bAct.textContent !== lab) bAct.textContent = lab; bAct.classList.toggle('off', !(play && curAct && curAct.type !== 'full'));
-  bHose.classList.toggle('off', !(play && !pl.carry)); bHose.classList.toggle('on', pl.hose); bGun.hidden = !gun; bGun.classList.toggle('off', !(play && pl.shootCd <= 0));
+  bHose.classList.toggle('off', !(play && !pl.carry && !tr.riding)); bHose.classList.toggle('on', pl.hose); bGun.hidden = !gun; bGun.classList.toggle('off', !(play && pl.shootCd <= 0));
   $('pad').hidden = !play; $('pz').hidden = !play; bShop.hidden = !play;
 }
 
@@ -688,17 +751,17 @@ function showTitle() {
     '<div class="note"><b>할아버지의 편지</b>이 들판과 울타리 하나를 너에게 맡긴다. 양 두 마리와 닭 두 마리로 시작하거라. 잘 먹이고 깨끗이 씻겨 주면 새끼를 낳을 게다. 밤에는 늑대를 조심하고!</div>' +
     '<div class="signs"><span>🌾 <b>먹이</b> 건초 더미에서 건초를 들어 여물통에 놓으면 가축이 와서 먹어요</span><span>🚿 <b>목욕</b> 호스를 누른 채 가축 쪽으로 물을 뿌려요</span>' +
     '<span>💗 <b>새끼</b> 잘 돌본 가축은 같은 종류의 짝이 있으면 새끼를 낳아요</span><span>✨ <b>희귀</b> 만족도가 높을수록 황금빛 희귀 새끼가 태어나요. ' + RARE_MULT + '배 값!</span><span>💰 <b>상점</b> 다 큰 가축을 팔아 새 가축·울타리·장비를 사요</span>' +
-    '<span>🌙 <b>밤</b> 늑대와 곰이 와요. 횃불을 들고 다가가거나 총·전기 울타리로 지켜요</span></div>' +
+    '<span>⛅ <b>날씨</b> 아침마다 바뀌어요. 창고(헛간) 앞에서 그날의 장비를 꺼내 울타리에 설치하세요</span><span>🌙 <b>밤</b> 늑대와 곰이 와요. 횃불을 들고 다가가거나 총·전기 울타리로 지켜요</span></div>' +
     '<p class="sub">이동: 화면 드래그 / 방향키·WASD · 행동: 스페이스 · 호스: X(누르고 있기) · 총: C · 상점: B · 일시정지: P</p>' +
     (has ? '<button class="btn" id="go">이어하기</button> <button class="btn alt" id="fresh">새로 시작</button>' : '<button class="btn" id="go">농장 시작하기</button>'));
-  $('go').onclick = () => { initAudio(); if (!has || !loadGame()) newGame(); buildFences(); state = 'play'; hideOv(); };
-  if ($('fresh')) $('fresh').onclick = () => { showOv('<h2>새로 시작할까요?</h2><p>지금 농장의 가축과 돈, 울타리, 장비가 모두 사라져요.</p><button class="btn" id="go">아니요</button> <button class="btn alt" id="yes">네, 처음부터</button>'); $('go').onclick = () => showTitle(); $('yes').onclick = () => { initAudio(); newGame(); buildFences(); state = 'play'; hideOv(); }; };
+  $('go').onclick = () => { initAudio(); if (!has || !loadGame()) newGame(); buildFences(); PENS.forEach(buildGear); state = 'play'; hideOv(); };
+  if ($('fresh')) $('fresh').onclick = () => { showOv('<h2>새로 시작할까요?</h2><p>지금 농장의 가축과 돈, 울타리, 장비가 모두 사라져요.</p><button class="btn" id="go">아니요</button> <button class="btn alt" id="yes">네, 처음부터</button>'); $('go').onclick = () => showTitle(); $('yes').onclick = () => { initAudio(); newGame(); buildFences(); PENS.forEach(buildGear); state = 'play'; hideOv(); }; };
 }
 
 /* ============================================================
    3D 장면
    ============================================================ */
-let torch = null, fenceG = null, hayM = null, dropPool = [], flame = null, world3 = {};
+let trM = null, trHay = null, gearM = null, wxPool = [], wxMat = null, torch = null, fenceG = null, hayM = null, dropPool = [], flame = null, world3 = {};
 function init3D() {
   try { renderer = new THREE.WebGLRenderer({ canvas: $('gl'), antialias: true, powerPreference: 'high-performance' }); } catch (e) { renderer = null; return false; }
   THREE.ColorManagement.legacyMode = false; renderer.outputEncoding = THREE.sRGBEncoding; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -712,6 +775,12 @@ function init3D() {
   buildWorld(); loadModels(); plM = makeKid(); scene.add(plM.g);
   hayM = new THREE.Group(); B('#e9cf8c', 34, 22, 24, 0, 0, 0, hayM, 5); B('#b98f52', 3, 23, 25, -8, 0, 0, hayM, 1); B('#b98f52', 3, 23, 25, 8, 0, 0, hayM, 1); scene.add(hayM); sh(hayM);
   flame = sprite('🔥', scene, 46);
+  gearM = new THREE.Group(); B('#d9c9a8', 44, 16, 16, 0, 0, 0, gearM, 7); B('#8a5a3a', 4, 17, 17, -12, 0, 0, gearM, 1); B('#8a5a3a', 4, 17, 17, 12, 0, 0, gearM, 1); scene.add(gearM); sh(gearM);
+  trM = new THREE.Group(); B('#c93a2a', 100, 26, 46, 4, 32, 0, trM, 7); B('#a82c1f', 44, 16, 40, 30, 52, 0, trM, 6); B('#2f3b4a', 8, 34, 38, -38, 60, 0, trM, 3); M(G.cyl, '#3a3a40', 3.5, 30, 3.5, 40, 74, 12, trM); B('#ffd54a', 6, 8, 30, 54, 36, 0, trM, 2);
+  for (const q of [[-24, 24, 26, 24], [-24, 24, -26, 24], [36, 15, 24, 15], [36, 15, -24, 15], [-104, 12, 24, 12], [-104, 12, -24, 12]]) { const w = M(G.cyl, '#26262b', q[3], 12, q[3], q[0], q[1], q[2], trM); w.rotation.x = PI / 2; const hb = M(G.cyl, '#ffd54a', q[3] * .45, 13, q[3] * .45, q[0], q[1], q[2], trM); hb.rotation.x = PI / 2; }
+  B('#8a5a3a', 70, 12, 48, -104, 24, 0, trM, 3); B('#5a3a24', 22, 4, 4, -58, 24, 0, trM, 1); trHay = B('#e9cf8c', 62, 30, 42, -104, 45, 0, trM, 6); scene.add(trM); sh(trM); trM.visible = false;
+  wxMat = new THREE.MeshBasicMaterial({ color: '#cfe6ff', transparent: true, opacity: .75, depthWrite: false }); for (let i = 0; i < 140; i++) { const m = M(G.box, wxMat, 1, 1, 1, 0, -50, 0, scene); m.userData = { x: 0, z: 0, h: -1, k: '' }; m.visible = false; wxPool.push(m); }
+  world3.gearG = new THREE.Group(); scene.add(world3.gearG);
   const rm = new THREE.MeshBasicMaterial({ color: '#ff8a3d' }); ring = M(G.tor, rm, 1, 1, 1, 0, 2, 0, scene); ring.rotation.x = PI / 2;
   const dm = new THREE.MeshBasicMaterial({ color: '#7fd4ff', transparent: true, opacity: .85 }); for (let i = 0; i < 60; i++) dropPool.push(M(G.sph, dm, 4, 5, 4, 0, -50, 0, scene));
   fit3D(); return true;
@@ -734,6 +803,7 @@ function buildWorld() {
   const barn = new THREE.Group(); barn.position.set(HOME.x - 30, 0, HOME.y - 60); S.add(barn);
   B('#b5463a', 200, 130, 130, 0, 65, 0, barn, 6); const rf = M(new THREE.CylinderGeometry(1, 1, 1, 3), '#7a2c24', 78, 216, 78, 0, 160, 0, barn); rf.rotation.set(0, 0, PI / 2); rf.rotation.x = PI / 2 * 0; rf.rotation.z = PI / 2; rf.scale.set(60, 216, 86);
   B('#fff3e0', 70, 90, 4, 0, 45, 66, barn, 3); B('#8a2f27', 60, 82, 4, 0, 42, 68, barn, 3); B('#fff3e0', 44, 34, 4, -62, 86, 66, barn, 3); B('#fff3e0', 44, 34, 4, 62, 86, 66, barn, 3);
+  const bs = sprite('🧰', barn, 46); bs.position.set(0, 110, 80);
   const hay = new THREE.Group(); hay.position.set(HAY.x, 0, HAY.y); S.add(hay);
   for (const q of [[-34, 0, 0], [34, 0, 0], [0, 0, 26], [0, 34, 8], [-30, 34, -6]]) { B('#e9cf8c', 62, 34, 40, q[0], 17 + q[1], q[2], hay, 7); B('#b98f52', 4, 35, 41, q[0] - 14, 17 + q[1], q[2], hay, 1); B('#b98f52', 4, 35, 41, q[0] + 14, 17 + q[1], q[2], hay, 1); }
   const sg = sprite('🌾', hay, 44); sg.position.set(0, 96, 0);
@@ -796,6 +866,20 @@ function attachModel(a, md) {
   for (const n in cfg.clips) { const c = pr.anims.find(x => x.name === cfg.clips[n]); if (c) acts[n] = mixer.clipAction(c); }
   md.inner.visible = false; md.top = pr.h * k; md.ext = { cfg, holder, mats, mixer, acts, act: null };
 }
+function buildGear(p) {   // 울타리에 설치한 날씨 장비
+  if (!renderer) return; if (p.gearG) { world3.gearG.remove(p.gearG); p.gearG = null; } if (!p.gear) return;
+  const I = ITEMS[p.gear.type], g = p.gearG = new THREE.Group(), pole = p.gear.lvl === 2 ? glossy('#ffd54a') : mat(p.gear.lvl === 1 ? '#c9ced6' : '#a9744f'), cx = p.x + p.w / 2, cz = p.y + p.h / 2; world3.gearG.add(g);
+  if (p.gear.type === 'wind') { const tm = mat(I.col); M(G.box, tm, p.w, 78, 5, cx, 40, p.y - 6, g); M(G.box, tm, 5, 78, p.h, p.x - 6, 40, cz, g); for (let x = 0; x <= p.w; x += 104) M(G.cyl, pole, 5, 92, 5, p.x + x, 46, p.y - 10, g); for (let y = 0; y <= p.h; y += 85) M(G.cyl, pole, 5, 92, 5, p.x - 10, 46, p.y + y, g); }
+  else { const H = 132; for (const q of [[p.x + 8, p.y + 8], [p.x + p.w - 8, p.y + 8], [p.x + 8, p.y + p.h - 8], [p.x + p.w - 8, p.y + p.h - 8]]) M(G.cyl, pole, 5, H, 5, q[0], H / 2, q[1], g);
+    const top = M(new THREE.PlaneGeometry(p.w, p.h), new THREE.MeshBasicMaterial({ color: I.col, transparent: true, opacity: I.op, side: THREE.DoubleSide, depthWrite: false }), 1, 1, 1, cx, H, cz, g); top.rotation.x = -PI / 2;
+    const rm = mat(I.col); M(G.box, rm, p.w, 5, 5, cx, H, p.y + 8, g); M(G.box, rm, p.w, 5, 5, cx, H, p.y + p.h - 8, g); M(G.box, rm, 5, 5, p.h, p.x + 8, H, cz, g); M(G.box, rm, 5, 5, p.h, p.x + p.w - 8, H, cz, g);
+    if (p.gear.type === 'brace') for (const q of [[p.x - 40, p.y - 30, .5], [p.x + p.w + 40, p.y - 30, -.5], [p.x - 40, p.y + p.h + 30, .5], [p.x + p.w + 40, p.y + p.h + 30, -.5]]) { const r = M(G.cyl, '#d9534f', 3, 150, 3, q[0] + (q[2] > 0 ? 24 : -24), 62, q[1], g); r.rotation.z = -q[2] * 1.1; }
+    if (p.gear.type === 'net') for (let x = 60; x < p.w; x += 60) M(G.box, rm, 2, 2, p.h, p.x + x, H, cz, g); }
+  sh(g);
+}
+const WXL = { sunny: [.56, .82, 1, 1, 1], hot: [.66, .86, 1, 1.3, 1.1], drizzle: [.62, .68, .74, .55, .9], rain: [.45, .5, .58, .35, .8], wind: [.6, .8, .92, .9, 1], hail: [.5, .54, .62, .4, .8], typhoon: [.3, .33, .4, .2, .65] };
+const WXFX = { drizzle: { n: 40, v: 520, wx: 0, s: [1.5, 22, 1.5], rot: 0, col: '#cfe6ff' }, rain: { n: 110, v: 700, wx: -60, s: [1.6, 30, 1.6], rot: -.08, col: '#bcd9ff' }, wind: { n: 28, v: 0, wx: -650, s: [46, 1.6, 1.6], rot: 0, col: '#ffffff' },
+  hail: { n: 45, v: 620, wx: 0, s: [6, 6, 6], rot: 0, col: '#ffffff' }, typhoon: { n: 140, v: 650, wx: -520, s: [1.8, 34, 1.8], rot: -.65, col: '#b0c8e8' } };
 const ICONS = { attack: '❗', hungry: '🌾', dirty: '💧', preg: '💗', sick: '🤒' };
 function makeAnimalModel(a) {
   const md = makePet(a), r = a.sp.r;
@@ -843,10 +927,12 @@ function syncCreature(a, dt, pred) {
     if (ch) { if (md.iconCh !== ch) { md.iconCh = ch; md.icon.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; md.icon.material.needsUpdate = true; } md.icon.position.set(0, md.top / 1 + 26 + Math.sin(t * 4 + a.seed) * 3, 0); md.icon.scale.setScalar(30 / sc); } }
 }
 function syncKid(dt) {
-  const k = plM, sw = pl.moving ? Math.sin(pl.phase) * .7 : 0, hold = !!pl.carry;
-  turn(k.g, faceTo(pl.ax, pl.ay), Math.min(1, dt * 12)); k.g.position.set(pl.x, 0, pl.y); k.legs[0].rotation.z = sw; k.legs[1].rotation.z = -sw;
+  const k = plM, sw = pl.moving && !tr.riding ? Math.sin(pl.phase) * .7 : 0, hold = !!pl.carry;
+  turn(k.g, faceTo(pl.ax, pl.ay), Math.min(1, dt * 12)); k.g.position.set(pl.x, tr.riding ? 46 : 0, pl.y); k.legs[0].rotation.z = sw; k.legs[1].rotation.z = -sw;
   if (hold) k.arms[0].rotation.z = k.arms[1].rotation.z = pl.carry === 'hay' ? 1.5 : 2.9; else if (pl.hose) { k.arms[0].rotation.z = 1.5; k.arms[1].rotation.z = 1.3; } else { k.arms[0].rotation.z = -sw; k.arms[1].rotation.z = sw; }
   k.inner.position.y = pl.moving ? Math.abs(Math.sin(pl.phase)) * 2 : 0; k.shadow.visible = false;
+  gearM.visible = pl.carry === 'gear'; if (gearM.visible) { gearM.position.set(pl.x + pl.ax * 22, 104, pl.y + pl.ay * 22); gearM.rotation.y = k.g.rotation.y + PI / 2; }
+  trM.visible = tractor; if (tractor) { if (tr.riding) { trM.position.set(pl.x, 0, pl.y); trM.rotation.y = k.g.rotation.y; } else trM.position.set(tr.x, 0, tr.y); trHay.visible = tr.stock > 0; trHay.scale.y = .35 + .65 * tr.stock / TR_CAP; trHay.position.y = 30 + 15 * trHay.scale.y; }
   hayM.visible = pl.carry === 'hay'; if (hayM.visible) { hayM.position.set(pl.x + pl.ax * 26, 52, pl.y + pl.ay * 26); hayM.rotation.y = k.g.rotation.y; }
 }
 function render3D(dt) {
@@ -854,7 +940,7 @@ function render3D(dt) {
   for (const a of animals) syncCreature(a, dt, false); for (const q of preds) syncCreature(q, dt, true); syncKid(dt);
   for (const p of PENS) if (p.hayM) p.hayM.forEach((m, i) => { m.visible = i < Math.ceil(p.food / 2); });
   const n = nightK();   // 낮과 밤의 빛
-  hemi.intensity = .8 - n * .58; sun.intensity = .7 * (1 - n * .93); scene.background.setRGB(.56 - n * .5, .82 - n * .72, 1 - n * .72);
+  const L = WXL[wx], dk = 1 - n; hemi.intensity = .22 + (.8 * L[4] - .22) * dk; sun.intensity = .05 + (.7 * L[3] - .05) * dk; scene.background.setRGB(.06 + (L[0] - .06) * dk, .1 + (L[1] - .1) * dk, .28 + (L[2] - .28) * dk);
   torch.intensity = n * 2.2 * (1 + Math.sin(gt * 17) * .08); torch.position.set(pl.x + pl.ax * 14, 96, pl.y + pl.ay * 14);
   flame.visible = n > .3 && !pl.carry; flame.position.set(pl.x + pl.ax * 20, 112 + Math.sin(gt * 20) * 2, pl.y + pl.ay * 20); flame.scale.setScalar(46 * (1 + Math.sin(gt * 23) * .08));
   const tp = state === 'play' && curAct && curAct.pet; ring.visible = !!tp; if (tp) { ring.position.set(tp.x, 2, tp.y); const s = tp.sp.r * 1.2 + 8 + Math.sin(gt * 8) * 2; ring.scale.set(s, s, s); }
@@ -862,6 +948,10 @@ function render3D(dt) {
   const tx = clamp(pl.x, 380, WORLD.w - 380), tz = clamp(pl.y, 230, WORLD.h - 150);   // 카메라는 주인공을 따라간다
   cam3.position.set(tx + world3.off.x, world3.off.y + 30, tz + world3.off.z); if (shake > 0) { cam3.position.x += R(-9, 9) * shake; cam3.position.y += R(-9, 9) * shake; } cam3.lookAt(tx, 30, tz);
   sun.target.position.set(tx, 0, tz); sun.position.set(tx - 330, 950, tz + 520);
+  const fx = n < .5 && state !== 'title' ? WXFX[wx] : null; if (fx) wxMat.color.set(fx.col);   // 비 · 우박 · 바람
+  wxPool.forEach((m, i) => { const on = fx && i < fx.n * (hq ? 1 : .5); m.visible = !!on; if (!on) return; const d = m.userData; d.h -= fx.v * dt; d.x += fx.wx * dt;
+    if (d.k !== wx || d.h < 0 || Math.abs(d.x - tx) > 900) { const fresh = d.k !== wx; d.k = wx; d.z = tz + R(-460, 520); d.x = fx.v ? tx + R(-850, 850) : (fresh ? tx + R(-850, 850) : tx + 880); d.h = fx.v ? (fresh ? R(0, 520) : R(420, 560)) : R(20, 170); }
+    m.position.set(d.x, d.h, d.z); m.scale.set(fx.s[0], fx.s[1], fx.s[2]); m.rotation.z = fx.rot; });
   renderer.render(scene, cam3);
 }
 
@@ -879,13 +969,18 @@ function drawHUD() {
     c.fillStyle = '#3b2a22'; c.fillRect(0, 0, VW, HUDH);
     rr(c, 10, 6, 170, 50, 14, 'rgba(255,246,227,.94)'); txt(c, '💰 ' + money.toLocaleString() + '원', 22, 31, 19, '#4a3226', 'left');
     const bx = 196, bw = Math.min(300, VW * .28), k = night ? (clock - DAY_LEN) / NIGHT_LEN : clock / DAY_LEN;
-    rr(c, bx - 8, 6, bw + 16, 50, 14, night ? 'rgba(40,44,80,.95)' : 'rgba(255,246,227,.94)'); txt(c, (night ? '🌙 ' : '☀️ ') + day + '일째 ' + (night ? '밤' : '낮'), bx + bw / 2, 23, 16, night ? '#fff' : '#4a3226');
+    rr(c, bx - 8, 6, bw + 16, 50, 14, night ? 'rgba(40,44,80,.95)' : 'rgba(255,246,227,.94)'); txt(c, (night ? '🌙 ' + day + '일째 밤' : WX[wx].e + ' ' + day + '일째 낮 · ' + WX[wx].n), bx + bw / 2, 23, 16, night ? '#fff' : '#4a3226');
     rr(c, bx, 38, bw, 11, 5.5, night ? '#11132a' : '#4a3226'); rr(c, bx + 2, 40, (bw - 4) * clamp(k, 0, 1), 7, 3.5, night ? '#8fa8ff' : '#ffb81f');
     let x = bx + bw + 20; for (const kd in KINDS) { const n = animals.filter(a => a.kind === kd).length; if (!n) continue; rr(c, x, 8, 62, 46, 10, 'rgba(255,246,227,.92)'); emo(c, KINDS[kd].e, x + 20, 31, 22); txt(c, '×' + n, x + 46, 32, 15, '#4a3226'); x += 66; }
     const need = animals.filter(a => a.hunger >= 60).length, dirty = animals.filter(a => a.dirt >= 60).length;
     txt(c, (need ? '🌾 배고픔 ' + need + '  ' : '') + (dirty ? '💧 더러움 ' + dirty : ''), VW - 14, 31, 16, '#ffd27a', 'right', '#4a3226');
   }
-  if (state === 'play') { if (tipStep < 3 && day === 1) { c.font = '18px Jua,sans-serif'; const t = TIPS[tipStep], tw = Math.min(VW - 40, c.measureText(t).width + 40); rr(c, VW / 2 - tw / 2, VH - 150, tw, 44, 16, 'rgba(63,174,106,.95)'); txt(c, t, VW / 2, VH - 127, tw < c.measureText(t).width + 36 ? 13 : 18, '#fff'); }
+  if (state === 'play' && !night) { const need = WX[wx].item;   // 울타리마다 날씨 장비 상태
+    for (const p of PENS) { if (p.i >= pensOwned) continue; const [x, y, z] = proj(p.x + p.w / 2, 150, p.y + 10); if (z > 1 || x < 70 || x > VW - 70 || y < HUDH + 16 || y > VH - 40) continue;
+      if (p.gear) { const k = p.gear.max > 900 ? 1 : clamp(p.gear.t / p.gear.max, 0, 1), ok = p.gear.type === need; rr(c, x - 62, y - 15, 124, 30, 12, 'rgba(74,50,38,.88)'); emo(c, ITEMS[p.gear.type].e, x - 44, y + 1, 18); rr(c, x - 28, y - 5, 80, 10, 5, '#2a1c14'); rr(c, x - 26, y - 3, 76 * k, 6, 3, !ok ? '#9c8b80' : k > .3 ? '#3fae6a' : '#e2493f'); }
+      else if (need && inPen(p).length && Math.sin(gt * 6) > -.4) { rr(c, x - 78, y - 15, 156, 30, 12, 'rgba(226,73,63,.92)'); txt(c, '⚠️ ' + ITEMS[need].n + ' 필요', x, y + 1, 16, '#fff'); } } }
+  if (state === 'play' && tr.riding) { rr(c, VW / 2 - 90, VH - 52, 180, 36, 14, 'rgba(74,50,38,.88)'); txt(c, '🚜 건초 ' + tr.stock + ' / ' + TR_CAP, VW / 2, VH - 33, 17, '#ffd27a'); }
+  if (state === 'play') { if (tipStep < 3 && day === 1 && !tr.riding) { c.font = '18px Jua,sans-serif'; const t = TIPS[tipStep], tw = Math.min(VW - 40, c.measureText(t).width + 40); rr(c, VW / 2 - tw / 2, VH - 150, tw, 44, 16, 'rgba(63,174,106,.95)'); txt(c, t, VW / 2, VH - 127, tw < c.measureText(t).width + 36 ? 13 : 18, '#fff'); }
     if (toast.t > 0) { c.globalAlpha = clamp(toast.t, 0, 1); c.font = '18px Jua,sans-serif'; const tw = c.measureText(toast.text).width, w = Math.min(VW - 60, tw + 40); rr(c, VW / 2 - w / 2, HUDH + 12, w, 40, 14, 'rgba(74,50,38,.92)'); txt(c, toast.text, VW / 2, HUDH + 33, tw + 34 > w ? 13 : 18, '#fff'); c.globalAlpha = 1; } }
   if (joy.id !== null) { const jx = joy.ox / SC, jy = joy.oy / SC; c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 3; c.beginPath(); c.arc(jx, jy, 46, 0, TAU); c.stroke(); const dx = (joy.x - joy.ox) / SC, dy = (joy.y - joy.oy) / SC, l = Math.hypot(dx, dy), k = l > 46 ? 46 / l : 1; ell(c, jx + dx * k, jy + dy * k, 20, 20, 'rgba(255,255,255,.55)'); }
 }
@@ -912,7 +1007,7 @@ function frame(now) {
 }
 window.addEventListener('resize', fit3D);
 window.__game = { get state() { return state; }, get animals() { return animals; }, get preds() { return preds; }, pl, PENS, KINDS, get money() { return money; }, set money(v) { money = v; }, get day() { return day; }, get clock() { return clock; }, set clock(v) { clock = v; }, get pensOwned() { return pensOwned; }, get gun() { return gun; },
-  addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
+  get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
 (function boot() { const ok = typeof THREE !== 'undefined' && init3D(); if (ok) showTitle(); else showOv('<h2>3D를 시작할 수 없어요</h2><p>이 기기나 브라우저에서 WebGL을 사용할 수 없습니다.</p>'); requestAnimationFrame(frame); })();
 </script>
 </body>
