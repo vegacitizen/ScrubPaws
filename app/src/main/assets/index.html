@@ -835,7 +835,7 @@ function updateHose(dt) {
 /* ---------- 상점 (낮밤 관계없이 열 수 있고, 여는 동안 시간은 멈춘다) ---------- */
 function openShop(tab) {
   if (state !== 'play' && state !== 'shop' && state !== 'exam') return; state = 'shop'; tab = tab || 'buy';
-  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['gear', '시설·장비'], ['seed', '씨앗·비료'], ['lic', '자격증']], lockMsg = k => '<p class="sub">🔒 ' + OPEN_NAME[k] + ': 목표 "' + QUESTS[openAt(k)].t + '"을(를) 이루면 열려요.</p>';
+  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['gear', '시설·장비'], ['seed', '씨앗·비료'], ['lic', '자격증']], lockMsg = k => '<p class="sub">🔒 ' + OPEN_NAME[k] + ': "' + QUESTS[openAt(k)].t + '"을(를) 하면 열려요. <span style="opacity:.75">(' + QUESTS[openAt(k)].hint + ')</span></p>';
   if (tab === 'land' || tab === 'wx') tab = 'gear';
   let h = '<h2>농장 상점</h2><p class="pay">💰 <b>' + won(money) + '</b> · ' + day + '일째 · 가축 ' + animals.length + '마리</p><div class="tabs">' + tabs.map(t => '<button class="tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '" type="button">' + ((t[0] === 'seed' || t[0] === 'lic') && !isOpen(t[0]) ? '🔒 ' : '') + t[1] + '</button>').join('') + '</div>';
   const row = (icon, name, sub, btn, id, ok) => '<div class="shop"><span class="si">' + icon + '</span><span class="sn"><b>' + name + '</b><br><span class="sub">' + sub + '</span></span><button class="buy" data-id="' + id + '" type="button"' + (ok ? '' : ' disabled') + '>' + btn + '</button></div>';
@@ -1086,10 +1086,10 @@ const QUESTS = [
   { t: '50,000원 모으기', hint: '가축을 키워 팔고, 얻은 것을 팔기', ok: () => money >= 50000, pay: 10000 }
 ];
 const OPEN_NAME = { seed: '씨앗·비료', wx: '날씨 장비', lic: '자격증', land: '울타리 구매', gear: '장비(트랙터·총·전기 울타리)' };
-const openAt = k => QUESTS.findIndex(q => q.open === k), isOpen = k => allOpen || openAt(k) < questI;
-function checkQuest() {
+const openAt = k => QUESTS.findIndex(q => q.open === k), isOpen = k => allOpen || openAt(k) < questI || QUESTS[openAt(k)].ok();   // 순서와 상관없이, 그 기능을 여는 목표의 조건만 채우면 열린다
+function checkQuest() {   // 지금 목표를 이뤘으면 보상을 주고 다음으로. 이미 조건을 채운 목표가 이어지면 차례로 넘어간다
   const q = QUESTS[questI]; if (!q || !q.ok()) return; questI++; money += q.pay; SFX.praise(); burst(pl.x, pl.y, 'spark', 12);
-  showToast('✅ 목표 달성: ' + q.t + ' · 보상 +' + q.pay.toLocaleString() + '원' + (q.open ? ' · 🔓 상점에 ' + OPEN_NAME[q.open] + ' 열림' : ''), 6); saveGame();
+  showToast('✅ 목표 달성: ' + q.t + ' · 보상 +' + q.pay.toLocaleString() + '원' + (q.open ? ' · 🔓 상점에 ' + OPEN_NAME[q.open] + ' 열림' : ''), 4); metaT = 1.5; saveGame();
 }
 const ORDERS = [
   { k: 'worked', t: n => '가축에게서 ' + n + '번 얻기 (달걀·털·젖 등)', n: [3, 5, 8] }, { k: 'harvested', t: n => '작물 ' + n + '포기 수확하기', n: [2, 4, 6], need: 'seed' }, { k: 'sold', t: n => '가축 ' + n + '마리 팔기', n: [1, 2, 3] },
