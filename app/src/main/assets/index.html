@@ -59,6 +59,12 @@
   #bGun{background:#7a5a48}
   #bShop{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));top:calc(70px + env(safe-area-inset-top,0px));font:18px var(--display);background:var(--good);color:#fff;
     border:3px solid var(--paper);border-radius:16px;padding:8px 16px;cursor:pointer;touch-action:none;z-index:5;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+  #bWork{background:#3fae6a} #bWood{background:#a9744f}
+  #ex{position:static;display:block;margin:4px auto;width:auto;height:auto;max-width:100%;max-height:calc(100vh - 200px);aspect-ratio:7/3;border:3px solid var(--ink);border-radius:14px;touch-action:none;cursor:pointer}
+  #card .exh{margin:2px 0} .btn.exq{font-size:15px;padding:4px 18px;margin-top:6px}
+  .btn:disabled{background:#b9ada4;opacity:.7;cursor:default}
+  .cert{background:#fffbe6;border:4px double #c9a56a;border-radius:10px;padding:14px 18px;margin:10px auto;max-width:440px;font-size:clamp(14px,2.6vw,17px);line-height:1.5}
+  .cert b{display:block;font-weight:400;color:var(--accent);font-size:1.35em;margin-bottom:4px}
   .tabs{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:8px 0}
   .tab{font:clamp(14px,2.6vw,17px) var(--display);background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:12px;padding:6px 12px;cursor:pointer}
   .tab.on{background:var(--accent);color:#fff}
@@ -77,6 +83,8 @@
 <script src="panda_model.js"></script>
 <div id="pad" hidden>
  <div class="prow">
+  <button id="bWood" class="pb sm" type="button" hidden>목공</button>
+  <button id="bWork" class="pb sm" type="button" hidden>일</button>
   <button id="bGun" class="pb sm off" type="button" hidden>총</button>
  </div>
  <div class="prow">
@@ -437,8 +445,8 @@ const PRED = {
 };
 const PEN_W = 520, PEN_H = 340, PEN_GAP = 70, PEN_X0 = 330, PEN_Y0 = 150, PEN_CAP = 8, TROUGH_CAP = 12;
 const PEN_PRICE = [0, 4000, 8000, 14000, 22000, 32000], GUN_PRICE = 6000, ELEC_PRICE = 5000;
-const WORLD = { w: PEN_X0 + 3 * (PEN_W + PEN_GAP) + 40, h: PEN_Y0 + 2 * (PEN_H + PEN_GAP) + 60 };
-const PENS = []; for (let i = 0; i < 6; i++) { const x = PEN_X0 + (i % 3) * (PEN_W + PEN_GAP), y = PEN_Y0 + (i / 3 | 0) * (PEN_H + PEN_GAP); PENS.push({ i, x, y, w: PEN_W, h: PEN_H, tx: x + PEN_W / 2, ty: y + 46, food: 0, elec: false }); }
+const WORLD = { w: PEN_X0 + 3 * (PEN_W + PEN_GAP) + 40, h: PEN_Y0 + 2 * (PEN_H + PEN_GAP) + 680 };
+const PENS = []; for (let i = 0; i < 6; i++) { const x = PEN_X0 + (i % 3) * (PEN_W + PEN_GAP), y = PEN_Y0 + (i / 3 | 0) * (PEN_H + PEN_GAP); PENS.push({ i, x, y, w: PEN_W, h: PEN_H, tx: x + PEN_W / 2, ty: y + 46, tw: 200, food: 0, elec: false, fort: 0, cap: PEN_CAP, get own() { return this.i < pensOwned; } }); }
 const HAY = { x: 170, y: 330 }, HOME = { x: 150, y: 150 };
 const DAY_LEN = 75, NIGHT_LEN = 45, CYCLE = DAY_LEN + NIGHT_LEN;
 
@@ -474,7 +482,7 @@ function wxExposure(p) { const it = WX[wx].item; if (!it || isNight()) return 0;
 function installGear(p, type) { const T = TIER[wxGear[type]]; p.gear = { type, t: T.dur, max: T.dur, prot: T.prot, lvl: wxGear[type] }; buildGear(p); SFX.sweep(); tone(520, 780, .12, 'triangle', .25); say({ x: p.x + p.w / 2, y: p.y + p.h / 2 }, ITEMS[type].e + ' ' + T.n + ' ' + ITEMS[type].n + ' 설치!', '#3fae6a', 1); }
 function updateWeather(dt) {
   if (isNight()) return; const W = WX[wx];
-  for (const p of PENS) { if (p.i >= pensOwned) continue;
+  for (const p of PENS) { if (!p.own) continue;
     if (p.gear && p.gear.max < 900) { p.gear.t -= dt; if (p.gear.t <= 0) { const it = ITEMS[p.gear.type]; p.gear = null; buildGear(p); say({ x: p.x + p.w / 2, y: p.y + p.h / 2 }, it.n + '이(가) 망가졌어요!', '#e2493f', 1); showToast((p.i + 1) + '번 울타리의 ' + it.n + '이(가) 망가졌어요. 창고에서 다시 꺼내 설치하세요', 4); noise(.25, 300, 1, .5, 0, 'lowpass'); } }
     if (W.blow && p.food > 0 && Math.random() < dt * W.blow * wxExposure(p)) { p.food--; burst(p.tx, p.ty, 'dust', 6); say({ x: p.tx, y: p.ty }, '건초가 날아갔어요!', '#a0522d'); } }
   wxSndT -= dt; if (wxSndT <= 0) {
@@ -486,7 +494,7 @@ function updateWeather(dt) {
 function updateTractor() {   // 타고 있으면 건초 더미 옆에서 저절로 싣고, 여물통 옆에서 저절로 채운다
   if (!tr.riding) return; tr.x = pl.x; tr.y = pl.y;
   if (tr.stock < TR_CAP && Math.hypot(HAY.x - pl.x, HAY.y - pl.y) < 130) { tr.stock = TR_CAP; SFX.take(); say(pl, '🌾 건초를 가득 실었어요', '#3fae6a', 1); if (tipStep === 0) tipStep = 1; }
-  for (const p of PENS) { if (p.i >= pensOwned || p.food >= TROUGH_CAP || tr.stock <= 0 || Math.hypot(p.tx - pl.x, p.ty - pl.y) > 125) continue;
+  for (const p of PENS) { if (!p.own || p.food >= TROUGH_CAP || tr.stock <= 0 || Math.hypot(p.tx - pl.x, p.ty - pl.y) > 125) continue;
     const n = Math.min(TROUGH_CAP - p.food, tr.stock); p.food += n; tr.stock -= n; SFX.sweep(); burst(p.tx, p.ty, 'dust', 8); say({ x: p.tx, y: p.ty }, '여물통을 채웠어요 (+' + n + ')', '#3fae6a', 1); if (tipStep <= 1) tipStep = 2; }
 }
 let toast = { t: 0, text: '' }, shake = 0, lostTonight = 0, bornToday = 0, spawnT = 0, toSpawn = 0, shotFx = null, curAct = null, tipStep = 0;
@@ -496,14 +504,14 @@ const nightK = () => { const d = 6; if (clock < d) return 1 - clock / d; if (clo
 function showToast(t, sec) { toast.text = t; toast.t = sec || 3; }
 function say(o, text, col, big) { says.push({ x: o.x, y: o.y, h: (o.sp ? o.sp.r * 2.2 : 60) + 44, text, col: col || '#4a3226', life: 1.5, big }); }
 function burst(x, y, kind, n) { for (let i = 0; i < n; i++) parts.push({ x: x + R(-14, 14), y: y + R(-10, 10), h: R(20, 60), vx: R(-50, 50), vy: R(-90, -20), life: R(.6, 1.2), kind, s: R(.7, 1.3) }); }
-const penAt = (x, y) => PENS.find(p => p.i < pensOwned && x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h);
+const penAt = (x, y) => PENS.find(p => p.own && x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h);
 const inPen = p => animals.filter(a => a.pen === p.i);
 
 /* ---------- 가축 ---------- */
 function addAnimal(kind, pen, adult, at, rare) {
   const K = KINDS[kind], P = PENS[pen]; rare = !!rare;
   const a = { kind, K, rare, model: rare && K.rareModel || K.sp.model || '', sp: rare ? Object.assign({}, K.sp, RARE_SP) : K.sp, pen, adult, age: adult ? K.grow : 0, x: at ? at.x : R(P.x + 60, P.x + P.w - 60), y: at ? at.y : R(P.y + 110, P.y + P.h - 50), tx: 0, ty: 0, pause: R(0, 2), goal: 'wander',
-    hunger: R(10, 35), dirt: R(5, 25), health: 100, happy: 20, preg: 0, cool: R(20, 50), state: 'free', eatT: 0, voiceT: R(3, 8), seed: R(0, 100), moving: false, phase: 0, attackedT: 0, cleanT: 0, collar: '#e2493f' };
+    hunger: R(10, 35), dirt: R(5, 25), health: 100, happy: 20, preg: 0, cool: R(20, 50), state: 'free', eatT: 0, voiceT: R(3, 8), seed: R(0, 100), moving: false, phase: 0, attackedT: 0, cleanT: 0, collar: '#e2493f', prod: R(15, 40) };
   animals.push(a); return a;
 }
 function removeAnimal(a) { const i = animals.indexOf(a); if (i >= 0) animals.splice(i, 1); if (a.md && a.md.g.parent) a.md.g.parent.remove(a.md.g); if (pl.carry === a) pl.carry = null; }
@@ -511,7 +519,7 @@ function sellPrice(a) { const cond = clamp((a.health / 100) * .7 + (a.happy / 10
 function updateAnimal(a, dt) {
   const K = a.K, P = PENS[a.pen], night = isNight(), slow = night ? .35 : 1;
   a.hunger = Math.min(100, a.hunger + .8 * slow * dt); if (a.cleanT <= 0) a.dirt = Math.min(100, a.dirt + .5 * slow * dt);
-  if (a.cleanT > 0) a.cleanT -= dt; if (a.attackedT > 0) a.attackedT -= dt; if (a.cool > 0) a.cool -= dt;
+  if (a.cleanT > 0) a.cleanT -= dt; if (a.attackedT > 0) a.attackedT -= dt; if (a.cool > 0) a.cool -= dt; if (a.prod > 0) a.prod -= dt;
   const cared = a.hunger < 55 && a.dirt < 55;
   a.happy = clamp(a.happy + (cared ? 2.4 : -3) * dt, 0, 100);
   const ex = wxExposure(P); if (ex > 0) { const W = WX[wx];
@@ -520,11 +528,11 @@ function updateAnimal(a, dt) {
   if (a.hunger >= 100 || a.dirt >= 90) a.health = Math.max(0, a.health - 1.6 * dt); else if (cared) a.health = Math.min(100, a.health + 1.2 * dt);
   if (!a.adult) { if (a.hunger < 80) a.age += dt; if (a.age >= K.grow) { a.adult = true; say(a, '다 컸어요!', '#3fae6a', 1); SFX.clean(); burst(a.x, a.y, 'spark', 8); } }
   // 임신과 출산: 잘 돌본 어른 가축이 같은 종류의 짝과 한 울타리에 있으면 새끼를 밴다
-  if (a.adult && a.preg <= 0 && a.cool <= 0 && a.happy >= 100 && inPen(P).length < PEN_CAP && animals.some(b => b !== a && b.pen === a.pen && b.kind === a.kind && b.adult)) {
+  if (a.adult && a.preg <= 0 && a.cool <= 0 && a.happy >= 100 && inPen(P).length < P.cap && animals.some(b => b !== a && b.pen === a.pen && b.kind === a.kind && b.adult)) {
     a.preg = K.preg; a.happy = 60; say(a, '💗 새끼를 가졌어요', '#e2497f', 1); tone(660, 990, .2, 'sine', .2); tone(880, 1320, .25, 'sine', .2, .2);
   }
   if (a.preg > 0) { a.preg -= dt * (cared ? 1 : .3); if (a.preg <= 0) { a.preg = 0; a.cool = 90;
-    if (inPen(P).length < PEN_CAP) { const lucky = Math.random() < rareChance(a), b = addAnimal(a.kind, a.pen, false, { x: a.x + R(-30, 30), y: a.y + R(10, 30) }, lucky); b.hunger = 20; b.dirt = 0; bornToday++; SFX.praise(); burst(a.x, a.y, 'heart', 10);
+    if (inPen(P).length < P.cap) { const lucky = Math.random() < rareChance(a), b = addAnimal(a.kind, a.pen, false, { x: a.x + R(-30, 30), y: a.y + R(10, 30) }, lucky); b.hunger = 20; b.dirt = 0; bornToday++; SFX.praise(); burst(a.x, a.y, 'heart', 10);
       if (lucky) { say(a, '✨ 희귀한 새끼가 태어났어요!', '#d99a00', 1); showToast('✨ 희귀한 ' + (K.rareName || '황금 ' + K.n) + ' 새끼가 태어났어요! 다 크면 ' + RARE_MULT + '배 값에 팔려요', 5); burst(a.x, a.y, 'spark', 16); tone(1047, 1047, .15, 'triangle', .25, .6); tone(1568, 1568, .3, 'triangle', .25, .75); }
       else say(a, '🎉 ' + K.n + ' 새끼가 태어났어요!', '#e2497f', 1); }
     else say(a, '울타리가 꽉 찼어요', '#7a6a4f'); } }
@@ -542,7 +550,7 @@ function updateAnimal(a, dt) {
   if (a.pause > 0) { a.pause -= dt; a.moving = false; }
   else {
     if (a.goal !== 'go') {
-      if (a.hunger >= 50 && P.food > 0) { a.tx = P.tx + R(-90, 90); a.ty = P.ty + R(26, 44); a.goal = 'go'; a.toFood = true; }
+      if (a.hunger >= 50 && P.food > 0) { a.tx = P.tx + R(-P.tw / 2 + 10, P.tw / 2 - 10); a.ty = P.ty + R(26, 44); a.goal = 'go'; a.toFood = true; }
       else { a.tx = R(P.x + 40, P.x + P.w - 40); a.ty = R(P.y + 100, P.y + P.h - 36); a.goal = 'go'; a.toFood = false; }
     }
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
@@ -575,12 +583,13 @@ function scarePred(q, why) { if (q.flee) return; q.flee = true; q.target = null;
 function updatePred(q, dt) {
   const D = q.D; q.phase += dt * 14; if (q.stun > 0) { q.stun -= dt; return; }
   if (!q.flee && Math.hypot(q.x - pl.x, q.y - pl.y) < D.scare) scarePred(q, '횃불이다! 깨갱');
-  const P = penAt(q.x, q.y); if (!q.flee && P && P.elec) { scarePred(q, '⚡ 찌릿!'); noise(.15, 3000, 3, .4); burst(q.x, q.y, 'spark', 8); }
+  const P = penAt(q.x, q.y); if (!q.flee && P && !P.elec && penSafe(P, q)) scarePred(q, '울타리가 너무 튼튼해!');
+  if (!q.flee && P && P.elec) { scarePred(q, '⚡ 찌릿!'); noise(.15, 3000, 3, .4); burst(q.x, q.y, 'spark', 8); }
   if (q.flee) {   // 가장 가까운 가장자리로 달아난다
     const ex = q.x < WORLD.w / 2 ? -120 : WORLD.w + 120, dx = ex - q.x, d = Math.abs(dx) || 1; q.x += dx / d * D.speed * 1.5 * dt; q.y += (q.y < WORLD.h / 2 ? -1 : 1) * 30 * dt;
     if (q.x < -100 || q.x > WORLD.w + 100) q.gone = true; return;
   }
-  if (!q.target || animals.indexOf(q.target) < 0) { const c = animals.filter(a => !PENS[a.pen].elec && a.state !== 'carried'); q.target = c.length ? c.reduce((m, a) => Math.hypot(a.x - q.x, a.y - q.y) < Math.hypot(m.x - q.x, m.y - q.y) ? a : m) : null; if (!q.target) { q.flee = true; return; } }
+  if (!q.target || animals.indexOf(q.target) < 0) { const c = animals.filter(a => !penSafe(PENS[a.pen], q) && a.state !== 'carried'); q.target = c.length ? c.reduce((m, a) => Math.hypot(a.x - q.x, a.y - q.y) < Math.hypot(m.x - q.x, m.y - q.y) ? a : m) : null; if (!q.target) { q.flee = true; return; } }
   const t = q.target, dx = t.x - q.x, dy = t.y - q.y, d = Math.hypot(dx, dy), reach = q.sp.r * .6 + t.sp.r * .6 + 6;
   if (d > reach) { q.x += dx / d * D.speed * dt; q.y += dy / d * D.speed * dt; }
   else { q.biteT -= dt; t.attackedT = 2; if (q.biteT <= 0) { q.biteT = 1.3; t.health -= D.bite; emote(t, 'scared'); say(t, '!!', '#e2493f', 1); noise(.12, 500, 1, .5, 0, 'lowpass'); burst(t.x, t.y, 'dust', 4); shake = Math.max(shake, .2);
@@ -597,9 +606,10 @@ function pressShoot() {
 
 /* ---------- 주인공의 일: 건초 나르기 · 가축 옮기기 · 호스 ---------- */
 function findAction() {
+  if (build) return build.a ? { type: 'buildEnd', label: '여기까지 짓기' } : { type: 'buildStart', label: '모서리 찍기' };
   if (tr.riding) return { type: 'off', label: '내리기' };
   if (pl.carry === 'gear') { const P = penAt(pl.x, pl.y); return P ? { type: 'install', pen: P, label: '설치하기' } : { type: 'dropHay', label: '내려놓기' }; }
-  if (pl.carry === 'hay') { const P = PENS.find(p => p.i < pensOwned && Math.hypot(p.tx - pl.x, p.ty - pl.y) < 90); return P ? (P.food >= TROUGH_CAP ? { type: 'full', label: '가득 참' } : { type: 'fill', pen: P, label: '먹이 놓기' }) : { type: 'dropHay', label: '내려놓기' }; }
+  if (pl.carry === 'hay') { const P = PENS.find(p => p.own && Math.hypot(p.tx - pl.x, p.ty - pl.y) < 90); return P ? (P.food >= TROUGH_CAP ? { type: 'full', label: '가득 참' } : { type: 'fill', pen: P, label: '먹이 놓기' }) : { type: 'dropHay', label: '내려놓기' }; }
   if (pl.carry) return { type: 'drop', label: '내려놓기' };
   if (tractor && Math.hypot(tr.x - pl.x, tr.y - pl.y) < 80) return { type: 'ride', label: '트랙터 타기' };
   if (Math.hypot(HAY.x - pl.x, HAY.y - pl.y) < 90) return { type: 'hay', label: '건초 들기' };
@@ -611,6 +621,8 @@ function pressAct() {
   if (state !== 'play') return; initAudio(); const a = curAct = findAction(); if (!a) return;
   if (a.type === 'hay') { pl.carry = 'hay'; SFX.take(); if (tipStep === 0) tipStep = 1; }
   else if (a.type === 'fill') { a.pen.food = Math.min(TROUGH_CAP, a.pen.food + 4); pl.carry = null; SFX.sweep(); burst(a.pen.tx, a.pen.ty, 'dust', 6); if (tipStep <= 1) tipStep = 2; }
+  else if (a.type === 'buildStart') { build.a = true; build.ax = pl.x; build.ay = pl.y; SFX.take(); showToast('반대쪽 모서리로 가서 [여기까지 짓기]를 누르세요', 4); }
+  else if (a.type === 'buildEnd') finishBuild();
   else if (a.type === 'gear') { pl.carry = 'gear'; pl.gearType = a.item; SFX.take(); }
   else if (a.type === 'install') { installGear(a.pen, pl.gearType); pl.carry = null; }
   else if (a.type === 'ride') { tr.riding = true; pl.x = tr.x; pl.y = tr.y; SFX.grab(); tone(90, 70, .5, 'sawtooth', .3); }
@@ -621,7 +633,7 @@ function pressAct() {
   else if (a.type === 'drop') {
     const an = pl.carry, P = penAt(pl.x, pl.y);
     if (!P) { showToast('울타리 안에서 내려놓으세요'); return; }
-    if (P.i !== an.pen && inPen(P).length >= PEN_CAP) { showToast('이 울타리는 꽉 찼어요 (최대 ' + PEN_CAP + '마리)'); return; }
+    if (P.i !== an.pen && inPen(P).length >= P.cap) { showToast('이 울타리는 꽉 찼어요 (최대 ' + P.cap + '마리)'); return; }
     an.pen = P.i; an.state = 'free'; an.x = pl.x + pl.ax * 20; an.y = pl.y + pl.ay * 20; an.goal = 'wander'; an.pause = 1; pl.carry = null; SFX.take();
   }
 }
@@ -635,11 +647,11 @@ function updateHose(dt) {
 
 /* ---------- 상점 (낮밤 관계없이 열 수 있고, 여는 동안 시간은 멈춘다) ---------- */
 function openShop(tab) {
-  if (state !== 'play' && state !== 'shop') return; state = 'shop'; tab = tab || 'buy';
-  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['land', '울타리'], ['gear', '장비'], ['wx', '날씨 장비']];
+  if (state !== 'play' && state !== 'shop' && state !== 'exam') return; state = 'shop'; tab = tab || 'buy';
+  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['land', '울타리'], ['gear', '장비'], ['wx', '날씨 장비'], ['lic', '자격증']];
   let h = '<h2>농장 상점</h2><p class="pay">💰 <b>' + won(money) + '</b> · ' + day + '일째 · 가축 ' + animals.length + '마리</p><div class="tabs">' + tabs.map(t => '<button class="tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '" type="button">' + t[1] + '</button>').join('') + '</div>';
   const row = (icon, name, sub, btn, id, ok) => '<div class="shop"><span class="si">' + icon + '</span><span class="sn"><b>' + name + '</b><br><span class="sub">' + sub + '</span></span><button class="buy" data-id="' + id + '" type="button"' + (ok ? '' : ' disabled') + '>' + btn + '</button></div>';
-  if (tab === 'buy') { const free = PENS.find(p => p.i < pensOwned && inPen(p).length < PEN_CAP);
+  if (tab === 'buy') { const free = PENS.find(p => p.own && inPen(p).length < p.cap);
     for (const k in KINDS) { const K = KINDS[k]; h += row(K.e, K.n, '다 크면 약 ' + won(K.sell) + '에 팔려요' + (K.rareModel ? ' · 희귀한 소는 희귀 새끼를 더 잘 낳아요' : ''), won(K.buy), 'buy:' + k, money >= K.buy && !!free); }
     h += '<p class="sub">✨ 희귀한 가축은 상점에서 팔지 않아요. 만족도가 높은 어미에게서 가끔 태어나고, ' + RARE_MULT + '배 값에 팔려요.</p>';
     h += '<p class="sub">' + (free ? '산 가축은 ' + (free.i + 1) + '번 울타리로 들어가요.' : '모든 울타리가 꽉 찼어요. 가축을 팔거나 울타리를 넓히세요.') + '</p>'; }
@@ -649,7 +661,11 @@ function openShop(tab) {
     if (!any) h += '<p class="sub">팔 가축이 없어요.</p>'; h += '<p class="sub">건강하고 만족도가 높을수록 비싸게 팔려요. 희귀한 가축은 ' + RARE_MULT + '배!</p>'; }
   else if (tab === 'land') {
     if (pensOwned < 6) h += row('🌾', (pensOwned + 1) + '번 울타리', '가축을 ' + PEN_CAP + '마리 더 키울 수 있어요. 가축을 들어서 옮길 수 있어요', won(PEN_PRICE[pensOwned]), 'pen', money >= PEN_PRICE[pensOwned]); else h += '<p class="sub">울타리를 모두 샀어요!</p>';
-    h += '<p class="sub">지금 울타리 ' + pensOwned + ' / 6</p>'; }
+    h += '<p class="sub">지금 울타리 ' + pensOwned + ' / 6 · 규격 울타리는 정해진 자리에만 생겨요. 목공 자격증이 있으면 목재로 빈터에 원하는 크기로 직접 지을 수 있어요.</p>'; }
+  else if (tab === 'lic') {
+    for (const k in LIC) { const L = LIC[k], lv = lic[k]; h += row(L.e, L.n + ' 자격증 · ' + (lv ? lv + '급' : '없음'), lv < 3 ? (lv + 1) + '급: ' + L.perk[lv] : '최고 등급이에요', lv < 3 ? '응시 ' + won(L.fee[lv]) : '최고', 'exam:' + k, lv < 3 && money >= L.fee[lv]); }
+    h += row('🪵', '목재 ' + WOOD_PACK + '개 (보유 ' + wood + '개)', lic.carp ? '울타리를 직접 짓고 보강하는 데 써요' : '목공 자격증이 있어야 살 수 있어요', won(woodPrice()), 'wood', lic.carp > 0 && money >= woodPrice());
+    h += '<p class="sub">응시료를 내고 시험을 통과해야 자격증을 받아요. 떨어지면 응시료는 돌아오지 않아요. 등급이 높을수록 시험이 어려워요.</p>'; }
   else if (tab === 'wx') {
     for (const k in ITEMS) { const I = ITEMS[k], lv = wxGear[k], T = TIER[lv], N = TIER[lv + 1], life = t => t.dur > 900 ? '하루 종일' : t.dur + '초';
       h += row(I.e, T.n + ' ' + I.n, I.d + ' · 지금: ' + Math.round(T.prot * 100) + '% 막고 ' + life(T) + ' 버팀' + (N ? ' → ' + N.n + ': ' + Math.round(N.prot * 100) + '%, ' + life(N) : ''), N ? won(N.price) : '최고', 'wx:' + k, !!N && money >= N.price); }
@@ -657,13 +673,15 @@ function openShop(tab) {
   else { h += row('🚜', '트랙터', '타고 달리면 건초 더미 옆에서 저절로 싣고(' + TR_CAP + '마리 분), 여물통 옆을 지나면 저절로 채워요', tractor ? '보유' : won(TRACTOR_PRICE), 'tractor', !tractor && money >= TRACTOR_PRICE);
     h += row('🔥', '횃불', '밤에 저절로 켜져요. 가까이 가면 늑대가 달아나요 (곰은 아주 가까이 가야 해요)', '기본 지급', 'x', false);
     h += row('🔫', '사냥총', '멀리 있는 늑대를 한 방에 쫓아요. 곰은 두 방', gun ? '보유' : won(GUN_PRICE), 'gun', !gun && money >= GUN_PRICE);
-    for (const p of PENS) if (p.i < pensOwned) h += row('⚡', (p.i + 1) + '번 울타리 전기 울타리', '늑대와 곰이 이 울타리에 들어오지 못해요', p.elec ? '설치됨' : won(ELEC_PRICE), 'elec:' + p.i, !p.elec && money >= ELEC_PRICE); }
+    for (const p of PENS) if (p.own) h += row('⚡', (p.i + 1) + '번 울타리 전기 울타리', '늑대와 곰이 이 울타리에 들어오지 못해요', p.elec ? '설치됨' : won(ELEC_PRICE), 'elec:' + p.i, !p.elec && money >= ELEC_PRICE); }
   showOv(h + '<button class="btn" id="go">농장으로</button>');
   document.querySelectorAll('#card .tab').forEach(b => { b.onclick = () => openShop(b.dataset.tab); });
   document.querySelectorAll('#card .buy').forEach(b => { b.onclick = () => { const [op, arg, arg2] = b.dataset.id.split(':'); initAudio();
-    if (op === 'buy') { const K = KINDS[arg], free = PENS.find(p => p.i < pensOwned && inPen(p).length < PEN_CAP); if (!free || money < K.buy) return; money -= K.buy; addAnimal(arg, free.i, true); SFX.clean(); }
+    if (op === 'buy') { const K = KINDS[arg], free = PENS.find(p => p.own && inPen(p).length < p.cap); if (!free || money < K.buy) return; money -= K.buy; addAnimal(arg, free.i, true); SFX.clean(); }
     else if (op === 'sell') { const ad = animals.filter(a => a.kind === arg && a.adult && a.rare === (arg2 === '1')).sort((a, b) => sellPrice(b) - sellPrice(a)); if (!ad.length) return; money += sellPrice(ad[0]); removeAnimal(ad[0]); SFX.praise(); }
     else if (op === 'pen') { if (pensOwned >= 6 || money < PEN_PRICE[pensOwned]) return; money -= PEN_PRICE[pensOwned]; pensOwned++; buildFences(); SFX.clean(); }
+    else if (op === 'exam') { startExam(arg); return; }
+    else if (op === 'wood') { if (!lic.carp || money < woodPrice()) return; money -= woodPrice(); wood += WOOD_PACK; SFX.take(); }
     else if (op === 'tractor') { if (tractor || money < TRACTOR_PRICE) return; money -= TRACTOR_PRICE; tractor = true; tr.x = 300; tr.y = 440; tr.stock = 0; SFX.clean(); }
     else if (op === 'wx') { const N = TIER[wxGear[arg] + 1]; if (!N || money < N.price) return; money -= N.price; wxGear[arg]++; SFX.clean(); }
     else if (op === 'gun') { if (gun || money < GUN_PRICE) return; money -= GUN_PRICE; gun = true; SFX.clean(); }
@@ -672,35 +690,183 @@ function openShop(tab) {
   $('go').onclick = () => { initAudio(); state = 'play'; hideOv(); };
 }
 
+/* ---------- 자격증 ----------
+   응시료를 내고 시험(미니게임)을 통과하면 자격증을 얻는다. 등급이 오를수록 응시료가 비싸고 시험이 어렵다.
+   목공: 목재로 울타리를 직접 짓고 보강한다 / 양털깎기·젖짜기: 양과 소에게서 부수입을 얻는다 */
+const LIC = {
+  carp: { n: '목공', e: '🔨', fee: [2000, 6000, 15000], games: ['hammer', 'saw'],
+    perk: ['목재로 빈터에 원하는 크기의 울타리를 직접 지어요 (2곳, 최대 600×400)', '울타리 보강: 늑대가 들어오지 못해요 · 직접 짓는 울타리 4곳, 최대 900×500', '철심 보강: 곰도 들어오지 못해요 · 직접 짓는 울타리 6곳, 최대 1200×600 · 목재 30% 할인'] },
+  shear: { n: '양털깎기', e: '✂️', fee: [1500, 5000, 12000], games: ['shear'],
+    perk: ['다 큰 양의 털을 깎아 팔아요 (300원, 70초마다)', '양털 500원, 55초마다', '양털 800원, 40초마다'] },
+  milk: { n: '소 젖짜기', e: '🥛', fee: [2000, 6000, 14000], games: ['milk'],
+    perk: ['다 큰 소의 젖을 짜서 팔아요 (400원, 60초마다)', '우유 700원, 48초마다', '우유 1,100원, 36초마다'] }
+};
+const CARP = { max: [0, 2, 4, 6], w: [0, 600, 900, 1200], h: [0, 400, 500, 600] }, WOOD_PACK = 10;
+const WORK = { sheep: { lic: 'shear', pay: [0, 300, 500, 800], cd: [0, 70, 55, 40], label: '털 깎기', e: '✂️', done: '양털' }, cow: { lic: 'milk', pay: [0, 400, 700, 1100], cd: [0, 60, 48, 36], label: '젖 짜기', e: '🥛', done: '우유' } };
+let lic = { carp: 0, shear: 0, milk: 0 }, wood = 0, exam = null, build = null, curWork = null;
+const woodPrice = () => lic.carp >= 3 ? 1050 : 1500;
+const workReady = a => { const w = WORK[a.kind]; return !!w && a.adult && lic[w.lic] > 0 && a.prod <= 0 && a.hunger < 60 && a.dirt < 60; };
+function findWork() {
+  if (pl.carry || tr.riding || build) return null; let b = null, bd = 60;
+  for (const a of animals) { if (a.state !== 'free' || !workReady(a)) continue; const d = Math.hypot(a.x - pl.x, a.y - pl.y) - a.sp.r * .5; if (d < bd) { bd = d; b = a; } }
+  return b;
+}
+function pressWork() {
+  if (state !== 'play') return; initAudio(); const a = findWork(); if (!a) return; const w = WORK[a.kind], lv = lic[w.lic], pay = w.pay[lv] * (a.rare ? RARE_MULT : 1);
+  money += pay; a.prod = w.cd[lv]; a.pause = Math.max(a.pause, 1.2); say(a, w.e + ' ' + w.done + ' +' + pay.toLocaleString() + '원', '#3fae6a', 1); burst(a.x, a.y, a.kind === 'sheep' ? 'bubble' : 'spark', 8);
+  if (a.kind === 'sheep') for (let i = 0; i < 4; i++) noise(.06, 3000, 3, .25, i * .09); else for (let i = 0; i < 3; i++) tone(700 - i * 60, 300, .09, 'sine', .25, i * .14); tone(880, 1320, .12, 'triangle', .2, .4);
+}
+
+/* 목공: 직접 짓기와 보강 */
+const penSafe = (p, q) => p.elec || p.fort >= (q.kind === 'bear' ? 2 : 1);
+const fortCost = (p, f) => Math.ceil((p.w + p.h) * 2 / 100) * f;
+function buildRect() {   // 찍어 둔 모서리부터 지금 서 있는 곳까지
+  const lv = lic.carp, sn = v => Math.round(v / 10) * 10, x = sn(Math.min(build.ax, pl.x)), y = sn(Math.min(build.ay, pl.y)), w = sn(Math.abs(pl.x - build.ax)), h = sn(Math.abs(pl.y - build.ay));
+  const need = Math.ceil((w + h) * 2 / 50), cap = clamp(Math.round(w * h / 22100), 2, 16); let why = '';
+  if (w < 220 || h < 200) why = '너무 작아요 (최소 220×200)'; else if (w > CARP.w[lv] || h > CARP.h[lv]) why = '지금 등급으로는 ' + CARP.w[lv] + '×' + CARP.h[lv] + '까지';
+  else if (x < 330 || y < 120 || x + w > WORLD.w - 20 || y + h > WORLD.h - 20) why = '농장 밖이에요';
+  else if (PENS.some(p => x < p.x + p.w + 30 && x + w > p.x - 30 && y < p.y + p.h + 30 && y + h > p.y - 30)) why = '다른 울타리 자리와 겹쳐요';
+  else if (need > wood) why = '목재가 모자라요';
+  return { x, y, w, h, need, cap, why };
+}
+function finishBuild() {
+  const r = buildRect(); if (r.why) { showToast(r.why); return; }
+  wood -= r.need; PENS.push({ i: PENS.length, x: r.x, y: r.y, w: r.w, h: r.h, tx: r.x + r.w / 2, ty: r.y + 46, tw: Math.min(200, r.w - 60), food: 0, elec: false, fort: 0, cap: r.cap, own: true, custom: true });
+  build = null; buildFences(); saveGame(); SFX.praise(); showToast('🔨 ' + PENS.length + '번 울타리를 지었어요! 가축 ' + r.cap + '마리까지', 4);
+}
+function pressWood() {
+  if (state !== 'play' || !lic.carp) return; initAudio();
+  if (pl.carry) { showToast('들고 있는 것을 먼저 내려놓으세요'); return; }
+  if (build) { build = null; showToast('짓기를 취소했어요'); return; }
+  if (tr.riding) { showToast('트랙터에서 내려서 하세요'); return; }
+  const lv = lic.carp, P = penAt(pl.x, pl.y), nCustom = PENS.filter(p => p.custom).length, f = P ? P.fort + 1 : 0, cost = P ? fortCost(P, f) : 0; state = 'menu';
+  let h = '<h2>🔨 목공</h2><p class="pay">목공 자격증 ' + lv + '급 · 🪵 목재 <b>' + wood + '개</b></p>';
+  h += '<div class="shop"><span class="si">📐</span><span class="sn"><b>새 울타리 짓기</b><br><span class="sub">두 모서리를 찍어 원하는 크기로 지어요. 둘레 50마다 목재 1개 · 최대 ' + CARP.w[lv] + '×' + CARP.h[lv] + ' · ' + nCustom + ' / ' + CARP.max[lv] + '곳</span></span><button class="buy" id="wb" type="button"' + (nCustom < CARP.max[lv] ? '' : ' disabled') + '>시작</button></div>';
+  if (P) h += '<div class="shop"><span class="si">🛡️</span><span class="sn"><b>' + (P.i + 1) + '번 울타리 ' + (f === 1 ? '보강' : '철심 보강') + '</b><br><span class="sub">' + (P.fort >= 2 ? '이미 가장 튼튼해요' : f === 1 ? '늑대가 들어오지 못해요' : '곰도 들어오지 못해요') + (P.fort < 2 && lv < f + 1 ? ' · 목공 ' + (f + 1) + '급 필요' : '') + '</span></span><button class="buy" id="wf" type="button"' + (P.fort < 2 && lv >= f + 1 && wood >= cost ? '' : ' disabled') + '>' + (P.fort >= 2 ? '완료' : '🪵 ' + cost + '개') + '</button></div>';
+  else h += '<p class="sub">울타리 안에서 열면 그 울타리를 보강할 수 있어요 (목공 2급부터).</p>';
+  showOv(h + '<p class="sub">목재는 상점의 자격증 탭에서 사요.</p><button class="btn" id="go">닫기</button>');
+  $('go').onclick = () => { state = 'play'; hideOv(); };
+  $('wb').onclick = () => { build = { a: false, ax: 0, ay: 0 }; state = 'play'; hideOv(); showToast('울타리의 첫 모서리로 가서 [모서리 찍기]를 누르세요', 4); };
+  if ($('wf')) $('wf').onclick = () => { if (wood < cost) return; wood -= cost; P.fort = f; buildFences(); saveGame(); SFX.praise(); state = 'play'; hideOv(); showToast('🛡️ ' + (P.i + 1) + '번 울타리를 보강했어요', 3); };
+}
+
+/* ---------- 시험 (미니게임). 그림판 크기 560×240 ---------- */
+const EW = 560, EH = 240;
+const GAMES = {
+  hammer: {   // 표시가 초록 칸에 왔을 때 내려친다
+    init(l) { return { title: '망치질', help: '표시가 초록 칸에 올 때 누르세요 (스페이스)', n: [4, 5, 6][l - 1], zw: [.15, .105, .075][l - 1], sp: [1, 1.5, 2][l - 1], nail: 0, hits: 0, miss: 0, pos: 0, dir: 1, zc: .5, t: 40, swing: 0, msg: '' }; },
+    update(s, dt) { s.pos += s.dir * s.sp * dt; if (s.pos > 1) { s.pos = 1; s.dir = -1; } if (s.pos < 0) { s.pos = 0; s.dir = 1; } s.t -= dt; if (s.swing > 0) s.swing -= dt; if (s.t <= 0) { s.res = 'fail'; s.why = '시간이 다 됐어요'; } },
+    down(s) { if (Math.abs(s.pos - s.zc) <= s.zw) { s.hits++; s.swing = .22; s.msg = '쾅!'; tone(220, 90, .09, 'square', .4); noise(.05, 2500, 2, .3); if (s.hits >= 3) { s.nail++; s.hits = 0; tone(880, 1320, .1, 'triangle', .2, .08); if (s.nail >= s.n) s.res = 'pass'; } s.zc = R(.2, .8); }
+      else { s.miss++; s.msg = '빗나갔어요!'; tone(160, 110, .15, 'sawtooth', .3); if (s.miss > 3) { s.res = 'fail'; s.why = '너무 많이 빗나갔어요'; } } },
+    draw(s, c) { rr(c, 40, 120, 480, 46, 8, '#c79a63'); rr(c, 40, 120, 480, 8, 4, '#dab27a');
+      for (let i = 0; i < s.n; i++) { const x = 90 + i * (380 / (s.n - 1)), up = i < s.nail ? 0 : i === s.nail ? 36 - s.hits * 12 : 36; rr(c, x - 3, 120 - up, 6, up + 6, 2, '#8a8f98'); rr(c, x - 10, 116 - up, 20, 6, 3, i < s.nail ? '#3fae6a' : '#b8bec8'); }
+      const hx = 90 + Math.min(s.nail, s.n - 1) * (380 / (s.n - 1)); c.save(); c.translate(hx + 26, 62 + (s.swing > 0 ? 22 : 0)); c.rotate(s.swing > 0 ? -.9 : -.2); emo(c, '🔨', 0, 0, 46); c.restore();
+      rr(c, 60, 188, 440, 24, 8, '#4a3226'); rr(c, 60 + 440 * (s.zc - s.zw), 190, 440 * s.zw * 2, 20, 6, '#3fae6a'); rr(c, 60 + 440 * s.pos - 4, 182, 8, 36, 4, '#ff8a3d');
+      txt(c, '못 ' + s.nail + ' / ' + s.n + '   빗나감 ' + s.miss + ' / 3   ⏱ ' + Math.ceil(s.t), EW / 2, 22, 17, '#4a3226'); if (s.msg) txt(c, s.msg, EW / 2, 48, 16, '#a0522d'); }
+  },
+  saw: {      // 왼쪽·오른쪽을 번갈아 눌러 시간 안에 자른다
+    init(l) { return { title: '톱질', help: '왼쪽·오른쪽을 번갈아 빠르게 누르세요 (← →)', need: [16, 26, 38][l - 1], t: [10, 11, 12][l - 1], prog: 0, next: 0, started: false, jam: 0, msg: '먼저 왼쪽!' }; },
+    update(s, dt) { if (s.started) s.t -= dt; if (s.jam > 0) s.jam -= dt; if (s.t <= 0) { s.res = 'fail'; s.why = '시간 안에 자르지 못했어요'; } },
+    down(s, x) { if (s.jam > 0) return; s.started = true; const side = x < EW / 2 ? 0 : 1;
+      if (side === s.next) { s.prog++; s.next ^= 1; s.msg = ''; noise(.07, side ? 2600 : 2000, 2, .35); if (s.prog >= s.need) { s.res = 'pass'; tone(300, 120, .2, 'triangle', .4); } }
+      else { s.prog = Math.max(0, s.prog - 2); s.jam = .35; s.msg = '톱이 끼었어요! 번갈아 누르세요'; tone(150, 100, .15, 'sawtooth', .3); } },
+    draw(s, c) { const k = s.prog / s.need; rr(c, 0, 60, EW / 2 - 4, 180, 12, s.next === 0 && s.jam <= 0 ? 'rgba(63,174,106,.3)' : 'rgba(0,0,0,.05)'); rr(c, EW / 2 + 4, 60, EW / 2 - 4, 180, 12, s.next === 1 && s.jam <= 0 ? 'rgba(63,174,106,.3)' : 'rgba(0,0,0,.05)');
+      rr(c, 110, 110, 340, 70, 14, '#b98452'); rr(c, 110, 110, 340, 12, 6, '#d2a06a'); ell(c, 450, 145, 12, 35, '#e6c08c'); rr(c, 276, 108, 8, 74 * k, 2, '#4a3226');
+      c.save(); c.translate(280 + (s.next ? -34 : 34), 96 + 74 * k); c.rotate(-.5); emo(c, '🪚', 0, 0, 56); c.restore();
+      txt(c, '◀ 밀기', 70, 210, 20, s.next === 0 ? '#2f8f55' : '#b9ada4'); txt(c, '당기기 ▶', EW - 70, 210, 20, s.next === 1 ? '#2f8f55' : '#b9ada4');
+      txt(c, '톱질 ' + s.prog + ' / ' + s.need + '   ⏱ ' + Math.max(0, s.t).toFixed(1), EW / 2, 22, 17, '#4a3226'); if (s.msg) txt(c, s.msg, EW / 2, 46, 16, '#a0522d'); }
+  },
+  shear: {    // 누른 채 문질러 털을 깎는다. 양이 움찔할 때는 손을 뗀다
+    init(l) { const n = [10, 14, 18][l - 1], tufts = []; for (let i = 0; i < n; i++) { const a = R(0, TAU), q = Math.sqrt(Math.random()); tufts.push({ x: 290 + Math.cos(a) * 140 * q, y: 128 + Math.sin(a) * 62 * q, r: R(24, 32) }); }
+      return { title: '양털깎기', help: l > 1 ? '누른 채 문질러 털을 깎으세요. 양이 움찔할 때는 손을 떼세요!' : '누른 채 문질러 털을 모두 깎으세요', tufts, t: [12, 11, 10][l - 1], wig: l > 1, calm: R(2, 3), warn: 0, wt: 0, nick: 0, nicked: false, held: false, px: -99, py: -99, started: false, msg: '' }; },
+    update(s, dt) { if (s.started) s.t -= dt; if (s.t <= 0) { s.res = 'fail'; s.why = '시간 안에 다 깎지 못했어요'; return; }
+      if (s.wig && s.started) { if (s.wt > 0) { s.wt -= dt; if (s.held && !s.nicked) { s.nicked = true; s.nick++; s.msg = '앗! 양이 다쳤어요 (' + s.nick + ' / 3)'; tone(900, 400, .2, 'sawtooth', .3); if (s.nick >= 3) { s.res = 'fail'; s.why = '양을 세 번 다치게 했어요'; } } }
+        else if (s.warn > 0) { s.warn -= dt; if (s.warn <= 0) { s.wt = .8; s.nicked = false; } } else { s.calm -= dt; if (s.calm <= 0) { s.warn = .55; s.calm = R(1.8, 3); tone(600, 600, .08, 'square', .15); } } }
+      if (s.held && s.wt <= 0) { const n0 = s.tufts.length; s.tufts = s.tufts.filter(q => Math.hypot(q.x - s.px, q.y - s.py) > q.r + 8); if (s.tufts.length < n0) noise(.05, 3200, 3, .25); if (!s.tufts.length) s.res = 'pass'; } },
+    down(s, x, y) { s.held = true; s.started = true; s.px = x; s.py = y; }, move(s, x, y) { s.px = x; s.py = y; }, up(s) { s.held = false; },
+    draw(s, c) { const sx = s.wt > 0 ? Math.sin(performance.now() / 25) * 5 : 0; c.save(); c.translate(sx, 0);
+      for (const lx of [200, 250, 330, 380]) rr(c, lx - 7, 180, 14, 40, 6, '#4a4038'); ell(c, 290, 128, 158, 76, s.wt > 0 ? '#ffb3a8' : '#ffe1d6'); ell(c, 462, 100, 40, 34, '#4a4038'); ell(c, 474, 92, 5, 5, '#fff'); ell(c, 440, 70, 16, 9, '#4a4038');
+      for (const q of s.tufts) { ell(c, q.x, q.y, q.r, q.r, '#fffdf6'); ell(c, q.x - q.r * .3, q.y - q.r * .3, q.r * .5, q.r * .5, '#ffffff'); } c.restore();
+      if (s.warn > 0) txt(c, '⚠️ 움찔하려고 해요!', EW / 2, 222, 18, '#e2493f'); else if (s.wt > 0) txt(c, '움찔! 손 떼세요', EW / 2, 222, 20, '#e2493f');
+      if (s.px > 0) emo(c, '✂️', s.px, s.py, 34);
+      txt(c, '남은 털 ' + s.tufts.length + (s.wig ? '   상처 ' + s.nick + ' / 3' : '') + '   ⏱ ' + Math.max(0, s.t).toFixed(1), EW / 2, 22, 17, '#4a3226'); if (s.msg) txt(c, s.msg, EW / 2, 46, 16, '#a0522d'); }
+  },
+  milk: {     // 꾹 눌러 힘을 모으고 초록 칸에서 뗀다
+    init(l) { return { title: '젖짜기', help: '꾹 눌러 힘을 모으고, 초록 칸에서 떼세요 (스페이스)', need: [5, 7, 9][l - 1], rate: [.8, 1.1, 1.5][l - 1], bw: [.26, .18, .12][l - 1], g: 0, held: false, c: R(.5, .8), got: 0, miss: 0, t: 40, squirt: 0, msg: '' }; },
+    bad(s, m) { s.miss++; s.msg = m; tone(180, 110, .18, 'sawtooth', .3); if (s.miss > 3) { s.res = 'fail'; s.why = '소가 화가 났어요'; } },
+    update(s, dt) { s.t -= dt; if (s.squirt > 0) s.squirt -= dt; if (s.t <= 0) { s.res = 'fail'; s.why = '시간이 다 됐어요'; return; } if (s.held) { s.g += s.rate * dt; if (s.g >= 1) { s.held = false; s.g = 0; this.bad(s, '너무 세게 쥐었어요! 소가 놀랐어요'); } } },
+    down(s) { if (!s.held) { s.held = true; s.g = 0; } },
+    up(s) { if (!s.held) return; s.held = false; const d = s.g - s.c; s.g = 0;
+      if (Math.abs(d) <= s.bw / 2) { s.got++; s.squirt = .3; s.msg = '쭈욱~ 좋아요!'; tone(700, 300, .12, 'sine', .3); noise(.12, 1500, 1, .2); s.c = R(.45, .85); if (s.got >= s.need) s.res = 'pass'; } else this.bad(s, d < 0 ? '너무 약해요' : '너무 세요!'); },
+    draw(s, c) { ell(c, 250, 70, 150, 60, '#fbfbf7'); ell(c, 200, 60, 44, 30, '#2c2c30'); ell(c, 320, 84, 36, 24, '#2c2c30'); ell(c, 250, 128, 46, 26, '#ffc9c0'); for (const ux of [226, 250, 274]) rr(c, ux - 5, 140, 10, 22 + (s.held && ux === 250 ? 6 : 0), 5, '#ffb0a6');
+      if (s.squirt > 0) rr(c, 248, 166, 4, 30, 2, '#ffffff'); rr(c, 206, 190, 88, 46, 8, '#9aa3ad'); const k = s.got / s.need; rr(c, 211, 232 - 38 * k, 78, 38 * k, 5, '#ffffff'); txt(c, s.got + ' / ' + s.need, 250, 214, 16, '#4a3226');
+      rr(c, 470, 40, 34, 190, 10, '#4a3226'); rr(c, 474, 44 + 182 * (1 - (s.c + s.bw / 2)), 26, 182 * s.bw, 6, '#3fae6a'); rr(c, 466, 44 + 182 * (1 - s.g) - 4, 42, 8, 4, '#ff8a3d'); txt(c, '힘', 487, 24, 16, '#4a3226');
+      txt(c, '실수 ' + s.miss + ' / 3   ⏱ ' + Math.ceil(s.t), 250, 22, 17, '#4a3226', 'center'); if (s.msg) txt(c, s.msg, 110, 214, 15, '#a0522d'); }
+  }
+};
+function startExam(key) {
+  const L = LIC[key], lvl = lic[key] + 1; if (lvl > 3 || money < L.fee[lvl - 1]) return; initAudio(); money -= L.fee[lvl - 1]; saveGame();
+  state = 'exam'; exam = { key, lvl, gi: 0, s: null, hold: 0 }; nextExamGame();
+}
+function nextExamGame() {
+  const L = LIC[exam.key], name = L.games[exam.gi]; exam.s = GAMES[name].init(exam.lvl); exam.game = GAMES[name];
+  showOv('<h2>' + L.e + ' ' + L.n + ' ' + exam.lvl + '급 시험' + (L.games.length > 1 ? ' · ' + (exam.gi + 1) + '교시 ' + exam.s.title : '') + '</h2><p class="sub exh">' + exam.s.help + '</p><canvas id="ex" width="' + EW * 2 + '" height="' + EH * 2 + '"></canvas><br><button class="btn alt exq" id="exq" type="button">포기</button>');
+  const el = $('ex'), pos = e => { const r = el.getBoundingClientRect(); return [(e.clientX - r.left) * EW / r.width, (e.clientY - r.top) * EH / r.height]; };
+  el.addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); try { el.setPointerCapture(e.pointerId); } catch (err) { } const p = pos(e); exDown(p[0], p[1]); });
+  el.addEventListener('pointermove', e => { const p = pos(e); exMove(p[0], p[1]); }); ['pointerup', 'pointercancel'].forEach(n => el.addEventListener(n, () => exUp()));
+  $('exq').onclick = () => examEnd(false, '시험을 포기했어요');
+}
+function exDown(x, y) { if (exam && exam.s && !exam.s.res && exam.game.down) exam.game.down(exam.s, x, y); }
+function exMove(x, y) { if (exam && exam.s && !exam.s.res && exam.game.move) exam.game.move(exam.s, x, y); }
+function exUp() { if (exam && exam.s && !exam.s.res && exam.game.up) exam.game.up(exam.s); }
+function updateExam(dt) {
+  if (!exam || !exam.s) return; const s = exam.s, el = $('ex');
+  if (!s.res) exam.game.update(s, dt); else { exam.hold += dt; if (exam.hold > .9) { exam.hold = 0; if (s.res === 'fail') examEnd(false, s.why); else if (++exam.gi < LIC[exam.key].games.length) nextExamGame(); else examEnd(true); return; } }
+  if (!el) return; const c = el.getContext('2d'); c.setTransform(2, 0, 0, 2, 0, 0); c.clearRect(0, 0, EW, EH); rr(c, 0, 0, EW, EH, 0, '#fdf3d8'); exam.game.draw(s, c);
+  if (s.res) { rr(c, 0, 0, EW, EH, 0, s.res === 'pass' ? 'rgba(63,174,106,.3)' : 'rgba(226,73,63,.3)'); txt(c, s.res === 'pass' ? '통과!' : '실패…', EW / 2, EH / 2, 50, s.res === 'pass' ? '#2f8f55' : '#c0392b', 'center', '#fff'); }
+}
+function examEnd(pass, why) {
+  const key = exam.key, L = LIC[key], lvl = exam.lvl; exam = null;
+  if (pass) { lic[key] = lvl; saveGame(); SFX.praise();
+    showOv('<h2>🎉 합격!</h2><div class="cert"><b>' + L.e + ' ' + L.n + ' 자격증 ' + lvl + '급</b>' + L.perk[lvl - 1] + '</div><button class="btn" id="go">확인</button>'); $('go').onclick = () => openShop('lic'); }
+  else { SFX.scold(); const fee = L.fee[lvl - 1];
+    showOv('<h2>불합격…</h2><p>' + (why || '') + '</p><p class="sub">응시료는 돌아오지 않아요. 다시 보려면 응시료를 또 내야 해요.</p><button class="btn" id="go"' + (money >= fee ? '' : ' disabled') + '>다시 응시 (' + fee.toLocaleString() + '원)</button> <button class="btn alt" id="back">돌아가기</button>');
+    $('go').onclick = () => { if (money >= fee) startExam(key); }; $('back').onclick = () => openShop('lic'); }
+}
+
 /* ---------- 저장 ---------- */
 const SAVE_KEY = 'scrubpaws_farm';
-function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, money, day, clock, pensOwned, gun, wx, wxGear, tractor, pens: PENS.map(p => [p.food, p.elec ? 1 : 0]), animals: animals.map(a => [a.kind, a.pen, a.adult ? 1 : 0, Math.round(a.age), Math.round(a.hunger), Math.round(a.dirt), Math.round(a.health), Math.round(a.happy), Math.round(a.preg), a.rare ? 1 : 0]) })); } catch (e) { } }
+function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, money, day, clock, pensOwned, gun, wx, wxGear, tractor, lic, wood, cpens: PENS.filter(p => p.custom).map(p => [p.x, p.y, p.w, p.h, p.food, p.elec ? 1 : 0, p.fort, p.cap]), pens: PENS.slice(0, 6).map(p => [p.food, p.elec ? 1 : 0, p.fort]), animals: animals.map(a => [a.kind, a.pen, a.adult ? 1 : 0, Math.round(a.age), Math.round(a.hunger), Math.round(a.dirt), Math.round(a.health), Math.round(a.happy), Math.round(a.preg), a.rare ? 1 : 0]) })); } catch (e) { } }
 function loadGame() {
   try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!d || !Array.isArray(d.animals)) return false;
     money = Math.max(0, +d.money || 0); day = Math.max(1, +d.day || 1); clock = clamp(+d.clock || 0, 0, DAY_LEN - 1); pensOwned = clamp(+d.pensOwned || 1, 1, 6); gun = !!d.gun; wx = WX[d.wx] ? d.wx : 'sunny'; for (const k in wxGear) wxGear[k] = clamp(+(d.wxGear || {})[k] || 0, 0, 2); tractor = !!d.tractor; tr.riding = false; tr.x = 300; tr.y = 440; tr.stock = 0; PENS.forEach(p => { p.gear = null; });
-    PENS.forEach((p, i) => { const q = (d.pens || [])[i] || [0, 0]; p.food = clamp(+q[0] || 0, 0, TROUGH_CAP); p.elec = !!q[1]; });
-    animals.slice().forEach(removeAnimal); for (const q of d.animals) { if (!KINDS[q[0]] || q[1] >= pensOwned) continue; const a = addAnimal(q[0], q[1], !!q[2], null, !!q[9]); a.age = +q[3] || 0; a.hunger = +q[4] || 0; a.dirt = +q[5] || 0; a.health = clamp(+q[6] || 100, 1, 100); a.happy = +q[7] || 0; a.preg = +q[8] || 0; }
+    PENS.length = 6; PENS.forEach((p, i) => { const q = (d.pens || [])[i] || [0, 0]; p.food = clamp(+q[0] || 0, 0, TROUGH_CAP); p.elec = !!q[1]; p.fort = clamp(+q[2] || 0, 0, 2); });
+    for (const q of d.cpens || []) { const x = +q[0], y = +q[1], w = +q[2], h = +q[3]; if (!(w >= 200 && h >= 180 && x >= 0 && y >= 0 && x + w <= WORLD.w && y + h <= WORLD.h) || PENS.length >= 12) continue; PENS.push({ i: PENS.length, x, y, w, h, tx: x + w / 2, ty: y + 46, tw: Math.min(200, w - 60), food: clamp(+q[4] || 0, 0, TROUGH_CAP), elec: !!q[5], fort: clamp(+q[6] || 0, 0, 2), cap: clamp(+q[7] || 2, 2, 16), own: true, custom: true }); }
+    for (const k in lic) lic[k] = clamp(+(d.lic || {})[k] || 0, 0, 3); wood = Math.max(0, +d.wood || 0); build = null;
+    animals.slice().forEach(removeAnimal); for (const q of d.animals) { if (!KINDS[q[0]] || !PENS[q[1]] || !PENS[q[1]].own) continue; const a = addAnimal(q[0], q[1], !!q[2], null, !!q[9]); a.age = +q[3] || 0; a.hunger = +q[4] || 0; a.dirt = +q[5] || 0; a.health = clamp(+q[6] || 100, 1, 100); a.happy = +q[7] || 0; a.preg = +q[8] || 0; }
     return true; } catch (e) { return false; }
 }
 function newGame() {
   animals.slice().forEach(removeAnimal); preds.forEach(q => { q.gone = true; }); money = 3000; day = 1; clock = 0; pensOwned = 1; gun = false; tipStep = 0; wx = 'sunny'; for (const k in wxGear) wxGear[k] = 0; tractor = false; tr.riding = false; tr.stock = 0; PENS.forEach(p => { p.gear = null; });
-  PENS.forEach(p => { p.food = 0; p.elec = false; }); PENS[0].food = 4; addAnimal('sheep', 0, true); addAnimal('sheep', 0, true); addAnimal('chicken', 0, true); addAnimal('chicken', 0, true);
+  PENS.length = 6; PENS.forEach(p => { p.food = 0; p.elec = false; p.fort = 0; }); lic = { carp: 0, shear: 0, milk: 0 }; wood = 0; build = null; PENS[0].food = 4; addAnimal('sheep', 0, true); addAnimal('sheep', 0, true); addAnimal('chicken', 0, true); addAnimal('chicken', 0, true);
   pl.x = 250; pl.y = 330; pl.carry = null; saveGame();
 }
 
 /* ---------- 입력 ---------- */
 const keys = {}, joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 }; let hoseHeld = false;
 window.addEventListener('keydown', e => {
+  if (state === 'exam') { if (e.repeat) return; if (e.code === 'Space') { e.preventDefault(); exDown(EW / 2, EH / 2); } else if (e.code === 'ArrowLeft') exDown(10, 0); else if (e.code === 'ArrowRight') exDown(EW - 10, 0); return; }
   keys[e.code] = true; if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
   if (e.repeat) return;
   if (e.code === 'Space' || e.code === 'Enter') { if (document.activeElement && /btn|buy|tab/.test(document.activeElement.className)) return; pressAct(); }
-  else if (e.code === 'KeyX' || e.code === 'KeyH') hoseHeld = true; else if (e.code === 'KeyC' || e.code === 'KeyF') pressShoot(); else if (e.code === 'KeyB' || e.code === 'KeyM') openShop(); else if (e.code === 'KeyP' || e.code === 'Escape') pressPause();
+  else if (e.code === 'KeyX' || e.code === 'KeyH') hoseHeld = true; else if (e.code === 'KeyC' || e.code === 'KeyF') pressShoot(); else if (e.code === 'KeyV') pressWork(); else if (e.code === 'KeyN') pressWood(); else if (e.code === 'KeyB' || e.code === 'KeyM') openShop(); else if (e.code === 'KeyP' || e.code === 'Escape') pressPause();
 });
-window.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'KeyX' || e.code === 'KeyH') hoseHeld = false; });
+window.addEventListener('keyup', e => { keys[e.code] = false; if (state === 'exam' && e.code === 'Space') exUp(); if (e.code === 'KeyX' || e.code === 'KeyH') hoseHeld = false; });
 cv.addEventListener('pointerdown', e => { initAudio(); if (joy.id === null) { joy.id = e.pointerId; joy.ox = joy.x = e.clientX; joy.oy = joy.y = e.clientY; try { cv.setPointerCapture(e.pointerId); } catch (err) { } } });
 cv.addEventListener('pointermove', e => { if (e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
 const joyEnd = e => { if (e.pointerId === joy.id) joy.id = null; }; cv.addEventListener('pointerup', joyEnd); cv.addEventListener('pointercancel', joyEnd);
-const bAct = $('bAct'), bHose = $('bHose'), bGun = $('bGun'), bShop = $('bShop');
+const bAct = $('bAct'), bHose = $('bHose'), bGun = $('bGun'), bShop = $('bShop'), bWork = $('bWork'), bWood = $('bWood');
+bWork.addEventListener('pointerdown', e => { e.preventDefault(); pressWork(); }); bWood.addEventListener('click', () => { pressWood(); bWood.blur(); });
 bAct.addEventListener('pointerdown', e => { e.preventDefault(); pressAct(); }); bGun.addEventListener('pointerdown', e => { e.preventDefault(); pressShoot(); }); bShop.addEventListener('click', () => { initAudio(); openShop(); bShop.blur(); });
 bHose.addEventListener('pointerdown', e => { e.preventDefault(); initAudio(); hoseHeld = true; try { bHose.setPointerCapture(e.pointerId); } catch (err) { } });
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => bHose.addEventListener(n, () => { hoseHeld = false; }));
@@ -734,11 +900,13 @@ function update(dt) {
     if (isNight()) { if (toSpawn > 0) { spawnT -= dt; if (spawnT <= 0) { spawnT = R(5, 9); toSpawn--; if (animals.length) spawnPred(); } } }
     for (const q of preds) updatePred(q, dt);
     for (const q of preds) if (q.gone && q.md && q.md.g.parent) q.md.g.parent.remove(q.md.g); preds = preds.filter(q => !q.gone);
-    curAct = findAction();
+    curAct = findAction(); curWork = findWork();
   }
   const play = state === 'play', lab = play && curAct ? curAct.label : '행동';
   if (bAct.textContent !== lab) bAct.textContent = lab; bAct.classList.toggle('off', !(play && curAct && curAct.type !== 'full'));
   bHose.classList.toggle('off', !(play && !pl.carry && !tr.riding)); bHose.classList.toggle('on', pl.hose); bGun.hidden = !gun; bGun.classList.toggle('off', !(play && pl.shootCd <= 0));
+  bWork.hidden = !(play && curWork); if (curWork) { const wl = WORK[curWork.kind].label; if (bWork.textContent !== wl) bWork.textContent = wl; }
+  bWood.hidden = !(play && lic.carp > 0); const wl2 = build ? '취소' : '목공'; if (bWood.textContent !== wl2) bWood.textContent = wl2;
   $('pad').hidden = !play; $('pz').hidden = !play; bShop.hidden = !play;
 }
 
@@ -751,7 +919,7 @@ function showTitle() {
     '<div class="note"><b>할아버지의 편지</b>이 들판과 울타리 하나를 너에게 맡긴다. 양 두 마리와 닭 두 마리로 시작하거라. 잘 먹이고 깨끗이 씻겨 주면 새끼를 낳을 게다. 밤에는 늑대를 조심하고!</div>' +
     '<div class="signs"><span>🌾 <b>먹이</b> 건초 더미에서 건초를 들어 여물통에 놓으면 가축이 와서 먹어요</span><span>🚿 <b>목욕</b> 호스를 누른 채 가축 쪽으로 물을 뿌려요</span>' +
     '<span>💗 <b>새끼</b> 잘 돌본 가축은 같은 종류의 짝이 있으면 새끼를 낳아요</span><span>✨ <b>희귀</b> 만족도가 높을수록 황금빛 희귀 새끼가 태어나요. ' + RARE_MULT + '배 값!</span><span>💰 <b>상점</b> 다 큰 가축을 팔아 새 가축·울타리·장비를 사요</span>' +
-    '<span>⛅ <b>날씨</b> 아침마다 바뀌어요. 창고(헛간) 앞에서 그날의 장비를 꺼내 울타리에 설치하세요</span><span>🌙 <b>밤</b> 늑대와 곰이 와요. 횃불을 들고 다가가거나 총·전기 울타리로 지켜요</span></div>' +
+    '<span>⛅ <b>날씨</b> 아침마다 바뀌어요. 창고(헛간) 앞에서 그날의 장비를 꺼내 울타리에 설치하세요</span><span>📜 <b>자격증</b> 상점에서 응시료를 내고 시험을 통과하면 목공·양털깎기·젖짜기를 할 수 있어요</span><span>🌙 <b>밤</b> 늑대와 곰이 와요. 횃불을 들고 다가가거나 총·전기 울타리로 지켜요</span></div>' +
     '<p class="sub">이동: 화면 드래그 / 방향키·WASD · 행동: 스페이스 · 호스: X(누르고 있기) · 총: C · 상점: B · 일시정지: P</p>' +
     (has ? '<button class="btn" id="go">이어하기</button> <button class="btn alt" id="fresh">새로 시작</button>' : '<button class="btn" id="go">농장 시작하기</button>'));
   $('go').onclick = () => { initAudio(); if (!has || !loadGame()) newGame(); buildFences(); PENS.forEach(buildGear); state = 'play'; hideOv(); };
@@ -781,6 +949,7 @@ function init3D() {
   B('#8a5a3a', 70, 12, 48, -104, 24, 0, trM, 3); B('#5a3a24', 22, 4, 4, -58, 24, 0, trM, 1); trHay = B('#e9cf8c', 62, 30, 42, -104, 45, 0, trM, 6); scene.add(trM); sh(trM); trM.visible = false;
   wxMat = new THREE.MeshBasicMaterial({ color: '#cfe6ff', transparent: true, opacity: .75, depthWrite: false }); for (let i = 0; i < 140; i++) { const m = M(G.box, wxMat, 1, 1, 1, 0, -50, 0, scene); m.userData = { x: 0, z: 0, h: -1, k: '' }; m.visible = false; wxPool.push(m); }
   world3.gearG = new THREE.Group(); scene.add(world3.gearG);
+  world3.buildM = M(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: '#3fae6a', transparent: true, opacity: .4, depthWrite: false }), 1, 1, 1, 0, 3, 0, scene); world3.buildM.rotation.x = -PI / 2; world3.buildM.visible = false;
   const rm = new THREE.MeshBasicMaterial({ color: '#ff8a3d' }); ring = M(G.tor, rm, 1, 1, 1, 0, 2, 0, scene); ring.rotation.x = PI / 2;
   const dm = new THREE.MeshBasicMaterial({ color: '#7fd4ff', transparent: true, opacity: .85 }); for (let i = 0; i < 60; i++) dropPool.push(M(G.sph, dm, 4, 5, 4, 0, -50, 0, scene));
   fit3D(); return true;
@@ -799,6 +968,8 @@ function buildWorld() {
   gt2.wrapS = gt2.wrapT = THREE.RepeatWrapping; gt2.repeat.set(7, 5);
   const g = M(new THREE.PlaneGeometry(W + 3000, H + 2400), new THREE.MeshLambertMaterial({ map: gt2 }), 1, 1, 1, W / 2, 0, H / 2, S); g.rotation.x = -PI / 2; g.receiveShadow = true;
   const path = M(new THREE.PlaneGeometry(190, H + 200), new THREE.MeshLambertMaterial({ color: '#d9b877' }), 1, 1, 1, 230, .5, H / 2, S); path.rotation.x = -PI / 2; path.receiveShadow = true;
+  const fz = M(new THREE.PlaneGeometry(W - 340, 600), new THREE.MeshLambertMaterial({ color: '#a4dc7c' }), 1, 1, 1, 320 + (W - 340) / 2, .4, H - 320, S); fz.rotation.x = -PI / 2; fz.receiveShadow = true;   // 직접 지을 수 있는 빈터
+  const ft = canvasTex(640, 96, c => { rr(c, 0, 0, 640, 96, 24, 'rgba(74,50,38,.85)'); txt(c, '🔨 빈터 · 목공 자격증이 있으면 여기에 울타리를 지어요', 320, 50, 24, '#fff'); }); const fs = new THREE.Sprite(new THREE.SpriteMaterial({ map: ft, transparent: true, depthWrite: false })); fs.scale.set(420, 63, 1); fs.position.set(620, 70, H - 600); S.add(fs);
   // 헛간 · 건초 더미 · 물탱크
   const barn = new THREE.Group(); barn.position.set(HOME.x - 30, 0, HOME.y - 60); S.add(barn);
   B('#b5463a', 200, 130, 130, 0, 65, 0, barn, 6); const rf = M(new THREE.CylinderGeometry(1, 1, 1, 3), '#7a2c24', 78, 216, 78, 0, 160, 0, barn); rf.rotation.set(0, 0, PI / 2); rf.rotation.x = PI / 2 * 0; rf.rotation.z = PI / 2; rf.scale.set(60, 216, 86);
@@ -816,19 +987,19 @@ function buildWorld() {
 function buildFences() {   // 가진 울타리(와 다음에 살 수 있는 자리)를 다시 짓는다
   if (!renderer) return; while (fenceG.children.length) fenceG.remove(fenceG.children[0]);
   for (const p of PENS) {
-    if (p.i > pensOwned) continue; const g = new THREE.Group(); fenceG.add(g);
-    if (p.i === pensOwned) { const pl2 = M(new THREE.PlaneGeometry(p.w, p.h), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .16 }), 1, 1, 1, p.x + p.w / 2, .8, p.y + p.h / 2, g); pl2.rotation.x = -PI / 2;
+    if (!p.own && p.i !== pensOwned) continue; const g = new THREE.Group(); fenceG.add(g);
+    if (!p.own) { const pl2 = M(new THREE.PlaneGeometry(p.w, p.h), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .16 }), 1, 1, 1, p.x + p.w / 2, .8, p.y + p.h / 2, g); pl2.rotation.x = -PI / 2;
       const t = canvasTex(360, 120, c => { rr(c, 0, 0, 360, 120, 24, 'rgba(74,50,38,.9)'); txt(c, '🔒 ' + (p.i + 1) + '번 울타리', 180, 40, 34, '#fff'); txt(c, PEN_PRICE[p.i].toLocaleString() + '원 · 상점에서 구매', 180, 86, 26, '#ffd27a'); });
       const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false })); s.scale.set(240, 80, 1); s.position.set(p.x + p.w / 2, 70, p.y + p.h / 2); g.add(s); continue; }
-    const wood = p.elec ? '#c9ced6' : '#a9744f', rail = p.elec ? glossy('#ffd54a') : mat('#c79a63');
+    const PH = p.fort ? 78 : 54, wood = p.elec ? '#c9ced6' : p.fort === 2 ? '#6b6f78' : p.fort === 1 ? '#7a4f2c' : '#a9744f', rail = p.elec ? glossy('#ffd54a') : mat(p.fort === 2 ? '#8a8f98' : p.fort === 1 ? '#9c6a3c' : '#c79a63');
     const dirt = M(new THREE.PlaneGeometry(p.w, p.h), new THREE.MeshLambertMaterial({ color: '#a8d672' }), 1, 1, 1, p.x + p.w / 2, .6, p.y + p.h / 2, g); dirt.rotation.x = -PI / 2; dirt.receiveShadow = true;
-    for (let x = 0; x <= p.w; x += 52) for (const z of [p.y, p.y + p.h]) M(G.cyl, wood, 5, 54, 5, p.x + x, 27, z, g);
-    for (let y = 52; y < p.h; y += 48) for (const x of [p.x, p.x + p.w]) M(G.cyl, wood, 5, 54, 5, x, 27, p.y + y, g);
-    for (const hgt of [22, 42]) { M(G.box, rail, p.w, 6, 5, p.x + p.w / 2, hgt, p.y, g); M(G.box, rail, p.w, 6, 5, p.x + p.w / 2, hgt, p.y + p.h, g); M(G.box, rail, 5, 6, p.h, p.x, hgt, p.y + p.h / 2, g); M(G.box, rail, 5, 6, p.h, p.x + p.w, hgt, p.y + p.h / 2, g); }
+    for (let x = 0; x <= p.w; x += 52) for (const z of [p.y, p.y + p.h]) M(G.cyl, wood, p.fort ? 6.5 : 5, PH, p.fort ? 6.5 : 5, p.x + x, PH / 2, z, g);
+    for (let y = 52; y < p.h; y += 48) for (const x of [p.x, p.x + p.w]) M(G.cyl, wood, p.fort ? 6.5 : 5, PH, p.fort ? 6.5 : 5, x, PH / 2, p.y + y, g);
+    for (const hgt of p.fort ? [22, 42, 64] : [22, 42]) { M(G.box, rail, p.w, 6, 5, p.x + p.w / 2, hgt, p.y, g); M(G.box, rail, p.w, 6, 5, p.x + p.w / 2, hgt, p.y + p.h, g); M(G.box, rail, 5, 6, p.h, p.x, hgt, p.y + p.h / 2, g); M(G.box, rail, 5, 6, p.h, p.x + p.w, hgt, p.y + p.h / 2, g); }
     if (p.elec) for (const q of [[p.x, p.y], [p.x + p.w, p.y], [p.x, p.y + p.h], [p.x + p.w, p.y + p.h]]) { const s = sprite('⚡', g, 40); s.position.set(q[0], 78, q[1]); }
     // 여물통과 그 안의 건초
-    B('#8a5a3a', 200, 22, 44, p.tx, 11, p.ty, g, 5); B('#6e4628', 188, 6, 34, p.tx, 20, p.ty, g, 2);
-    p.hayM = []; for (let i = 0; i < 6; i++) p.hayM.push(B('#e9cf8c', 28, 16, 26, p.tx - 78 + i * 31, 28, p.ty, g, 5));
+    B('#8a5a3a', p.tw, 22, 44, p.tx, 11, p.ty, g, 5); B('#6e4628', p.tw - 12, 6, 34, p.tx, 20, p.ty, g, 2);
+    p.hayM = []; for (let i = 0; i < 6; i++) p.hayM.push(B('#e9cf8c', 28 * p.tw / 200, 16, 26, p.tx + (i - 2.5) * 31 * p.tw / 200, 28, p.ty, g, 5));
     const n = canvasTex(96, 96, c => { ell(c, 48, 48, 44, 44, 'rgba(74,50,38,.85)'); txt(c, String(p.i + 1), 48, 52, 56, '#fff'); }); const ns = new THREE.Sprite(new THREE.SpriteMaterial({ map: n, transparent: true, depthWrite: false })); ns.scale.set(44, 44, 1); ns.position.set(p.x + 34, 86, p.y); g.add(ns);
     sh(g);
   }
@@ -923,7 +1094,7 @@ function syncCreature(a, dt, pred) {
     x.mixer.update(sleeping && !x.acts.sleep ? 0 : dt * (want === 'walk' ? 1.3 : 1));
     for (const q of x.mats) q.m.color.copy(q.base).lerp(grime, dg * .6);
     x.holder.scale.set(1, 1, pg); x.holder.position.x = scared && !carried ? Math.sin(t * 40) : 0; }
-  if (md.icon) { const ch = pred ? '' : a.attackedT > 0 ? ICONS.attack : sick ? ICONS.sick : hungry ? ICONS.hungry : a.dirt >= 60 ? ICONS.dirty : a.preg > 0 ? ICONS.preg : ''; md.icon.visible = !!ch && !sleeping;
+  if (md.icon) { const ch = pred ? '' : a.attackedT > 0 ? ICONS.attack : sick ? ICONS.sick : hungry ? ICONS.hungry : a.dirt >= 60 ? ICONS.dirty : workReady(a) ? WORK[a.kind].e : a.preg > 0 ? ICONS.preg : ''; md.icon.visible = !!ch && !sleeping;
     if (ch) { if (md.iconCh !== ch) { md.iconCh = ch; md.icon.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; md.icon.material.needsUpdate = true; } md.icon.position.set(0, md.top / 1 + 26 + Math.sin(t * 4 + a.seed) * 3, 0); md.icon.scale.setScalar(30 / sc); } }
 }
 function syncKid(dt) {
@@ -948,6 +1119,7 @@ function render3D(dt) {
   const tx = clamp(pl.x, 380, WORLD.w - 380), tz = clamp(pl.y, 230, WORLD.h - 150);   // 카메라는 주인공을 따라간다
   cam3.position.set(tx + world3.off.x, world3.off.y + 30, tz + world3.off.z); if (shake > 0) { cam3.position.x += R(-9, 9) * shake; cam3.position.y += R(-9, 9) * shake; } cam3.lookAt(tx, 30, tz);
   sun.target.position.set(tx, 0, tz); sun.position.set(tx - 330, 950, tz + 520);
+  world3.buildM.visible = !!(build && build.a); if (world3.buildM.visible) { const r = buildRect(); world3.buildM.position.set(r.x + r.w / 2, 3, r.y + r.h / 2); world3.buildM.scale.set(Math.max(10, r.w), Math.max(10, r.h), 1); world3.buildM.material.color.set(r.why ? '#e2493f' : '#3fae6a'); }
   const fx = n < .5 && state !== 'title' ? WXFX[wx] : null; if (fx) wxMat.color.set(fx.col);   // 비 · 우박 · 바람
   wxPool.forEach((m, i) => { const on = fx && i < fx.n * (hq ? 1 : .5); m.visible = !!on; if (!on) return; const d = m.userData; d.h -= fx.v * dt; d.x += fx.wx * dt;
     if (d.k !== wx || d.h < 0 || Math.abs(d.x - tx) > 900) { const fresh = d.k !== wx; d.k = wx; d.z = tz + R(-460, 520); d.x = fx.v ? tx + R(-850, 850) : (fresh ? tx + R(-850, 850) : tx + 880); d.h = fx.v ? (fresh ? R(0, 520) : R(420, 560)) : R(20, 170); }
@@ -965,7 +1137,7 @@ function drawHUD() {
   if (state === 'play') for (const q of preds) { if (q.flee) continue; const [x, y, z] = proj(q.x, 40, q.y); if (z < 1 && x > 20 && x < VW - 20 && y > HUDH + 10 && y < VH - 20) continue;   // 화면 밖 맹수 방향
     const cx2 = VW / 2, cy2 = (VH + HUDH) / 2, a = Math.atan2(y - cy2, x - cx2), ex = clamp(cx2 + Math.cos(a) * 2000, 46, VW - 46), ey = clamp(cy2 + Math.sin(a) * 2000, HUDH + 46, VH - 46);
     ell(c, ex, ey, 24, 24, 'rgba(226,73,63,' + (.75 + Math.sin(gt * 10) * .2) + ')'); emo(c, q.kind === 'bear' ? '🐻' : '🐺', ex, ey + 1, 26); }
-  if (state === 'play' || state === 'pause' || state === 'shop') {
+  if (state === 'play' || state === 'pause' || state === 'shop' || state === 'menu' || state === 'exam') {
     c.fillStyle = '#3b2a22'; c.fillRect(0, 0, VW, HUDH);
     rr(c, 10, 6, 170, 50, 14, 'rgba(255,246,227,.94)'); txt(c, '💰 ' + money.toLocaleString() + '원', 22, 31, 19, '#4a3226', 'left');
     const bx = 196, bw = Math.min(300, VW * .28), k = night ? (clock - DAY_LEN) / NIGHT_LEN : clock / DAY_LEN;
@@ -973,14 +1145,16 @@ function drawHUD() {
     rr(c, bx, 38, bw, 11, 5.5, night ? '#11132a' : '#4a3226'); rr(c, bx + 2, 40, (bw - 4) * clamp(k, 0, 1), 7, 3.5, night ? '#8fa8ff' : '#ffb81f');
     let x = bx + bw + 20; for (const kd in KINDS) { const n = animals.filter(a => a.kind === kd).length; if (!n) continue; rr(c, x, 8, 62, 46, 10, 'rgba(255,246,227,.92)'); emo(c, KINDS[kd].e, x + 20, 31, 22); txt(c, '×' + n, x + 46, 32, 15, '#4a3226'); x += 66; }
     const need = animals.filter(a => a.hunger >= 60).length, dirty = animals.filter(a => a.dirt >= 60).length;
-    txt(c, (need ? '🌾 배고픔 ' + need + '  ' : '') + (dirty ? '💧 더러움 ' + dirty : ''), VW - 14, 31, 16, '#ffd27a', 'right', '#4a3226');
+    txt(c, (lic.carp ? '🪵 ' + wood + '  ' : '') + (need ? '🌾 배고픔 ' + need + '  ' : '') + (dirty ? '💧 더러움 ' + dirty : ''), VW - 14, 31, 16, '#ffd27a', 'right', '#4a3226');
   }
   if (state === 'play' && !night) { const need = WX[wx].item;   // 울타리마다 날씨 장비 상태
-    for (const p of PENS) { if (p.i >= pensOwned) continue; const [x, y, z] = proj(p.x + p.w / 2, 150, p.y + 10); if (z > 1 || x < 70 || x > VW - 70 || y < HUDH + 16 || y > VH - 40) continue;
+    for (const p of PENS) { if (!p.own) continue; const [x, y, z] = proj(p.x + p.w / 2, 150, p.y + 10); if (z > 1 || x < 70 || x > VW - 70 || y < HUDH + 16 || y > VH - 40) continue;
       if (p.gear) { const k = p.gear.max > 900 ? 1 : clamp(p.gear.t / p.gear.max, 0, 1), ok = p.gear.type === need; rr(c, x - 62, y - 15, 124, 30, 12, 'rgba(74,50,38,.88)'); emo(c, ITEMS[p.gear.type].e, x - 44, y + 1, 18); rr(c, x - 28, y - 5, 80, 10, 5, '#2a1c14'); rr(c, x - 26, y - 3, 76 * k, 6, 3, !ok ? '#9c8b80' : k > .3 ? '#3fae6a' : '#e2493f'); }
       else if (need && inPen(p).length && Math.sin(gt * 6) > -.4) { rr(c, x - 78, y - 15, 156, 30, 12, 'rgba(226,73,63,.92)'); txt(c, '⚠️ ' + ITEMS[need].n + ' 필요', x, y + 1, 16, '#fff'); } } }
+  if (state === 'play' && build) { const r = build.a ? buildRect() : null, t = r ? r.w + '×' + r.h + ' · 🪵 ' + r.need + '개 (보유 ' + wood + ') · 가축 ' + r.cap + '마리' + (r.why ? ' · ' + r.why : ' · 지을 수 있어요') : '첫 모서리로 가서 [모서리 찍기]를 누르세요';
+    c.font = '17px Jua,sans-serif'; const w = c.measureText(t).width + 36; rr(c, VW / 2 - w / 2, VH - 100, w, 36, 14, r && r.why ? 'rgba(226,73,63,.93)' : 'rgba(63,174,106,.95)'); txt(c, t, VW / 2, VH - 81, 17, '#fff'); }
   if (state === 'play' && tr.riding) { rr(c, VW / 2 - 90, VH - 52, 180, 36, 14, 'rgba(74,50,38,.88)'); txt(c, '🚜 건초 ' + tr.stock + ' / ' + TR_CAP, VW / 2, VH - 33, 17, '#ffd27a'); }
-  if (state === 'play') { if (tipStep < 3 && day === 1 && !tr.riding) { c.font = '18px Jua,sans-serif'; const t = TIPS[tipStep], tw = Math.min(VW - 40, c.measureText(t).width + 40); rr(c, VW / 2 - tw / 2, VH - 150, tw, 44, 16, 'rgba(63,174,106,.95)'); txt(c, t, VW / 2, VH - 127, tw < c.measureText(t).width + 36 ? 13 : 18, '#fff'); }
+  if (state === 'play') { if (tipStep < 3 && day === 1 && !tr.riding && !build) { c.font = '18px Jua,sans-serif'; const t = TIPS[tipStep], tw = Math.min(VW - 40, c.measureText(t).width + 40); rr(c, VW / 2 - tw / 2, VH - 150, tw, 44, 16, 'rgba(63,174,106,.95)'); txt(c, t, VW / 2, VH - 127, tw < c.measureText(t).width + 36 ? 13 : 18, '#fff'); }
     if (toast.t > 0) { c.globalAlpha = clamp(toast.t, 0, 1); c.font = '18px Jua,sans-serif'; const tw = c.measureText(toast.text).width, w = Math.min(VW - 60, tw + 40); rr(c, VW / 2 - w / 2, HUDH + 12, w, 40, 14, 'rgba(74,50,38,.92)'); txt(c, toast.text, VW / 2, HUDH + 33, tw + 34 > w ? 13 : 18, '#fff'); c.globalAlpha = 1; } }
   if (joy.id !== null) { const jx = joy.ox / SC, jy = joy.oy / SC; c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 3; c.beginPath(); c.arc(jx, jy, 46, 0, TAU); c.stroke(); const dx = (joy.x - joy.ox) / SC, dy = (joy.y - joy.oy) / SC, l = Math.hypot(dx, dy), k = l > 46 ? 46 / l : 1; ell(c, jx + dx * k, jy + dy * k, 20, 20, 'rgba(255,255,255,.55)'); }
 }
@@ -1001,13 +1175,14 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now; update(dt);
   if (state === 'play' && hq && !hqLock) { perf.t += dt * 1000; perf.n++; if (perf.n > 120) { if (perf.t / perf.n > 40 || dt >= .05) setHQ(false); perf.t = 0; perf.n = 0; } }
+  if (state === 'exam') updateExam(dt);
   bgmTick(); render3D(dt);
   ctx.setTransform(DPR * SC, 0, 0, DPR * SC, 0, 0); ctx.clearRect(0, 0, VW, VH); if (renderer) drawHUD();
   requestAnimationFrame(frame);
 }
 window.addEventListener('resize', fit3D);
 window.__game = { get state() { return state; }, get animals() { return animals; }, get preds() { return preds; }, pl, PENS, KINDS, get money() { return money; }, set money(v) { money = v; }, get day() { return day; }, get clock() { return clock; }, set clock(v) { clock = v; }, get pensOwned() { return pensOwned; }, get gun() { return gun; },
-  get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
+  lic, get licv() { return lic; }, get wood() { return wood; }, set wood(v) { wood = v; }, get exam() { return exam; }, get build() { return build; }, startExam, exDown, exUp, exMove, pressWood, pressWork, findWork, buildRect, penSafe, get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
 (function boot() { const ok = typeof THREE !== 'undefined' && init3D(); if (ok) showTitle(); else showOv('<h2>3D를 시작할 수 없어요</h2><p>이 기기나 브라우저에서 WebGL을 사용할 수 없습니다.</p>'); requestAnimationFrame(frame); })();
 </script>
 </body>
