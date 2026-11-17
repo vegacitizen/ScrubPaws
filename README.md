@@ -24,11 +24,23 @@
 | 돼지 | 2,500원 | 약 2,200원 | 105초 | 60초 |
 | 소 | 5,000원 | 약 4,500원 | 130초 | 75초 |
 | 말 | 9,000원 | 약 8,200원 | 150초 | 90초 |
+| 판다 | 20,000원 | 약 18,000원 | 170초 | 100초 |
 
 - 배고픔과 더러움이 낮게 유지되면 행복도가 오르고, 가득 차면 같은 종류의 어른 짝이 같은 울타리에 있을 때 새끼를 뱁니다.
 - 새끼는 자라서 어른이 되어야 팔 수 있습니다. 건강하고 행복할수록 비싸게 팔립니다(파는 값의 50~120%).
 - 굶거나 너무 더러우면 건강이 떨어지고, 0이 되면 가축을 잃습니다.
 - 울타리 하나에 최대 8마리. 울타리는 6개까지 살 수 있습니다(4,000원 ~ 32,000원).
+
+## 희귀 가축
+
+- 새끼는 가끔 **희귀 가축**(황금빛, 소는 얼룩무늬 춤추는 소)으로 태어납니다. 상점에서는 살 수 없고, 파는 값이 5배입니다.
+- 어미의 만족도가 높을수록 확률이 오릅니다.
+
+| 어미 | 만족도 0 | 만족도 100 |
+| --- | --- | --- |
+| 보통 가축 | 2% | 18% |
+| 희귀 가축 | 10% | 40% |
+| 희귀한 소 | 30% | 70% |
 
 ## 낮과 밤
 
@@ -44,6 +56,8 @@
 | --- | --- |
 | `app/src/main/assets/index.html` | 게임 본체 (3D 장면 + WebAudio). 웹 글꼴만 온라인에서 받아 오며, 오프라인이면 기기 기본 글꼴로 표시됩니다 |
 | `app/src/main/assets/three.min.js` | 3D 렌더링 라이브러리 three.js r149 (MIT 라이선스), 오프라인 실행을 위해 앱에 포함 |
+| `app/src/main/assets/GLTFLoader.js`, `SkeletonUtils.js` | three.js 예제 모음의 모델 불러오기 도구 (MIT 라이선스) |
+| `app/src/main/assets/*_model.js` | 양·소·춤추는 소·판다 3D 모델(뼈대와 동작 포함)을 각각 한 파일로 묶은 것 |
 | `app/src/main/java/com/vegacitizen/scrubpaws/MainActivity.java` | 게임을 가로 전체 화면 WebView로 띄우는 액티비티 |
 | `.github/workflows/android.yml` | 푸시할 때마다 디버그 APK를 빌드하는 GitHub Actions |
 
@@ -68,4 +82,10 @@ GitHub Actions 실행 결과의 `ScrubPaws-debug-apk` 아티팩트에서도 내�
 ## 크레딧
 
 - 3D 렌더링: three.js r149 (MIT 라이선스)
-- 가축·주인공·배경 모델과 소리는 모두 코드로 만든 것으로, 외부 모델 파일을 쓰지 않습니다. (v1.x에서 쓰던 고양이·토끼 모델은 제거했습니다.)
+- 양 모델: "Sheep anim" (https://sketchfab.com/3d-models/sheep-anim-dfdefe7cb9364b2aa2988321c79db1a9) by blam (https://sketchfab.com/Blam577895), CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+- 판다 모델: "Panda" (https://sketchfab.com/3d-models/panda-388c3230515848cb9c07724f2230af43) by firoh (https://sketchfab.com/firoh), CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+- 소 모델: "Cow" (https://sketchfab.com/3d-models/cow-3c1bbce7a64640cca28b49b3d181e347) by kenchoo (https://sketchfab.com/kenchoo), Sketchfab Standard License (https://sketchfab.com/licenses)
+- 춤추는 소 모델: "Cow Dance" (https://sketchfab.com/3d-models/cow-dance-5bbb07e167214a7094659045470d56ee) by Peepocraft (https://sketchfab.com/peepocraft_), Sketchfab Standard License (https://sketchfab.com/licenses)
+
+게임 안에서는 모델의 크기를 맞추고, 더러움에 따라 색을 입히며, 희귀 가축은 황금빛으로 물들여 씁니다.
+닭·돼지·말·늑대·곰·주인공과 배경, 소리는 코드로 만든 것입니다.

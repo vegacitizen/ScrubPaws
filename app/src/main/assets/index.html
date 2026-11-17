@@ -69,6 +69,12 @@
 <canvas id="gl"></canvas>
 <canvas id="cv"></canvas>
 <script src="three.min.js"></script>
+<script src="GLTFLoader.js"></script>
+<script src="SkeletonUtils.js"></script>
+<script src="sheep_model.js"></script>
+<script src="cow_model.js"></script>
+<script src="cowdance_model.js"></script>
+<script src="panda_model.js"></script>
 <div id="pad" hidden>
  <div class="prow">
   <button id="bGun" class="pb sm off" type="button" hidden>총</button>
@@ -407,14 +413,24 @@ const KINDS = {
   chicken: { n: '닭', e: '🐔', buy: 500, sell: 420, grow: 70, preg: 40,
     sp: { r: 13, v: 'cluck', sp: 90, col: '#ffffff', col2: '#fff3dc', ear: 'none', tail: 'short', beak: 1, legs: 2, legCol: '#f08a24', head: .62, leg: .5, cry: '꼬꼬', p: 1.6, dark: '#e2493f' } },
   sheep: { n: '양', e: '🐑', buy: 1500, sell: 1300, grow: 95, preg: 55,
-    sp: { r: 24, v: 'bleat', sp: 80, col: '#f7f3ea', col2: '#fffaf0', dark: '#4a4038', ear: 'floppy', tail: 'short', fluffy: 1, head: .48, leg: .45, cry: '메에', p: 1.1 } },
+    sp: { model: 'sheep', r: 24, v: 'bleat', sp: 80, col: '#f7f3ea', col2: '#fffaf0', dark: '#4a4038', ear: 'floppy', tail: 'short', fluffy: 1, head: .48, leg: .45, cry: '메에', p: 1.1 } },
   pig: { n: '돼지', e: '🐷', buy: 2500, sell: 2200, grow: 105, preg: 60,
     sp: { r: 27, v: 'oink', sp: 85, col: '#f7b3c0', col2: '#ffd6dd', dark: '#e08a9c', ear: 'pointy', tail: 'curl', snout: 1, leg: .3, cry: '꿀꿀', p: .8 } },
   cow: { n: '소', e: '🐮', buy: 5000, sell: 4500, grow: 130, preg: 75,
-    sp: { r: 36, v: 'moo', sp: 70, col: '#fbfbf7', col2: '#ffd9d2', dark: '#2c2c30', ear: 'floppy', tail: 'hair', horns: 1, muzzle: 1, leg: .5, head: .52, cry: '음메', p: .6, spots: 1 } },
+    rareModel: 'cowdance', rareName: '춤추는 소', sp: { model: 'cow', r: 36, v: 'moo', sp: 70, col: '#fbfbf7', col2: '#ffd9d2', dark: '#2c2c30', ear: 'floppy', tail: 'hair', horns: 1, muzzle: 1, leg: .5, head: .52, cry: '음메', p: .6, spots: 1 } },
   horse: { n: '말', e: '🐴', buy: 9000, sell: 8200, grow: 150, preg: 90,
-    sp: { r: 40, v: 'neigh', sp: 120, col: '#a8683a', col2: '#d9a878', dark: '#4a2c14', ear: 'pointy', tail: 'hair', mane: 1, neck: .55, muzzle: 1, leg: .75, head: .5, cry: '히힝', p: .7 } }
+    sp: { r: 40, v: 'neigh', sp: 120, col: '#a8683a', col2: '#d9a878', dark: '#4a2c14', ear: 'pointy', tail: 'hair', mane: 1, neck: .55, muzzle: 1, leg: .75, head: .5, cry: '히힝', p: .7 } },
+  panda: { n: '판다', e: '🐼', buy: 20000, sell: 18000, grow: 170, preg: 100,
+    sp: { model: 'panda', r: 34, v: 'grunt', sp: 60, col: '#ffffff', col2: '#ffffff', dark: '#2a2a2e', ear: 'round', tail: 'short', panda: 1, muzzle: 1, leg: .35, head: .6, cry: '뀨', p: 1 } }
 };
+/* 희귀 가축: 황금빛(소는 춤추는 소). 파는 값이 RARE_MULT배이고, 어미의 만족도가 높을수록 태어날 확률이 오른다 */
+const RARE_MULT = 5, RARE_SP = { col: '#ffcf3f', col2: '#fff0a8', dark: '#c98a1a', earCol: '#e0a82a' };
+function rareChance(m) {   // 어미 m이 낳는 새끼가 희귀할 확률
+  const h = clamp(m.happy / 100, 0, 1);
+  if (m.rare && m.kind === 'cow') return .3 + .4 * h;      // 희귀한 소: 30~70%
+  if (m.rare) return .1 + .3 * h;                          // 그 밖의 희귀 가축: 10~40%
+  return .02 + .16 * h;                                    // 보통 가축: 2~18%
+}
 const PRED = {
   wolf: { n: '늑대', hp: 1, bite: 22, speed: 125, scare: 150, sp: { r: 26, v: 'howl', col: '#7d8590', col2: '#c9ced6', dark: '#4a5058', ear: 'pointy', tail: 'dog', muzzle: 1, leg: .5, cry: '아우~', p: .8 } },
   bear: { n: '곰', hp: 2, bite: 36, speed: 90, scare: 80, sp: { r: 46, v: 'roar', col: '#7a4f2c', col2: '#c9a078', dark: '#573620', ear: 'round', tail: 'short', muzzle: 1, leg: .35, cry: '크앙', p: .5 } }
@@ -439,14 +455,14 @@ const penAt = (x, y) => PENS.find(p => p.i < pensOwned && x >= p.x && x <= p.x +
 const inPen = p => animals.filter(a => a.pen === p.i);
 
 /* ---------- 가축 ---------- */
-function addAnimal(kind, pen, adult, at) {
-  const K = KINDS[kind], P = PENS[pen];
-  const a = { kind, K, sp: K.sp, pen, adult, age: adult ? K.grow : 0, x: at ? at.x : R(P.x + 60, P.x + P.w - 60), y: at ? at.y : R(P.y + 110, P.y + P.h - 50), tx: 0, ty: 0, pause: R(0, 2), goal: 'wander',
+function addAnimal(kind, pen, adult, at, rare) {
+  const K = KINDS[kind], P = PENS[pen]; rare = !!rare;
+  const a = { kind, K, rare, model: rare && K.rareModel || K.sp.model || '', sp: rare ? Object.assign({}, K.sp, RARE_SP) : K.sp, pen, adult, age: adult ? K.grow : 0, x: at ? at.x : R(P.x + 60, P.x + P.w - 60), y: at ? at.y : R(P.y + 110, P.y + P.h - 50), tx: 0, ty: 0, pause: R(0, 2), goal: 'wander',
     hunger: R(10, 35), dirt: R(5, 25), health: 100, happy: 20, preg: 0, cool: R(20, 50), state: 'free', eatT: 0, voiceT: R(3, 8), seed: R(0, 100), moving: false, phase: 0, attackedT: 0, cleanT: 0, collar: '#e2493f' };
   animals.push(a); return a;
 }
 function removeAnimal(a) { const i = animals.indexOf(a); if (i >= 0) animals.splice(i, 1); if (a.md && a.md.g.parent) a.md.g.parent.remove(a.md.g); if (pl.carry === a) pl.carry = null; }
-function sellPrice(a) { const cond = clamp((a.health / 100) * .7 + (a.happy / 100) * .5, .5, 1.2); return Math.round((a.adult ? a.K.sell : a.K.sell * .4) * cond / 10) * 10; }
+function sellPrice(a) { const cond = clamp((a.health / 100) * .7 + (a.happy / 100) * .5, .5, 1.2); return Math.round((a.adult ? a.K.sell : a.K.sell * .4) * cond * (a.rare ? RARE_MULT : 1) / 10) * 10; }
 function updateAnimal(a, dt) {
   const K = a.K, P = PENS[a.pen], night = isNight(), slow = night ? .35 : 1;
   a.hunger = Math.min(100, a.hunger + .8 * slow * dt); if (a.cleanT <= 0) a.dirt = Math.min(100, a.dirt + .5 * slow * dt);
@@ -460,7 +476,9 @@ function updateAnimal(a, dt) {
     a.preg = K.preg; a.happy = 60; say(a, '💗 새끼를 가졌어요', '#e2497f', 1); tone(660, 990, .2, 'sine', .2); tone(880, 1320, .25, 'sine', .2, .2);
   }
   if (a.preg > 0) { a.preg -= dt * (cared ? 1 : .3); if (a.preg <= 0) { a.preg = 0; a.cool = 90;
-    if (inPen(P).length < PEN_CAP) { const b = addAnimal(a.kind, a.pen, false, { x: a.x + R(-30, 30), y: a.y + R(10, 30) }); b.hunger = 20; b.dirt = 0; bornToday++; say(a, '🎉 ' + K.n + ' 새끼가 태어났어요!', '#e2497f', 1); SFX.praise(); burst(a.x, a.y, 'heart', 10); }
+    if (inPen(P).length < PEN_CAP) { const lucky = Math.random() < rareChance(a), b = addAnimal(a.kind, a.pen, false, { x: a.x + R(-30, 30), y: a.y + R(10, 30) }, lucky); b.hunger = 20; b.dirt = 0; bornToday++; SFX.praise(); burst(a.x, a.y, 'heart', 10);
+      if (lucky) { say(a, '✨ 희귀한 새끼가 태어났어요!', '#d99a00', 1); showToast('✨ 희귀한 ' + (K.rareName || '황금 ' + K.n) + ' 새끼가 태어났어요! 다 크면 ' + RARE_MULT + '배 값에 팔려요', 5); burst(a.x, a.y, 'spark', 16); tone(1047, 1047, .15, 'triangle', .25, .6); tone(1568, 1568, .3, 'triangle', .25, .75); }
+      else say(a, '🎉 ' + K.n + ' 새끼가 태어났어요!', '#e2497f', 1); }
     else say(a, '울타리가 꽉 찼어요', '#7a6a4f'); } }
   if (a.health <= 0) { showToast(K.n + '이(가) 병들어 떠났어요… 밥과 목욕을 챙겨 주세요', 4); removeAnimal(a); return; }
   if (a.state === 'carried') { a.x = pl.x; a.y = pl.y; a.moving = false; return; }
@@ -566,12 +584,13 @@ function openShop(tab) {
   let h = '<h2>농장 상점</h2><p class="pay">💰 <b>' + won(money) + '</b> · ' + day + '일째 · 가축 ' + animals.length + '마리</p><div class="tabs">' + tabs.map(t => '<button class="tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '" type="button">' + t[1] + '</button>').join('') + '</div>';
   const row = (icon, name, sub, btn, id, ok) => '<div class="shop"><span class="si">' + icon + '</span><span class="sn"><b>' + name + '</b><br><span class="sub">' + sub + '</span></span><button class="buy" data-id="' + id + '" type="button"' + (ok ? '' : ' disabled') + '>' + btn + '</button></div>';
   if (tab === 'buy') { const free = PENS.find(p => p.i < pensOwned && inPen(p).length < PEN_CAP);
-    for (const k in KINDS) { const K = KINDS[k]; h += row(K.e, K.n, '다 크면 약 ' + won(K.sell) + '에 팔려요', won(K.buy), 'buy:' + k, money >= K.buy && !!free); }
+    for (const k in KINDS) { const K = KINDS[k]; h += row(K.e, K.n, '다 크면 약 ' + won(K.sell) + '에 팔려요' + (K.rareModel ? ' · 희귀한 소는 희귀 새끼를 더 잘 낳아요' : ''), won(K.buy), 'buy:' + k, money >= K.buy && !!free); }
+    h += '<p class="sub">✨ 희귀한 가축은 상점에서 팔지 않아요. 만족도가 높은 어미에게서 가끔 태어나고, ' + RARE_MULT + '배 값에 팔려요.</p>';
     h += '<p class="sub">' + (free ? '산 가축은 ' + (free.i + 1) + '번 울타리로 들어가요.' : '모든 울타리가 꽉 찼어요. 가축을 팔거나 울타리를 넓히세요.') + '</p>'; }
   else if (tab === 'sell') { let any = false;
-    for (const k in KINDS) { const list = animals.filter(a => a.kind === k); if (!list.length) continue; any = true; const ad = list.filter(a => a.adult).sort((a, b) => sellPrice(b) - sellPrice(a)), K = KINDS[k];
-      h += row(K.e, K.n + ' ' + list.length + '마리', '어른 ' + ad.length + ' · 새끼 ' + (list.length - ad.length) + (ad.length ? ' · 가장 비싼 한 마리 ' + won(sellPrice(ad[0])) : ' · 다 크면 팔 수 있어요'), ad.length ? '1마리 팔기' : '아직', 'sell:' + k, ad.length > 0); }
-    if (!any) h += '<p class="sub">팔 가축이 없어요.</p>'; h += '<p class="sub">건강하고 행복할수록 비싸게 팔려요.</p>'; }
+    for (const k in KINDS) for (const rare of [false, true]) { const list = animals.filter(a => a.kind === k && a.rare === rare); if (!list.length) continue; any = true; const ad = list.filter(a => a.adult).sort((a, b) => sellPrice(b) - sellPrice(a)), K = KINDS[k];
+      h += row(rare ? '✨' + K.e : K.e, (rare ? '희귀 ' + (K.rareName || '황금 ' + K.n) : K.n) + ' ' + list.length + '마리', '어른 ' + ad.length + ' · 새끼 ' + (list.length - ad.length) + (ad.length ? ' · 가장 비싼 한 마리 ' + won(sellPrice(ad[0])) : ' · 다 크면 팔 수 있어요'), ad.length ? '1마리 팔기' : '아직', 'sell:' + k + ':' + (rare ? 1 : 0), ad.length > 0); }
+    if (!any) h += '<p class="sub">팔 가축이 없어요.</p>'; h += '<p class="sub">건강하고 만족도가 높을수록 비싸게 팔려요. 희귀한 가축은 ' + RARE_MULT + '배!</p>'; }
   else if (tab === 'land') {
     if (pensOwned < 6) h += row('🌾', (pensOwned + 1) + '번 울타리', '가축을 ' + PEN_CAP + '마리 더 키울 수 있어요. 가축을 들어서 옮길 수 있어요', won(PEN_PRICE[pensOwned]), 'pen', money >= PEN_PRICE[pensOwned]); else h += '<p class="sub">울타리를 모두 샀어요!</p>';
     h += '<p class="sub">지금 울타리 ' + pensOwned + ' / 6</p>'; }
@@ -580,9 +599,9 @@ function openShop(tab) {
     for (const p of PENS) if (p.i < pensOwned) h += row('⚡', (p.i + 1) + '번 울타리 전기 울타리', '늑대와 곰이 이 울타리에 들어오지 못해요', p.elec ? '설치됨' : won(ELEC_PRICE), 'elec:' + p.i, !p.elec && money >= ELEC_PRICE); }
   showOv(h + '<button class="btn" id="go">농장으로</button>');
   document.querySelectorAll('#card .tab').forEach(b => { b.onclick = () => openShop(b.dataset.tab); });
-  document.querySelectorAll('#card .buy').forEach(b => { b.onclick = () => { const [op, arg] = b.dataset.id.split(':'); initAudio();
+  document.querySelectorAll('#card .buy').forEach(b => { b.onclick = () => { const [op, arg, arg2] = b.dataset.id.split(':'); initAudio();
     if (op === 'buy') { const K = KINDS[arg], free = PENS.find(p => p.i < pensOwned && inPen(p).length < PEN_CAP); if (!free || money < K.buy) return; money -= K.buy; addAnimal(arg, free.i, true); SFX.clean(); }
-    else if (op === 'sell') { const ad = animals.filter(a => a.kind === arg && a.adult).sort((a, b) => sellPrice(b) - sellPrice(a)); if (!ad.length) return; money += sellPrice(ad[0]); removeAnimal(ad[0]); SFX.praise(); }
+    else if (op === 'sell') { const ad = animals.filter(a => a.kind === arg && a.adult && a.rare === (arg2 === '1')).sort((a, b) => sellPrice(b) - sellPrice(a)); if (!ad.length) return; money += sellPrice(ad[0]); removeAnimal(ad[0]); SFX.praise(); }
     else if (op === 'pen') { if (pensOwned >= 6 || money < PEN_PRICE[pensOwned]) return; money -= PEN_PRICE[pensOwned]; pensOwned++; buildFences(); SFX.clean(); }
     else if (op === 'gun') { if (gun || money < GUN_PRICE) return; money -= GUN_PRICE; gun = true; SFX.clean(); }
     else if (op === 'elec') { const p = PENS[+arg]; if (p.elec || money < ELEC_PRICE) return; money -= ELEC_PRICE; p.elec = true; buildFences(); SFX.clean(); }
@@ -592,12 +611,12 @@ function openShop(tab) {
 
 /* ---------- 저장 ---------- */
 const SAVE_KEY = 'scrubpaws_farm';
-function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, money, day, clock, pensOwned, gun, pens: PENS.map(p => [p.food, p.elec ? 1 : 0]), animals: animals.map(a => [a.kind, a.pen, a.adult ? 1 : 0, Math.round(a.age), Math.round(a.hunger), Math.round(a.dirt), Math.round(a.health), Math.round(a.happy), Math.round(a.preg)]) })); } catch (e) { } }
+function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, money, day, clock, pensOwned, gun, pens: PENS.map(p => [p.food, p.elec ? 1 : 0]), animals: animals.map(a => [a.kind, a.pen, a.adult ? 1 : 0, Math.round(a.age), Math.round(a.hunger), Math.round(a.dirt), Math.round(a.health), Math.round(a.happy), Math.round(a.preg), a.rare ? 1 : 0]) })); } catch (e) { } }
 function loadGame() {
   try { const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!d || !Array.isArray(d.animals)) return false;
     money = Math.max(0, +d.money || 0); day = Math.max(1, +d.day || 1); clock = clamp(+d.clock || 0, 0, DAY_LEN - 1); pensOwned = clamp(+d.pensOwned || 1, 1, 6); gun = !!d.gun;
     PENS.forEach((p, i) => { const q = (d.pens || [])[i] || [0, 0]; p.food = clamp(+q[0] || 0, 0, TROUGH_CAP); p.elec = !!q[1]; });
-    animals.slice().forEach(removeAnimal); for (const q of d.animals) { if (!KINDS[q[0]] || q[1] >= pensOwned) continue; const a = addAnimal(q[0], q[1], !!q[2]); a.age = +q[3] || 0; a.hunger = +q[4] || 0; a.dirt = +q[5] || 0; a.health = clamp(+q[6] || 100, 1, 100); a.happy = +q[7] || 0; a.preg = +q[8] || 0; }
+    animals.slice().forEach(removeAnimal); for (const q of d.animals) { if (!KINDS[q[0]] || q[1] >= pensOwned) continue; const a = addAnimal(q[0], q[1], !!q[2], null, !!q[9]); a.age = +q[3] || 0; a.hunger = +q[4] || 0; a.dirt = +q[5] || 0; a.health = clamp(+q[6] || 100, 1, 100); a.happy = +q[7] || 0; a.preg = +q[8] || 0; }
     return true; } catch (e) { return false; }
 }
 function newGame() {
@@ -668,7 +687,7 @@ function showTitle() {
   showOv('<h1>ScrubPaws 농장</h1><p class="sub">꼬질꼬질 목장 키우기</p>' +
     '<div class="note"><b>할아버지의 편지</b>이 들판과 울타리 하나를 너에게 맡긴다. 양 두 마리와 닭 두 마리로 시작하거라. 잘 먹이고 깨끗이 씻겨 주면 새끼를 낳을 게다. 밤에는 늑대를 조심하고!</div>' +
     '<div class="signs"><span>🌾 <b>먹이</b> 건초 더미에서 건초를 들어 여물통에 놓으면 가축이 와서 먹어요</span><span>🚿 <b>목욕</b> 호스를 누른 채 가축 쪽으로 물을 뿌려요</span>' +
-    '<span>💗 <b>새끼</b> 잘 돌본 가축은 같은 종류의 짝이 있으면 새끼를 낳아요</span><span>💰 <b>상점</b> 다 큰 가축을 팔아 새 가축·울타리·장비를 사요</span>' +
+    '<span>💗 <b>새끼</b> 잘 돌본 가축은 같은 종류의 짝이 있으면 새끼를 낳아요</span><span>✨ <b>희귀</b> 만족도가 높을수록 황금빛 희귀 새끼가 태어나요. ' + RARE_MULT + '배 값!</span><span>💰 <b>상점</b> 다 큰 가축을 팔아 새 가축·울타리·장비를 사요</span>' +
     '<span>🌙 <b>밤</b> 늑대와 곰이 와요. 횃불을 들고 다가가거나 총·전기 울타리로 지켜요</span></div>' +
     '<p class="sub">이동: 화면 드래그 / 방향키·WASD · 행동: 스페이스 · 호스: X(누르고 있기) · 총: C · 상점: B · 일시정지: P</p>' +
     (has ? '<button class="btn" id="go">이어하기</button> <button class="btn alt" id="fresh">새로 시작</button>' : '<button class="btn" id="go">농장 시작하기</button>'));
@@ -690,7 +709,7 @@ function init3D() {
   torch = new THREE.PointLight(0xffa040, 0, 520, 1.6); scene.add(torch);
   G.sph = new THREE.SphereGeometry(1, 28, 20); G.box = new THREE.BoxGeometry(1, 1, 1); G.cyl = new THREE.CylinderGeometry(1, 1, 1, 20);
   G.cone = new THREE.ConeGeometry(1, 1, 18); G.tor = new THREE.TorusGeometry(1, .1, 10, 36); G.circ = new THREE.CircleGeometry(1, 32); G.arc = new THREE.TorusGeometry(1, .2, 8, 18, Math.PI);
-  buildWorld(); plM = makeKid(); scene.add(plM.g);
+  buildWorld(); loadModels(); plM = makeKid(); scene.add(plM.g);
   hayM = new THREE.Group(); B('#e9cf8c', 34, 22, 24, 0, 0, 0, hayM, 5); B('#b98f52', 3, 23, 25, -8, 0, 0, hayM, 1); B('#b98f52', 3, 23, 25, 8, 0, 0, hayM, 1); scene.add(hayM); sh(hayM);
   flame = sprite('🔥', scene, 46);
   const rm = new THREE.MeshBasicMaterial({ color: '#ff8a3d' }); ring = M(G.tor, rm, 1, 1, 1, 0, 2, 0, scene); ring.rotation.x = PI / 2;
@@ -744,6 +763,39 @@ function buildFences() {   // 가진 울타리(와 다음에 살 수 있는 자�
     sh(g);
   }
 }
+/* 뼈대와 동작이 있는 glTF 모델. 불러오지 못하면 도형으로 만든 가축이 그대로 보인다 */
+const MODELS = {
+  sheep: { data: 'SHEEP_GLTF', hk: 2.4, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Run', eat: 'Eat_Drink', sleep: 'Rest' } },
+  cow: { data: 'COW_GLTF', hk: 1.85, yaw: 0, clips: { idle: 'Idle', eat: 'Eating' } },
+  cowdance: { data: 'COWDANCE_GLTF', hk: 2.3, yaw: 0, clips: { idle: 'CowRig|PolishDance' } },
+  panda: { data: 'PANDA_GLTF', hk: 1.9, yaw: 0, clips: { idle: 'Take 001' } }
+};
+const GOLD = { c: null };
+function loadModels() {
+  if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return;
+  for (const key in MODELS) {
+    const cfg = MODELS[key], data = window[cfg.data]; if (!data) continue;
+    try {
+      new THREE.GLTFLoader().parse(JSON.stringify(data), '', g => {
+        const skinned = []; g.scene.traverse(o => { if (o.isSkinnedMesh) skinned.push(o); if (o.isMesh) o.material = new THREE.MeshLambertMaterial({ map: o.material.map || null, color: o.material.color }); });
+        if (!skinned.length) return;
+        g.scene.updateMatrixWorld(true); const box = new THREE.Box3(), v = new THREE.Vector3();   // 뼈대를 적용한 실제 크기
+        for (const mesh of skinned) { mesh.skeleton.update(); const pos = mesh.geometry.attributes.position; for (let i = 0; i < pos.count; i += 2) { v.fromBufferAttribute(pos, i); mesh.boneTransform(i, v); v.applyMatrix4(mesh.matrixWorld); box.expandByPoint(v); } }
+        cfg.proto = { root: g.scene, anims: g.animations, h: box.max.y - box.min.y, off: [-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2] };
+        window.__models = (window.__models || 0) + 1;
+      }, () => { });
+    } catch (e) { }
+  }
+}
+function attachModel(a, md) {
+  const cfg = MODELS[a.model], pr = cfg.proto, k = a.sp.r * cfg.hk / pr.h, gold = GOLD.c || (GOLD.c = new THREE.Color('#ffc21a'));
+  const root = THREE.SkeletonUtils.clone(pr.root), holder = new THREE.Group(), fit = new THREE.Group(), off = new THREE.Group(), mats = [];
+  fit.rotation.y = PI / 2 + cfg.yaw; fit.scale.setScalar(k); off.position.set(pr.off[0], pr.off[1], pr.off[2]); off.add(root); fit.add(off); holder.add(fit); md.g.add(holder);
+  root.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); if (a.rare && !a.K.rareModel) o.material.color.multiply(gold).multiplyScalar(1.25); mats.push({ m: o.material, base: o.material.color.clone() }); o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; });
+  const mixer = new THREE.AnimationMixer(root), acts = {};
+  for (const n in cfg.clips) { const c = pr.anims.find(x => x.name === cfg.clips[n]); if (c) acts[n] = mixer.clipAction(c); }
+  md.inner.visible = false; md.top = pr.h * k; md.ext = { cfg, holder, mats, mixer, acts, act: null };
+}
 const ICONS = { attack: '❗', hungry: '🌾', dirty: '💧', preg: '💗', sick: '🤒' };
 function makeAnimalModel(a) {
   const md = makePet(a), r = a.sp.r;
@@ -780,8 +832,15 @@ function syncCreature(a, dt, pred) {
   md.stink.forEach(s => { s.visible = false; }); md.sweat.forEach(s => { s.visible = false; }); md.anger.visible = false; md.star.forEach(s => { s.visible = false; }); md.food.visible = false;
   md.spark.forEach((s, i) => { s.visible = !pred && a.cleanT > 0; const an = t * 3 + i * 3.1; s.position.set(Math.cos(an) * r * 1.2, md.by + Math.sin(an * 1.3) * r * .7, Math.sin(an) * r); });
   md.shadow.visible = false;
+  if (a.rare) md.spark.forEach((s, i) => { s.visible = !sleeping; const an = t * 2 + i * 2.1; s.position.set(Math.cos(an) * r * 1.2, md.top * .6 + Math.sin(an * 1.3) * r * .5, Math.sin(an) * r); });
+  if (!md.ext && a.model && MODELS[a.model].proto) attachModel(a, md);
+  if (md.ext) { const x = md.ext, eat = a.state === 'eat', want = sleeping && x.acts.sleep ? 'sleep' : eat && x.acts.eat ? 'eat' : moving && x.acts.walk ? (a.attackedT > 0 && x.acts.run ? 'run' : 'walk') : 'idle', n = x.acts[want] || x.acts.idle;
+    if (n && x.act !== n) { if (x.act) x.act.fadeOut(.25); n.reset().fadeIn(.25).play(); x.act = n; }
+    x.mixer.update(sleeping && !x.acts.sleep ? 0 : dt * (want === 'walk' ? 1.3 : 1));
+    for (const q of x.mats) q.m.color.copy(q.base).lerp(grime, dg * .6);
+    x.holder.scale.set(1, 1, pg); x.holder.position.x = scared && !carried ? Math.sin(t * 40) : 0; }
   if (md.icon) { const ch = pred ? '' : a.attackedT > 0 ? ICONS.attack : sick ? ICONS.sick : hungry ? ICONS.hungry : a.dirt >= 60 ? ICONS.dirty : a.preg > 0 ? ICONS.preg : ''; md.icon.visible = !!ch && !sleeping;
-    if (ch) { if (md.iconCh !== ch) { md.iconCh = ch; md.icon.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; md.icon.material.needsUpdate = true; } md.icon.position.set(0, md.top + 26 + Math.sin(t * 4 + a.seed) * 3, 0); md.icon.scale.setScalar(30 / sc); } }
+    if (ch) { if (md.iconCh !== ch) { md.iconCh = ch; md.icon.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; md.icon.material.needsUpdate = true; } md.icon.position.set(0, md.top / 1 + 26 + Math.sin(t * 4 + a.seed) * 3, 0); md.icon.scale.setScalar(30 / sc); } }
 }
 function syncKid(dt) {
   const k = plM, sw = pl.moving ? Math.sin(pl.phase) * .7 : 0, hold = !!pl.carry;
@@ -853,7 +912,7 @@ function frame(now) {
 }
 window.addEventListener('resize', fit3D);
 window.__game = { get state() { return state; }, get animals() { return animals; }, get preds() { return preds; }, pl, PENS, KINDS, get money() { return money; }, set money(v) { money = v; }, get day() { return day; }, get clock() { return clock; }, set clock(v) { clock = v; }, get pensOwned() { return pensOwned; }, get gun() { return gun; },
-  addAnimal, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
+  addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
 (function boot() { const ok = typeof THREE !== 'undefined' && init3D(); if (ok) showTitle(); else showOv('<h2>3D를 시작할 수 없어요</h2><p>이 기기나 브라우저에서 WebGL을 사용할 수 없습니다.</p>'); requestAnimationFrame(frame); })();
 </script>
 </body>
