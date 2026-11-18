@@ -1719,12 +1719,12 @@ const todayStr = () => { const d = new Date(); return d.getFullYear() + '-' + (d
    레벨이 오르면 상점에 새 가축·씨앗·시설·장비가 나타난다. LV 표가 무엇이 몇 레벨에 열리는지의 전부다 */
 const MAX_LV = 12, xpFor = L => 40 * (L - 1) * L;   // 레벨 L이 되는 데 필요한 누적 경험치: 2→80, 3→240, 4→480, 5→800, 6→1200 …
 const LV = {
-  animal: { chicken: 1, sheep: 1, goat: 3, pig: 5, cow: 6, horse: 8, camel: 9, panda: 10, giraffe: 11, elephant: 12, proto: 7, compy: 8, trike: 9, raptor: 10, brachio: 11, trex: 12 }, seed: { clover: 2, carrot: 3, corn: 5, pumpkin: 7, bamboo: 9 }, fert: 4, fork: 2,
+  animal: { chicken: 1, sheep: 1, goat: 3, pig: 5, cow: 6, horse: 8, camel: 9, panda: 10, giraffe: 11, elephant: 12, proto: 7, compy: 8, trike: 9, raptor: 10, brachio: 11, trex: 12 }, seed: { clover: 1, carrot: 1, corn: 1, pumpkin: 1, bamboo: 1 }, fert: 4, fork: 2,
   pen: [1, 3, 5, 7, 9, 11], lic: 4, licLv: [4, 7, 10], carp: 6, wx: [1, 4, 7], gun: [5, 7, 9], elec: 6, trough: [1, 3, 7], water: [1, 5, 9]
 };
 const BARNS = [{ lv: 1, price: 0, store: 20, hay: 60 }, { lv: 4, price: 5000, store: 60, hay: 100, note: '트랙터를 들일 수 있어요' }, { lv: 8, price: 15000, store: 150, hay: 160, note: '큰 트랙터를 들일 수 있어요' }];
 const TRACTORS = [null, { lv: 6, barn: 2, price: 15000, cap: 24, speed: 1.7, n: '트랙터' }, { lv: 9, barn: 3, price: 25000, cap: 48, speed: 2.1, n: '큰 트랙터' }];
-const CAP_STEPS = [12, 20, 30], CAP_PRICE = [0, 2500, 7000], OPEN_LV = { seed: 2, lic: 4, land: 3, gear: 5, wx: 1 };
+const CAP_STEPS = [12, 20, 30], CAP_PRICE = [0, 2500, 7000], OPEN_LV = { seed: 1, lic: 4, land: 3, gear: 5, wx: 1 };
 let xp = 0, level = 1, barnLv = 1, troughLv = 1, waterLv = 1, tractorLv = 0;
 const isOpen = k => level >= OPEN_LV[k];
 const areaXp = () => Math.max(0, Math.round((PENS.filter(p => p.own).reduce((t, p) => t + p.w * p.h, 0) / (PEN_W * PEN_H) - 1) * 150));   // 울타리 면적: 규격 울타리 하나 넓이마다 150
@@ -1774,7 +1774,7 @@ const QUESTS = [
   { t: '가축 한 마리 씻기기', hint: '물호스로 더러워진(💧) 가축에게 물 뿌리기', ok: () => stats.washed >= 1, pay: 300 },
   { t: '가축에게서 얻기', hint: '닭이나 양 옆에 가면 나타나는 [달걀 줍기]·[털 깎기] 버튼 누르기 (조금 기다리면 쌓여요)', ok: () => stats.worked >= 1, pay: 500, open: 'seed' },
   { t: '첫 밤 넘기기', hint: '밤이 되면 저절로 횃불을 들어요. 울타리로 다가오는 맹수에게 다가가 쫓아내기', ok: () => day >= 2, pay: 500, open: 'wx' },
-  { t: '작물 심어서 수확하기', hint: '레벨 2부터 상점에 씨앗이 나와요. 씨앗 사기 → 🔄로 씨앗 들기 → 들판에 뿌리고 물 주기 → 다 자라면 [수확하기]', ok: () => stats.harvested >= 1, pay: 800, open: 'lic' },
+  { t: '작물 심어서 수확하기', hint: '상점의 씨앗·먹이 탭에서 씨앗을 사요. 씨앗 사기 → 🔄로 씨앗 들기 → 들판에 뿌리고 물 주기 → 다 자라면 [수확하기]', ok: () => stats.harvested >= 1, pay: 800, open: 'lic' },
   { t: '새끼 태어나게 하기', hint: '같은 종류의 어른 두 마리에게 먹이·물·깨끗함을 계속 챙겨 만족도를 가득 채우기', ok: () => stats.born >= 1, pay: 800, open: 'land' },
   { t: '가축 6마리 키우기', hint: '새끼를 낳게 하거나 상점에서 사기', ok: () => animals.length >= 6, pay: 1000 },
   { t: '울타리 하나 더 갖기', hint: '레벨 3부터 상점의 시설·장비에 2번 울타리가 나와요', ok: () => PENS.filter(p => p.own).length >= 2, pay: 1500, open: 'gear' },
