@@ -527,7 +527,7 @@ const feedInfo = t => t === 'hay' ? { n: '건초', e: '🌾', q: 1 } : t === 'me
 function addFeed(p, t, n) { p.feed[t] = (p.feed[t] || 0) + n; p.food += n; }
 function takeFeed(p, t) { if (!(p.feed[t] > 0)) return false; p.feed[t]--; p.food--; return true; }
 function takeAnyFeed(p) { for (const t in p.feed) if (p.feed[t] > 0) return takeFeed(p, t); return false; }
-function setFeed(p, obj, legacy) { p.feed = {}; p.food = 0; if (obj && typeof obj === 'object') { for (const t in obj) if ((t === 'hay' || CROPS[t]) && obj[t] > 0 && p.food < TROUGH_CAP) addFeed(p, t, Math.min(Math.floor(obj[t]), TROUGH_CAP - p.food)); } else if (legacy > 0) addFeed(p, 'hay', Math.min(legacy, TROUGH_CAP)); }
+function setFeed(p, obj, legacy) { p.feed = {}; p.food = 0; if (obj && typeof obj === 'object') { for (const t in obj) if ((t === 'hay' || t === 'meat' || CROPS[t]) && obj[t] > 0 && p.food < TROUGH_CAP) addFeed(p, t, Math.min(Math.floor(obj[t]), TROUGH_CAP - p.food)); } else if (legacy > 0) addFeed(p, 'hay', Math.min(legacy, TROUGH_CAP)); }
 const dietOf = a => a.K.meat ? (a.adult ? [] : ['meat']) : a.rare ? [a.K.fav] : a.K.diet;   // 다 큰 육식 공룡은 살아 있는 가축만 먹는다
 const pickFeed = (a, p) => { const d = dietOf(a); return !d.length ? null : p.feed[a.K.fav] > 0 ? a.K.fav : d.find(t => p.feed[t] > 0) || null; };
 const dietText = d => d.map(t => feedInfo(t).e).join('');
@@ -893,6 +893,7 @@ function findAction() {
   if (Math.hypot(TANK.x - pl.x, TANK.y - pl.y) < 80) return { type: 'pump', label: '펌프질' };
   const hp = PENS.find(q => q.own && q.hole && Math.hypot(q.hole.x - pl.x, q.hole.y - pl.y) < 80); if (hp) return { type: 'repair', pen: hp, label: '울타리 고치기' };
   const rp = nearPlot(true); if (rp) return { type: 'harvest', plot: rp, label: '수확하기' };
+  if (!pl.carry) { const P = PENS.find(p => p.own && p.food > 0 && Math.hypot(p.tx - pl.x, p.ty - pl.y) < 64); if (P) return { type: 'unfeed', pen: P, label: '먹이 꺼내기' }; }
   const np = nearPile(); if (np) return { type: 'pickPile', pile: np, label: feedInfo(np.type).n + ' 줍기' };
   const g = nearGrass(); if (g) return { type: 'grass', g, label: '풀 베기' };
   { let hb = null, hd = 60; for (const a of animals) { if (a.state !== 'free' || !canRide(a)) continue; const d = Math.hypot(a.x - pl.x, a.y - pl.y) - a.sp.r * .5; if (d < hd) { hd = d; hb = a; } } if (hb) return { type: 'mount', pet: hb, label: '말 타기' }; }
@@ -929,6 +930,7 @@ function pressAct() {
   else if (a.type === 'grab') { a.pet.state = 'carried'; pl.carry = a.pet; SFX.grab(); emote(a.pet, 'scared'); }
   else if (a.type === 'fly') { fly = true; pl.x = plane.x; pl.y = plane.y; SFX.grab(); tone(120, 260, .6, 'sawtooth', .25); showToast('✈️ 이륙! 🔄 버튼으로 물·비료·먹이를 고르고 [뿌리기]를 누르세요', 4); }
   else if (a.type === 'land') { if (penAt(pl.x, pl.y)) { showToast('울타리 밖에 착륙하세요'); return; } fly = false; plane.x = pl.x; plane.y = pl.y; pl.x = clamp(pl.x + (pl.x > WORLD.w - 120 ? -80 : 80), 20, WORLD.w - 20); SFX.take(); saveGame(); }
+  else if (a.type === 'unfeed') { const P = a.pen, t = Object.keys(P.feed).filter(k => P.feed[k] > 0).sort((x, y) => P.feed[y] - P.feed[x])[0]; if (!t) return; let n = 0; while (n < 24 && takeFeed(P, t)) n++; pl.carry = 'hay'; pl.feedType = t; pl.hayN = n; SFX.take(); const rest = Object.keys(P.feed).filter(k => P.feed[k] > 0).map(k => feedInfo(k).e + P.feed[k]).join(' '); showToast(feedInfo(t).e + ' ' + feedInfo(t).n + ' ' + n + '개를 꺼냈어요' + (rest ? ' · 남은 것 ' + rest : '') + '. 다른 여물통에 놓거나 창고에 넣으세요', 4); }
   else if (a.type === 'barn2') buildBarn2();
   else if (a.type === 'plant') plantTree();
   else if (a.type === 'uproot') openTree(a.tree);
@@ -1519,7 +1521,8 @@ const PATH = {
   elephant: { n: '코끼리', word: '재주', tool: { id: 'bathbrush', e: '🛁', n: '목욕 솔', price: 5000, lv: 12 }, label: '목욕시키기', fac: { id: 'artroom', e: '🎨', n: '코끼리 그림 교실', price: 18000, lv: 12, base: 100, per: 16, word: '코끼리 그림 판매' }, w: { id: 'mahout', n: '코끼리 조련사', wage: 450, lv: 12, col: '#8a93a0' }, sell: 200 },
   dino: { n: '초식 공룡', word: '길들임', lab: 1, tool: { id: 'whistle', e: '🦴', n: '조련 호루라기', price: 6000, lv: 7 }, label: '길들이기', fac: { id: 'dinopark', e: '🎢', n: '공룡 공원', price: 30000, lv: 9, base: 100, per: 14, word: '공룡 공원 입장료' }, w: { id: 'dinotrainer', n: '공룡 조련사', wage: 500, lv: 8, col: '#5f8f4a' }, sell: 100 }
 };
-const FACPOS = { caravan: [110, 840], tower: [110, 1070], artroom: [110, 1300], dinopark: [120, 1530] }, PATH_AT = 30, DINO_SHOW = { compy: 600, raptor: 1500, trex: 4000 };
+const FAC2 = { loom: () => loom, rock: () => rock, soap: () => soap, bakery: () => bakery, tshop: () => tshop };
+const FACPOS = { loom: [470, 62], rock: [780, 62], soap: [1090, 62], bakery: [1400, 62], tshop: [1710, 62], caravan: [110, 840], tower: [110, 1070], artroom: [110, 1300], dinopark: [120, 1530] }, PATH_AT = 30, DINO_SHOW = { compy: 600, raptor: 1500, trex: 4000 };
 let own = {}, fly = false, barns2 = [], sprayMode = 'water';
 /* ---------- 창고 더 짓기: 한 채마다 일꾼 +2명, 동시에 켜는 자동화 장치 +2대, 탈것 +1대, 보관 +20칸 ---------- */
 const BARN2_MAX = 3, BARN2_LV = 6, barn2Price = () => 15000 * (barns2.length + 1), barnList = () => [BARN].concat(barns2), autoMax = () => 3 + 2 * barns2.length, autoCnt = () => Object.keys(auto).filter(k => auto[k].own && auto[k].on).length;
@@ -1557,6 +1560,14 @@ function runBigDaily() {   // 시설이 있으면 아침마다 수익이 들어�
     for (const a of animals) { if (!a.adult || a.loose) continue; if (pathOf(a) === P && (a.cs || 0) >= PATH_AT) sum += (P.fac.base + a.cs * P.fac.per) * (a.legend ? 8 : a.rare ? 3 : 1) * (a.hunger < 60 ? 1 : .5); else if (k === 'dino' && DINO_SHOW[a.kind]) sum += DINO_SHOW[a.kind] * (a.hunger < 60 ? 1 : .5); }
     sum = Math.round(sum / 10) * 10; if (sum) { money += sum; note += ' · ' + P.fac.e + ' ' + P.fac.word + ' +' + sum.toLocaleString() + '원'; } }
   return note;
+}
+function feedNeed(a) {   // 지금 먹을 것이 없는 배고픈 가축에게 무엇이 필요한지. 없으면 ''
+  if (a.hunger < 50 || a.loose || a.state === 'eat' || a.state === 'carried') return ''; const P = PENS[a.pen], K = a.K;
+  if (K.meat && a.adult) return '🍖 살아 있는 가축 (' + PREY_TXT[2] + ')';
+  if (K.meat) return P.feed.meat > 0 ? '' : '🥩 고기 또는 🍖 ' + PREY_TXT[dinoStage(a)];
+  if (K.dino && a.fedTree) return ''; if (pickFeed(a, P)) return '';
+  const d = dietOf(a), l = d.map(t => feedInfo(t).e + feedInfo(t).n + (t === K.fav && d.length > 1 ? '♥' : '')).join(' · ');
+  return l + (K.dino ? ' 또는 🌴 나무 ' + treeSupply(P) + '/' + treeNeed(P) : '') + (a.rare ? ' (희귀종은 이것만 먹어요)' : '');
 }
 const pigJob = a => a.kind === 'pig' && a.adult && !a.loose && leash && (a.nose || 0) < 100 && !(a.playCd > 0) && a.hunger < 70 ? CJOB.sniff : null;
 const goldChance = a => (a.lay || 0) / 100 * .15;
@@ -1985,7 +1996,12 @@ function init3D() {
     caravan: mk('caravan', '🏜️', g => { B('#e8d2a0', 130, 46, 96, 0, 23, 0, g, 6); const r = M(G.cone, '#c8553a', 86, 56, 66, 0, 74, 0, g); r.castShadow = true; M(G.cone, '#fff3e0', 60, 40, 46, 0, 84, 0, g); B('#6b4a2a', 30, 36, 4, 0, 18, 49, g, 2); M(G.cyl, '#8a5a34', 3, 60, 3, 70, 30, 40, g); B('#ffd54a', 22, 14, 2, 82, 54, 40, g, 1); for (const x of [-52, -30]) { B('#b98a4a', 20, 18, 20, x, 9, 62, g, 3); } g.userData.top = 136; }),
     tower: mk('tower', '🔭', g => { for (const q of [[-34, -34], [34, -34], [-34, 34], [34, 34]]) M(G.cyl, '#8a5a34', 6, 150, 6, q[0], 75, q[1], g); B('#c79a63', 96, 8, 96, 0, 150, 0, g, 3); for (const q of [[0, -46, 96, 4], [0, 46, 96, 4], [-46, 0, 4, 96], [46, 0, 4, 96]]) B('#a9744f', q[2], 26, q[3], q[0], 168, q[1], g, 2); const r = M(G.cone, '#3f8f6a', 76, 44, 76, 0, 232, 0, g); r.castShadow = true; for (const q of [[-40, -40], [40, -40], [-40, 40], [40, 40]]) M(G.cyl, '#8a5a34', 4, 60, 4, q[0], 184, q[1], g); for (let i = 0; i < 6; i++) B('#c79a63', 30, 4, 10, 60, 12 + i * 25, 0, g, 1); M(G.cyl, '#8a5a34', 3, 150, 3, 46, 75, 6, g); M(G.cyl, '#8a5a34', 3, 150, 3, 74, 75, 6, g); g.userData.top = 280; }),
     artroom: mk('artroom', '🎨', g => { B('#fff3e0', 140, 66, 100, 0, 33, 0, g, 8); B('#d94f6a', 150, 12, 110, 0, 72, 0, g, 5); B('#9fd8f0', 36, 28, 4, -40, 40, 51, g, 3); B('#6b4a2a', 28, 44, 4, 30, 22, 51, g, 2); B('#ffffff', 44, 54, 4, -84, 50, 66, g, 2); for (const [c, x, y] of [['#e2493f', -94, 62], ['#4f8fd9', -78, 54], ['#ffd54a', -88, 40], ['#3fae6a', -72, 68]]) M(G.sph, c, 7, 7, 2, x, y, 69, g); M(G.cyl, '#8a5a34', 3, 60, 3, -84, 12, 70, g); g.userData.top = 124; }),
-    dinopark: mk('dinopark', '🎢', g => { for (const x of [-70, 70]) { B('#7a5a3a', 24, 150, 24, x, 75, 0, g, 4); M(G.cone, '#ff9a1f', 10, 22, 10, x, 166, 0, g); } B('#5f8f4a', 190, 30, 22, 0, 136, 0, g, 5); B('#fff3e0', 120, 16, 4, 0, 136, 13, g, 2); for (const x of [-40, -20, 0, 20, 40]) { const t = M(G.cone, '#fff8e6', 5, 14, 5, x, 114, 0, g); t.rotation.z = PI; } B('#d94f6a', 40, 40, 30, 0, 20, -60, g, 4); B('#fff3e0', 46, 6, 36, 0, 43, -60, g, 2); g.userData.top = 200; }) }; }
+    dinopark: mk('dinopark', '🎢', g => { for (const x of [-70, 70]) { B('#7a5a3a', 24, 150, 24, x, 75, 0, g, 4); M(G.cone, '#ff9a1f', 10, 22, 10, x, 166, 0, g); } B('#5f8f4a', 190, 30, 22, 0, 136, 0, g, 5); B('#fff3e0', 120, 16, 4, 0, 136, 13, g, 2); for (const x of [-40, -20, 0, 20, 40]) { const t = M(G.cone, '#fff8e6', 5, 14, 5, x, 114, 0, g); t.rotation.z = PI; } B('#d94f6a', 40, 40, 30, 0, 20, -60, g, 4); B('#fff3e0', 46, 6, 36, 0, 43, -60, g, 2); g.userData.top = 200; }),
+    loom: mk('loom', '🧶', g => { B('#e9e2d0', 110, 52, 76, 0, 26, 0, g, 6); B('#4f8fd9', 120, 12, 86, 0, 58, 0, g, 4); B('#6b4a2a', 24, 36, 4, 22, 18, 39, g, 2); B('#9fd8f0', 28, 22, 4, -26, 32, 39, g, 2); for (const [c2, x] of [['#e2497f', -62], ['#ffd54a', -74], ['#3fae6a', -66]]) M(G.sph, c2, 10, 10, 10, x, 10, 46 + (x % 7), g); g.userData.top = 104; }),
+    rock: mk('rock', '⛰️', g => { const a = M(G.cone, '#8f949c', 62, 110, 56, 0, 55, 0, g); a.castShadow = true; M(G.cone, '#a4a9b0', 40, 70, 40, 46, 35, 14, g); M(G.cone, '#7d828a', 34, 54, 34, -44, 27, 18, g); M(G.sph, '#ffffff', 14, 8, 14, 0, 106, 0, g); M(G.cyl, '#8a5a34', 2, 30, 2, 0, 124, 0, g); B('#e2493f', 18, 12, 2, 10, 132, 0, g, 1); for (const [x, y, z] of [[-14, 40, 34], [10, 62, 28], [-6, 84, 20]]) M(G.sph, '#ffd54a', 4, 4, 4, x, y, z, g); g.userData.top = 160; }),
+    soap: mk('soap', '🧼', g => { B('#bfe8d8', 104, 50, 74, 0, 25, 0, g, 6); B('#ffffff', 114, 12, 84, 0, 56, 0, g, 4); B('#6b4a2a', 24, 36, 4, -20, 18, 38, g, 2); B('#9fd8f0', 28, 22, 4, 26, 32, 38, g, 2); const bm = new THREE.MeshLambertMaterial({ color: '#d8f4ff', transparent: true, opacity: .6 }); for (const [x, y, r2] of [[40, 78, 9], [52, 96, 6], [30, 104, 7], [46, 118, 4]]) M(G.sph, bm, r2, r2, r2, x, y, 10, g); g.userData.top = 110; }),
+    bakery: mk('bakery', '🍰', g => { B('#f6d9a8', 112, 54, 78, 0, 27, 0, g, 6); B('#8a5a34', 122, 12, 88, 0, 60, 0, g, 4); B('#8a5a34', 18, 34, 18, 36, 80, -18, g, 2); B('#6b4a2a', 24, 36, 4, 24, 18, 40, g, 2); B('#fff3e0', 40, 6, 20, -28, 30, 46, g, 2); M(G.cyl, '#fff8e6', 12, 12, 12, -28, 40, 46, g); M(G.sph, '#e2493f', 4, 4, 4, -28, 49, 46, g); g.userData.top = 116; }),
+    tshop: mk('tshop', '🍄', g => { M(G.cyl, '#f3e6cf', 40, 50, 40, 0, 25, 0, g).castShadow = true; const cap = M(G.sph, '#c8402f', 66, 40, 66, 0, 58, 0, g); cap.castShadow = true; for (const [x, y, z] of [[-30, 82, 26], [24, 88, 20], [0, 94, -10], [40, 74, -22], [-40, 72, -18], [8, 78, 46]]) M(G.sph, '#fff8e6', 9, 6, 9, x, y, z, g); B('#6b4a2a', 22, 34, 4, 0, 17, 39, g, 2); g.userData.top = 124; }) }; }
   world3.birdS = []; for (let i = 0; i < 8; i++) { const sp = sprite('🐦', scene, 30); sp.visible = false; world3.birdS.push(sp); }
   world3.crowM = []; for (let i = 0; i < CROW_MAX; i++) { const g = new THREE.Group(); M(G.cyl, '#8a5a3a', 3, 90, 3, 0, 45, 0, g); B('#c2523f', 58, 26, 10, 0, 62, 0, g, 4); M(G.sph, '#f2d6a0', 13, 13, 13, 0, 90, 0, g); M(G.cone, '#b98424', 22, 14, 22, 0, 106, 0, g); M(G.cyl, '#b98424', 26, 2, 26, 0, 99, 0, g); sh(g); g.visible = false; scene.add(g); world3.crowM.push(g); }
   world3.grassM = grass.map(() => { const g = new THREE.Group(); for (const q of [[0, 0, 1], [-9, 4, .8], [8, -5, .9], [3, 9, .7], [-6, -8, .75]]) M(G.cone, q[2] > .85 ? '#3f9a3a' : '#57b84a', 6, 30 * q[2], 6, q[0], 15 * q[2], q[1], g); scene.add(g); return g; });
@@ -2203,7 +2219,7 @@ function render3D(dt) {
   world3.dairyM.visible = dairy && state !== 'title'; world3.factM.visible = factory;
   { const pp = exhibit && state !== 'title' ? PENS.find(q => q.own && inPen(q).some(a => a.kind === 'panda' && !a.loose)) : null, dayk = nightK() < .5; world3.boothM.visible = !!pp; if (pp) world3.boothM.position.set(pp.x + pp.w + 46, 0, pp.y + pp.h + 40);   // 전시관: 판다 울타리 앞의 매표소와 손님들
     world3.visitS.forEach((sp, i) => { sp.visible = !!pp && dayk; if (sp.visible) sp.position.set(pp.x + 60 + i * (pp.w - 120) / 4, 30 + Math.abs(Math.sin(gt * 3 + i * 1.7)) * 6, pp.y + pp.h + 44); }); }
-  world3.labM.visible = lab && state !== 'title'; syncTrees(); syncBarns(); for (const k in world3.facM) world3.facM[k].visible = !!own[k] && state !== 'title';
+  world3.labM.visible = lab && state !== 'title'; syncTrees(); syncBarns(); for (const k in world3.facM) world3.facM[k].visible = !!(own[k] || FAC2[k] && FAC2[k]()) && state !== 'title';
   world3.birdS.forEach((sp, i) => { const b = birds[i]; sp.visible = !!b && state !== 'title'; if (b) { sp.position.set(b.x, b.h + 14, b.y); const k = b.st === 'peck' ? 30 : 34 + Math.sin(gt * 20 + i) * 4; sp.scale.set(k, k, 1); } });
   for (const w of workers) {   // 일꾼
     if (!w.md) { const k = w.md = makeKid(), col = JOBS[w.job].col; M(G.cyl, col, 23, 3, 23, 0, 13, 0, k.head); M(G.cone, col, 13, 13, 13, 0, 21, 0, k.head); M(G.cyl, col, 14.6, 15, 14.1, 0, 46, 0, k.inner); k.shadow.visible = false; sh(k.inner); k.g.scale.setScalar(.92); scene.add(k.g); w.spr = sprite('🌾', k.g, 26); w.spr.position.set(0, 150, 0); w.sprCh = '🌾'; }
@@ -2286,6 +2302,8 @@ function drawHUD() {
     rr(c, 10, HUDH + 8, w, hgt, 12, 'rgba(59,42,34,.82)'); let y = HUDH + 8 + 6; for (const l of lines) { c.save(); c.beginPath(); c.rect(10, HUDH + 8, w, hgt); c.clip(); txt(c, l[0], 22, y + l[1] / 2 + 1, l[1], l[2], 'left'); c.restore(); y += l[1] + 7; } }
   if (state === 'play') for (const p of PENS) { if (!p.own || p.food <= 0 || Math.hypot(p.tx - pl.x, p.ty - pl.y) > 330) continue; const [x, y, z] = proj(p.tx, 62, p.ty); if (z > 1 || x < 60 || x > VW - 60 || y < HUDH + 14) continue;   // 가까운 여물통의 내용물
     const t = Object.keys(p.feed).filter(k => p.feed[k] > 0).map(k => feedInfo(k).e + p.feed[k]).join('  '); c.font = '14px Jua,sans-serif'; const w = c.measureText(t).width + 18; rr(c, x - w / 2, y - 12, w, 24, 10, 'rgba(74,50,38,.8)'); txt(c, t, x, y + 1, 14, '#fff'); }
+  if (state === 'play') { let n = 0; const used = []; for (const a of animals) { if (n >= 4 || Math.hypot(a.x - pl.x, a.y - pl.y) > 170) continue; const t = feedNeed(a); if (!t) continue; n++;
+      let [x, y] = proj(a.x, (a.md ? a.md.top : a.sp.r * 2) + 58, a.y); const s2 = a.K.e + ' 먹이 필요: ' + t; c.font = '14px Jua,sans-serif'; const w = c.measureText(s2).width + 18; x = clamp(x, w / 2 + 6, VW - w / 2 - 6); while (used.some(u => Math.abs(u[1] - y) < 26 && Math.abs(u[0] - x) < (u[2] + w) / 2 + 4)) y -= 27; used.push([x, y, w]); rr(c, x - w / 2, y - 12, w, 24, 10, 'rgba(160,60,40,.9)'); txt(c, s2, x, y + 1, 14, '#fff'); } }
   if (pl.carry === 'hay' && state === 'play') { const [x, y] = proj(pl.x, tr.riding ? 215 : 172, pl.y); txt(c, feedInfo(pl.feedType).e + ' ' + pl.hayN, x, y, 16, '#fff', 'center', '#4a3226'); }
   if (state === 'play') for (const q of piles) { if (Math.hypot(q.x - pl.x, q.y - pl.y) > 380) continue; const [x, y, z] = proj(q.x, 70, q.y); if (z > 1 || x < 30 || x > VW - 30 || y < HUDH + 12) continue; txt(c, Math.floor(q.n) + (q.rot > 0 && ROT_TIME[wx] ? ' ☔' : ''), x, y, 15, q.rot > 0 && ROT_TIME[wx] ? '#ff9a8a' : '#fff', 'center', '#4a3226'); }   // 더미에 남은 양
   if (state === 'play' && build) { const r = build.a ? buildRect() : null, t = r ? r.w + '×' + r.h + ' · 🪵 ' + r.need + '개 (보유 ' + wood + ') · 가축 ' + r.cap + '마리' + (r.why ? ' · ' + r.why : ' · 지을 수 있어요') : '첫 모서리로 가서 [모서리 찍기]를 누르세요';
