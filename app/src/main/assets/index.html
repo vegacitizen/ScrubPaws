@@ -434,6 +434,8 @@ function makeKid() {
    좌표: 게임의 (x, y)가 그대로 3D의 (X, Z)이고 Y가 높이다.
    ============================================================ */
 VOICE.moo = { wave: 'sawtooth', f: [150, 190, 170, 120], dur: .9, bp: 500, q: .8, vib: [5, 6], vol: 1.1 };
+VOICE.trumpet = { wave: 'sawtooth', f: [420, 640, 720, 520], dur: .8, bp: 1300, q: 1.5, vib: [8, 14], vol: .8 };
+VOICE.groan = { wave: 'sawtooth', f: [110, 140, 100], dur: 1, bp: 380, q: .9, vib: [4, 8], vol: 1 };
 VOICE.cluck = { wave: 'square', f: [900, 1300, 700], dur: .1, bp: 1800, q: 1, vol: .35 };
 VOICE.howl = { wave: 'sawtooth', f: [320, 520, 560, 380], dur: 1.1, bp: 900, q: 1.2, vib: [5, 10], vol: .7 };
 
@@ -452,7 +454,14 @@ const KINDS = {
   goat: { n: '염소', e: '🐐', diet: ['hay', 'clover', 'carrot'], fav: 'carrot', buy: 2000, sell: 1750, grow: 100, preg: 55,
     sp: { r: 22, v: 'bleat', sp: 95, col: '#e8dcc8', col2: '#fff6e6', dark: '#6b5a48', ear: 'floppy', tail: 'short', horns: 1, beard: 1, leg: .5, head: .5, cry: '매애', p: 1.3 } },
   panda: { n: '판다', e: '🐼', diet: ['bamboo'], fav: 'bamboo', buy: 20000, sell: 18000, grow: 170, preg: 100,
-    sp: { model: 'panda', r: 34, v: 'grunt', sp: 60, col: '#ffffff', col2: '#ffffff', dark: '#2a2a2e', ear: 'round', tail: 'short', panda: 1, muzzle: 1, leg: .35, head: .6, cry: '뀨', p: 1 } }
+    sp: { model: 'panda', r: 34, v: 'grunt', sp: 60, col: '#ffffff', col2: '#ffffff', dark: '#2a2a2e', ear: 'round', tail: 'short', panda: 1, muzzle: 1, leg: .35, head: .6, cry: '뀨', p: 1 } },
+  /* 덩치 큰 희귀 동물: 높은 울타리가 있어야 하고 늦게 열린다 */
+  camel: { n: '낙타', e: '🐫', rareName: '흰 낙타', diet: ['hay', 'clover', 'carrot'], fav: 'carrot', buy: 14000, sell: 12500, grow: 150, preg: 90,
+    sp: { r: 44, v: 'groan', sp: 75, col: '#d2a86a', col2: '#ead2a4', dark: '#8a6238', ear: 'round', earS: .7, tail: 'hair', neck: .8, muzzle: 1, leg: .85, head: .4, cry: '끄어', p: .6 } },
+  giraffe: { n: '기린', e: '🦒', rareName: '흰 기린', diet: ['hay', 'clover', 'corn'], fav: 'clover', buy: 32000, sell: 29000, grow: 185, preg: 110,
+    sp: { r: 42, v: 'grunt', sp: 95, col: '#f2c45c', col2: '#fbe6ad', dark: '#9a5a22', ear: 'pointy', tail: 'hair', mane: 1, neck: 2.1, muzzle: 1, leg: 1.25, head: .36, cry: '음음', p: .8, spots: 1 } },
+  elephant: { n: '코끼리', e: '🐘', rareName: '흰 코끼리', diet: ['hay', 'corn', 'pumpkin', 'bamboo'], fav: 'pumpkin', buy: 55000, sell: 50000, grow: 210, preg: 130,
+    sp: { r: 56, v: 'trumpet', sp: 55, col: '#9ba3ad', col2: '#b9c0c8', dark: '#7c848e', ear: 'floppy', earS: 2, tail: 'hair', leg: .5, head: .56, cry: '뿌우', p: .45 } }
 };
 /* 희귀 가축: 황금빛(소는 춤추는 소). 파는 값이 RARE_MULT배이고, 어미의 만족도가 높을수록 태어날 확률이 오른다 */
 const LEG_SP = { col: '#b98bff', col2: '#f0e0ff', dark: '#6a3fb8', earCol: '#8f5fe0' };   // 전설 가축: 보랏빛. 희귀한 어미에게서만 아주 드물게 태어나고 값이 20배
@@ -481,7 +490,7 @@ PENS.forEach(layoutPen);
 /* 울타리 높이: 가축마다 넘지 못하는 높이가 다르다. 낮은 울타리에 큰 가축을 넣으면 넘어서 밖으로 나간다.
    맹수가 울타리를 뚫으면 그 자리에 구멍이 남고, 고칠 때까지 가축이 그리로 빠져나간다. 밖에 나간 가축은 맹수의 첫 표적이 된다 */
 const FENCE = [null, { n: '낮은 울타리', h: 54, rails: [22, 42] }, { n: '중간 울타리', h: 74, rails: [22, 42, 62], price: 2500, lv: 3 }, { n: '높은 울타리', h: 98, rails: [22, 44, 66, 88], price: 6000, lv: 8 }];
-const NEED = { chicken: 1, sheep: 1, pig: 1, goat: 2, cow: 2, horse: 3, panda: 3 };
+const NEED = { chicken: 1, sheep: 1, pig: 1, goat: 2, cow: 2, horse: 3, panda: 3, camel: 3, giraffe: 3, elephant: 3 };
 const penFor = k => PENS.find(q => q.own && inPen(q).length < q.cap && q.tier >= NEED[k] && (!q.stable || k === 'horse'));
 let escT = 0;
 function makeHole(P, x, y) {   // (x, y)에서 가장 가까운 울타리 변에 구멍을 낸다
@@ -1060,7 +1069,10 @@ const WORK = {
   cow: { lic: 'milk', pay: [260, 450, 750, 1150], cd: [80, 60, 48, 36], label: '소 젖 짜기', e: '🥛', done: '우유', anim: 'milk', tool: '🪣', dur: 2.2 },
   pig: { lic: null, pay: [400], cd: [100], label: '트러플 캐기', e: '🍄', done: '트러플', anim: 'dig', tool: '🍄', dur: 2 },
   horse: { lic: null, pay: [0], cd: [90], item: 'fert', label: '거름 치우기', e: '💩', done: '거름', anim: 'dig', tool: '💩', dur: 1.8 },
-  panda: { lic: null, pay: [900], cd: [110], label: '사진 찍기', e: '📸', done: '관람료', anim: 'photo', tool: '📸', dur: 1.5 }
+  panda: { lic: null, pay: [900], cd: [110], label: '사진 찍기', e: '📸', done: '관람료', anim: 'photo', tool: '📸', dur: 1.5 },
+  camel: { lic: 'milk', pay: [420, 700, 1100, 1600], cd: [90, 70, 55, 42], label: '낙타 젖 짜기', e: '🥛', done: '낙타젖', anim: 'milk', tool: '🪣', dur: 2.2 },
+  giraffe: { lic: null, pay: [1500], cd: [110], label: '사진 찍기', e: '📸', done: '관람료', anim: 'photo', tool: '📸', dur: 1.5 },
+  elephant: { lic: null, pay: [2600], cd: [120], label: '사진 찍기', e: '📸', done: '관람료', anim: 'photo', tool: '📸', dur: 1.5 }
 };
 const wLv = w => w.lic ? lic[w.lic] : 0;
 const prodValue = a => { const w = WORK[a.kind]; return w && a.adult && a.prod >= .1 ? Math.round(w.pay[wLv(w)] * a.prod * rareMul(a) * mk('goods') * milkMul(a) / 10) * 10 : 0; };   // 지금 수확하면 받는 돈
@@ -1516,7 +1528,7 @@ const todayStr = () => { const d = new Date(); return d.getFullYear() + '-' + (d
    레벨이 오르면 상점에 새 가축·씨앗·시설·장비가 나타난다. LV 표가 무엇이 몇 레벨에 열리는지의 전부다 */
 const MAX_LV = 12, xpFor = L => 40 * (L - 1) * L;   // 레벨 L이 되는 데 필요한 누적 경험치: 2→80, 3→240, 4→480, 5→800, 6→1200 …
 const LV = {
-  animal: { chicken: 1, sheep: 1, goat: 3, pig: 5, cow: 6, horse: 8, panda: 10 }, seed: { clover: 2, carrot: 3, corn: 5, pumpkin: 7, bamboo: 9 }, fert: 4, fork: 2,
+  animal: { chicken: 1, sheep: 1, goat: 3, pig: 5, cow: 6, horse: 8, camel: 9, panda: 10, giraffe: 11, elephant: 12 }, seed: { clover: 2, carrot: 3, corn: 5, pumpkin: 7, bamboo: 9 }, fert: 4, fork: 2,
   pen: [1, 3, 5, 7, 9, 11], lic: 4, licLv: [4, 7, 10], carp: 6, wx: [1, 4, 7], gun: [5, 7, 9], elec: 6, trough: [1, 3, 7], water: [1, 5, 9]
 };
 const BARNS = [{ lv: 1, price: 0, store: 20, hay: 60 }, { lv: 4, price: 5000, store: 60, hay: 100, note: '트랙터를 들일 수 있어요' }, { lv: 8, price: 15000, store: 150, hay: 160, note: '큰 트랙터를 들일 수 있어요' }];
@@ -1919,6 +1931,12 @@ function makeAnimalModel(a) {
   if (a.sp.spots) for (const q of [[.3, .75, .5, .3], [-.45, .8, -.3, .34], [-.1, .9, .5, .22], [.6, .5, -.5, .24], [-.7, .4, .5, .26]]) { const n = Math.hypot(q[0], q[1], q[2]); M(G.sph, md.m.dark, r * q[3], r * .1, r * q[3] * .8, q[0] / n * md.bw * .93, q[1] / n * md.bh * .93, q[2] / n * r * .78 * .93, md.body).castShadow = true; }
   if (a.kind === 'chicken') { M(G.sph, '#e2493f', md.hr * .18, md.hr * .3, md.hr * .4, 0, md.hr * .95, 0, md.head); M(G.sph, '#e2493f', md.hr * .14, md.hr * .2, md.hr * .14, md.hr * .8, -md.hr * .55, 0, md.head); }
   if (a.kind === 'sheep') md.m.head.color.set('#4a4038');
+  { const hr = md.hr, H = md.head, B2 = md.body, wh = '#fff8e6';
+    if (a.kind === 'camel') for (const x of [.32, -.36]) M(G.sph, md.m.body, r * .36, r * .46, r * .42, x * md.bw * 1.2, md.bh * .82, 0, B2).castShadow = true;   // 혹 두 개
+    if (a.kind === 'giraffe') { for (const s of [1, -1]) { M(G.cyl, md.m.dark, hr * .1, hr * .7, hr * .1, -hr * .15, hr * 1.2, s * hr * .28, H); M(G.sph, md.m.dark, hr * .16, hr * .16, hr * .16, -hr * .15, hr * 1.55, s * hr * .28, H); }
+      for (const q of [[.5, .3, .75], [-.3, .5, .7], [.1, .2, -.8], [-.6, .3, -.6], [.7, .6, -.3], [-.75, .7, .1], [.2, .95, 0]]) { const n = Math.hypot(q[0], q[1], q[2]); M(G.sph, md.m.dark, r * .2, r * .08, r * .18, q[0] / n * md.bw * .94, q[1] / n * md.bh * .94, q[2] / n * r * .78 * .94, B2); } }
+    if (a.kind === 'elephant') { let px = hr * .95, py = -hr * .15; for (let i = 0; i < 6; i++) { const k = hr * (.36 - i * .035); M(G.sph, md.m.head, k, k * 1.25, k, px, py, 0, H).castShadow = true; px += hr * (.1 + i * .035); py -= hr * (.36 - i * .03); }   // 코
+      for (const s of [1, -1]) { const t = M(G.cone, wh, hr * .11, hr * .95, hr * .11, hr * .95, -hr * .62, s * hr * .42, H); t.rotation.z = -2.1; } } }
   md.icon = sprite('🌾', md.g, 30); md.iconCh = '🌾'; md.icon.visible = false; md.lx = a.x; md.ly = a.y;
   world3.petG.add(md.g); return md;
 }
