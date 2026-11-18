@@ -2256,7 +2256,7 @@ function render3D(dt) {
   const L = WXL[wx], dk = 1 - n; hemi.intensity = .22 + (.8 * L[4] - .22) * dk; sun.intensity = .05 + (.7 * L[3] - .05) * dk; scene.background.setRGB(.06 + (L[0] - .06) * dk, .1 + (L[1] - .1) * dk, .28 + (L[2] - .28) * dk);
   const sw = pl.swingT > 0, hasT = pl.tool === 'torch'; torch.intensity = hasT ? n * 2.2 * (sw ? 1.7 : 1) * (1 + Math.sin(gt * 17) * .08) : 0; torch.position.set(pl.x + pl.ax * 14, 96, pl.y + pl.ay * 14);
   flame.visible = !!pl.tool && !pl.carry; if (flame.visible) { const ch = TOOLS[pl.tool].e; if (world3.toolCh !== ch) { world3.toolCh = ch; flame.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; flame.material.needsUpdate = true; }
-    const an = gt * 16, fr = sw ? 46 : 20, fx0 = sw ? Math.cos(an) : pl.ax, fy0 = sw ? Math.sin(an) : pl.ay; flame.position.set(pl.x + fx0 * fr, (tr.riding ? 150 : 112) + Math.sin(gt * 20) * 2, pl.y + fy0 * fr); flame.scale.setScalar((hasT ? 46 * (1 + Math.sin(gt * 23) * .08) : 38) * (sw ? 1.7 : 1)); }
+    const an = Math.atan2(pl.ay, pl.ax) + Math.sin(gt * 13) * PI / 4, fr = sw ? 50 : 20, fx0 = sw ? Math.cos(an) : pl.ax, fy0 = sw ? Math.sin(an) : pl.ay; flame.position.set(pl.x + fx0 * fr, (tr.riding ? 150 : 112) + Math.sin(gt * 20) * 2, pl.y + fy0 * fr); flame.scale.setScalar((hasT ? 46 * (1 + Math.sin(gt * 23) * .08) : 38) * (sw ? 1.7 : 1)); }
   const wsp = world3.workSpr; wsp.visible = !!work; if (work) { const a = work.a, w = work.w, k = work.t / work.dur, r = a.sp.r, top = a.md ? a.md.top : r * 2;   // 일하는 도구 그림
     if (world3.workCh !== w.tool) { world3.workCh = w.tool; wsp.material.map = sprCache[w.tool] || sprite(w.tool, null, 1).material.map; wsp.material.needsUpdate = true; }
     let sz = 34;
