@@ -522,7 +522,7 @@ function escape(a, hole, text) {   // 가축이 울타리 밖으로 나간다
 }
 /* 여물통에는 먹이가 종류별로 담긴다. 가축은 제 식성에 맞는 것만 먹고, 가장 좋아하는 먹이를 먼저 고른다.
    희귀 가축은 그 종이 가장 좋아하는 먹이만 먹는다. 좋아하는 먹이를 먹으면 그 작물의 품질(q)만큼 성장·생산이 빨라진다 */
-const SUIT_PRICE = 9000, MEAT = { n: '고기', e: '🥩', q: 1 }, MEAT_PACK = 10, MEAT_PRICE = 800, LAB_PRICE = 20000, LAB_LV = 7, LABPOS = { x: 110, y: 640 };
+const FEED_PACK = 6, HAY_PACK = 12, HAY_PRICE = 400, feedPrice = k => Math.round(CROPS[k].price * 1.2 / 10) * 10, SUIT_PRICE = 9000, MEAT = { n: '고기', e: '🥩', q: 1 }, MEAT_PACK = 10, MEAT_PRICE = 800, LAB_PRICE = 20000, LAB_LV = 7, LABPOS = { x: 110, y: 640 };
 const feedInfo = t => t === 'hay' ? { n: '건초', e: '🌾', q: 1 } : t === 'meat' ? MEAT : CROPS[t];
 function addFeed(p, t, n) { p.feed[t] = (p.feed[t] || 0) + n; p.food += n; }
 function takeFeed(p, t) { if (!(p.feed[t] > 0)) return false; p.feed[t]--; p.food--; return true; }
@@ -960,7 +960,7 @@ function updateHose(dt) {
 /* ---------- 상점 (낮밤 관계없이 열 수 있고, 여는 동안 시간은 멈춘다) ---------- */
 function openShop(tab) {
   if (state !== 'play' && state !== 'shop' && state !== 'exam') return; state = 'shop'; tab = tab || 'buy';
-  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['gear', '시설·장비'], ['seed', '씨앗·비료'], ['auto', '일꾼·자동화'], ['lic', '자격증']], lockMsg = k => '<p class="sub">🔒 ' + OPEN_NAME[k] + '은(는) 농장 레벨 ' + OPEN_LV[k] + '부터 나와요. (지금 레벨 ' + level + ')</p>';
+  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['gear', '시설·장비'], ['seed', '씨앗·먹이'], ['auto', '일꾼·자동화'], ['lic', '자격증']], lockMsg = k => '<p class="sub">🔒 ' + OPEN_NAME[k] + '은(는) 농장 레벨 ' + OPEN_LV[k] + '부터 나와요. (지금 레벨 ' + level + ')</p>';
 
   if (tab === 'land' || tab === 'wx') tab = 'gear';
   let h = '<h2>농장 상점</h2><p class="pay">💰 <b>' + won(money) + '</b> · ⭐ 레벨 ' + level + ' · 가축 ' + animals.length + '마리</p><div class="tabs">' + tabs.map(t => '<button class="tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '" type="button">' + (((t[0] === 'seed' || t[0] === 'lic') && !isOpen(t[0])) || (t[0] === 'auto' && level < 3) ? '🔒 ' : '') + t[1] + '</button>').join('') + '</div>';
@@ -990,10 +990,13 @@ function openShop(tab) {
   else if ((tab === 'seed' || tab === 'lic') && !isOpen(tab)) h += lockMsg(tab);
   else if (tab === 'seed') {
     const nx = []; for (const k in CROPS) { const C = CROPS[k]; if (LV.seed[k] > level) { nx.push([LV.seed[k], C.e + ' ' + C.n + ' 씨앗']); continue; } h += row(C.e, C.n + ' 씨앗 ' + SEED_PACK + '개 (보유 ' + seeds[k] + ')', '먹는 가축 ' + Object.keys(KINDS).filter(q => KINDS[q].diet.includes(k)).map(q => KINDS[q].e + (KINDS[q].fav === k ? '♥' : '')).join('') + ' · 물을 주면 ' + C.t + '초 뒤 수확 · 한 포기에 먹이 ' + C.y + ' · 좋아하는 가축에게 ×' + C.q, won(C.price), 'seedbuy:' + k, money >= C.price); }
+    h += '<p class="sub dexh">🧺 바로 먹이는 먹이</p>' + row('🌾', '건초 ' + HAY_PACK + '묶음 (더미에 ' + hayStock + ' / ' + HAY_CAP + ')', '건초 더미에 바로 쌓여요. 먹는 가축 ' + Object.keys(KINDS).filter(q => KINDS[q].diet.includes('hay')).map(q => KINDS[q].e).join('') + (hayStock + HAY_PACK > HAY_CAP ? ' · ⚠️ 더미가 가득 찼어요' : ''), won(HAY_PRICE), 'feedbuy:hay', money >= HAY_PRICE && hayStock + HAY_PACK <= HAY_CAP);
+    for (const k in CROPS) { const C = CROPS[k]; if (LV.seed[k] > level) continue; const full = storeUsed() + FEED_PACK > storeCap(); h += row(C.e, C.n + ' ' + FEED_PACK + '개 (창고에 ' + (store[k] || 0) + '개)', '다 자란 작물이에요. 창고에 들어가고, 꺼내서 여물통에 놓아요. 먹는 가축 ' + Object.keys(KINDS).filter(q => KINDS[q].diet.includes(k)).map(q => KINDS[q].e + (KINDS[q].fav === k ? '♥' : '')).join('') + (full ? ' · ⚠️ 창고가 가득 찼어요' : ''), won(feedPrice(k)), 'feedbuy:' + k, money >= feedPrice(k) && !full); }
     if (lab) h += row('🥩', '고기 ' + MEAT_PACK + '개 (창고에 ' + (store.meat || 0) + '개)', '다 크기 전의 육식 공룡이 먹어요. 살아 있는 가축보다 더디게 자라요. 사면 창고에 들어가고, 꺼내서 여물통에 놓아요' + (storeUsed() + MEAT_PACK > storeCap() ? ' · ⚠️ 창고가 가득 찼어요' : ''), won(MEAT_PRICE), 'meatbuy', money >= MEAT_PRICE && storeUsed() + MEAT_PACK <= storeCap());
+    if (Object.keys(TREES).some(k => level >= TREES[k].lv && (!TREES[k].lab || lab))) h += '<p class="sub dexh">🌳 묘목</p>';
     for (const k in TREES) { const T = TREES[k]; if (T.lab && !lab) continue; if (level < T.lv) { nx.push([T.lv, T.e + ' ' + T.n + ' 묘목']); continue; } h += row(T.e, T.n + ' 묘목', (T.pay ? '다 자라면 과일이 열려요(한 번 딸 때 약 ' + won(T.pay) + '). 울타리 안에 심으면 기린과 판다가 먹고 타면서 더 빨리 자라요' : '공룡이 먹는 큰 나무예요. 울타리 안에 심으면 초식 공룡 먹이 ' + T.sup + '만큼') + (pl.carry ? ' · 손이 비어야 해요' : ''), won(T.price), 'sap:' + k, money >= T.price && !pl.carry && trees.length < MAX_TREES); }
     if (level >= LV.fert) h += row('💩', '비료 ' + FERT_PACK + '개 (보유 ' + fert + ')', '비료를 준 작물은 ' + FERT_SPEED + '배 빨리, ' + FERT_YIELD + '배 많이 자라요', won(FERT_PRICE), 'fertbuy', money >= FERT_PRICE); else nx.push([LV.fert, '💩 비료']); h += nextTeaser(nx);
-    h += '<p class="sub">산 씨앗과 비료는 창고에서 들고, 울타리 밖 들판에 뿌려요. 물을 줘야 자라고(한 번에 ' + WET_TIME + '초), 비가 오면 저절로 자라요. ♥는 그 작물을 가장 좋아하는 가축이에요. 좋아하는 먹이를 먹은 가축은 그 배수만큼 빨리 자라고, 털·젖이 많이 나오고, 새끼를 더 낳아요. 남는 작물은 창고에 보관할 수 있어요.</p>'; }
+    h += '<p class="sub">바로 먹이는 먹이는 씨앗으로 길러 얻는 것보다 비싸요. 급할 때 쓰세요.</p><p class="sub">산 씨앗과 비료는 창고에서 들고, 울타리 밖 들판에 뿌려요. 물을 줘야 자라고(한 번에 ' + WET_TIME + '초), 비가 오면 저절로 자라요. ♥는 그 작물을 가장 좋아하는 가축이에요. 좋아하는 먹이를 먹은 가축은 그 배수만큼 빨리 자라고, 털·젖이 많이 나오고, 새끼를 더 낳아요. 남는 작물은 창고에 보관할 수 있어요.</p>'; }
   else if (tab === 'lic') {
     const nx = []; for (const k in LIC) { const L = LIC[k], lv = lic[k], rq = lv < 3 ? Math.max(LV.licLv[lv], k === 'carp' ? LV.carp : 0) : 0; if (!lv && level < rq) { nx.push([rq, L.e + ' ' + L.n + ' 자격증']); continue; }
       h += row(L.e, L.n + ' 자격증 · ' + (lv ? lv + '급' : '없음'), lv < 3 ? (lv + 1) + '급: ' + L.perk[lv] : '최고 등급이에요', lv >= 3 ? '최고' : level < rq ? '레벨 ' + rq + '부터' : '응시 ' + won(L.fee[lv]), 'exam:' + k, lv < 3 && level >= rq && money >= L.fee[lv]); } h += nextTeaser(nx);
@@ -1090,6 +1093,7 @@ function openShop(tab) {
     else if (op === 'path') { let it = null; for (const k in PATH) for (const q of [PATH[k].tool, PATH[k].fac]) if (q.id === arg) it = q; if (!it || own[arg] || money < it.price || level < it.lv) return; money -= it.price; own[arg] = true; SFX.clean(); }
     else if (op === 'plane') { if (own.plane || money < PLANE_PRICE) return; money -= PLANE_PRICE; own.plane = true; plane.x = 300; plane.y = 560; SFX.praise(); }
     else if (op === 'barn2') { if (barns2.length >= BARN2_MAX || money < barn2Price() || pl.carry) return; pl.carry = 'gear'; pl.gearType = 'barn2'; SFX.take(); state = 'play'; hideOv(); showToast('🏚️ 지을 자리로 가서 [창고 짓기]를 누르세요. 돈은 지을 때 나가요 (' + barn2Price().toLocaleString() + '원)', 5); return; }
+    else if (op === 'feedbuy') { if (arg === 'hay') { if (money < HAY_PRICE || hayStock + HAY_PACK > HAY_CAP) return; money -= HAY_PRICE; hayStock += HAY_PACK; } else { if (!CROPS[arg] || LV.seed[arg] > level || money < feedPrice(arg) || storeUsed() + FEED_PACK > storeCap()) return; money -= feedPrice(arg); store[arg] = (store[arg] || 0) + FEED_PACK; } SFX.take(); }
     else if (op === 'suit') { if (suit || money < SUIT_PRICE) return; money -= SUIT_PRICE; suit = true; SFX.clean(); }
     else if (op === 'lab') { if (lab || money < LAB_PRICE) return; money -= LAB_PRICE; lab = true; SFX.praise(); }
     else if (op === 'meatbuy') { if (money < MEAT_PRICE || storeUsed() + MEAT_PACK > storeCap()) return; money -= MEAT_PRICE; store.meat = (store.meat || 0) + MEAT_PACK; SFX.take(); }
@@ -1782,7 +1786,7 @@ const QUESTS = [
   { t: '도감 15칸 채우기', hint: '여러 가축과 희귀 가축, 작물, 맹수를 만나기 (📖 버튼)', ok: () => Object.keys(dex).length >= 15, pay: 5000 },
   { t: '50,000원 모으기', hint: '가축을 키워 팔고, 얻은 것을 팔기', ok: () => money >= 50000, pay: 10000 }
 ];
-const OPEN_NAME = { seed: '씨앗·비료', wx: '날씨 장비', lic: '자격증', land: '울타리 구매', gear: '장비(트랙터·총·전기 울타리)' };
+const OPEN_NAME = { seed: '씨앗·먹이', wx: '날씨 장비', lic: '자격증', land: '울타리 구매', gear: '장비(트랙터·총·전기 울타리)' };
 
 function checkQuest() {   // 지금 목표를 이뤘으면 보상을 주고 다음으로. 이미 조건을 채운 목표가 이어지면 차례로 넘어간다
   const q = QUESTS[questI]; if (!q || !q.ok()) return; questI++; money += q.pay; SFX.praise(); burst(pl.x, pl.y, 'spark', 12);
