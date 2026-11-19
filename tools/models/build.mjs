@@ -46,9 +46,14 @@ const MODELS = {   // 게임에서 쓰는 이름: [원본, 남길 동작, 옵션
   bonfire: ['src/Survival_Bonfire_Fire.glb', null, { simplify: .6, pal: { Wood: '#8a5a34', LightWood: '#a9744f', Fire: '#ff8a1f' } }], tent: ['src/Survival_Tent.glb', null, { simplify: .6, pal: { DarkWood: '#8a5a34', Black: '#3a3a40', LightGreen: '#8fae6a', Green: '#5f8f4a' } }],
   // Sketchfab의 CC-BY 4.0 모형(뼈대 없음). prebake.mjs로 꼭짓점 색 GLB로 바꿔 둔 것. 출처는 src/README.md
   giraffe: ['src/Extra_Giraffe.glb', null, { simplify: .8 }], goat: ['src/Extra_Goat.glb', null, { simplify: .8 }], hippo: ['src/Extra_Hippo.glb', null, { simplify: .8 }], llama: ['src/Extra_Llama.glb', null, { simplify: .1, error: .4, coarse: 1 }],
+  // 로스앤젤레스 자연사 박물관(NHMLA)의 CC-BY-NC-SA 4.0 모형(뼈대와 동작 있음). 비상업 조건. 출처는 src/README.md
+  camel: ['src/NHMLA_Camel.glb', ['WesternCamel_Idle', 'Western_Camel_Walk'], { simplify: .7, rename: { WesternCamel_Idle: 'Idle', Western_Camel_Walk: 'Walk' } }],
+  mammoth: ['src/NHMLA_Mammoth.glb', ['ColumbianMammoth_Idle', 'CoumbianMammoth_WalkCycle'], { simplify: .7, rename: { ColumbianMammoth_Idle: 'Idle', CoumbianMammoth_WalkCycle: 'Walk' } }],
+  bison: ['src/NHMLA_Bison.glb', ['AncientBison_Idle', 'AncientBison_Walk', 'AncientBison_Run'], { simplify: .7, rename: { AncientBison_Idle: 'Idle', AncientBison_Walk: 'Walk', AncientBison_Run: 'Gallop' } }],
+  whorse: ['src/NHMLA_Horse.glb', ['WesternHorse_Idle', 'WesternHorse_Walk', 'WesternHorse_RunCycle'], { simplify: .7, rename: { WesternHorse_Idle: 'Idle', WesternHorse_Walk: 'Walk', WesternHorse_RunCycle: 'Gallop' } }],
   tractor: ['tractor'],
   cow: ['src/Cow.glb', ANIMAL], horse: ['src/Horse.glb', ANIMAL], sheep: ['src/Sheep.glb', OLD], pig: ['src/Pig.glb', OLD, { pal: { 'Material.003': '#f2a6b4', Material: '#8a4a52' } }],
-  bull: ['src/Bull.glb', ANIMAL], horse_white: ['src/Horse_White.glb', ANIMAL], alpaca: ['src/Alpaca.glb', ANIMAL], donkey: ['src/Donkey.glb', ANIMAL],
+  horse_white: ['src/Horse_White.glb', ANIMAL], alpaca: ['src/Alpaca.glb', ANIMAL], donkey: ['src/Donkey.glb', ANIMAL],
   stag: ['stag', ANIMAL], deer: ['deer', ANIMAL], fox: ['fox', ANIMAL], wolf: ['wolf', ANIMAL],
   dino_trex: ['src/Dino_Trex.glb', DINO('TRex'), { simplify: .6, pal: { Green: '#5f7f4a', Black: '#2a2a2a', LightGreen: '#d8cf9a', Red: '#b8323a', LightYellow: '#e8c070' } }], dino_trike: ['src/Dino_Triceratops.glb', DINO('Triceratops'), { simplify: .6, pal: { Purple: '#7fa66a', LightBrown: '#cfe0b0', Brown: '#5a7a4a' } }], dino_raptor: ['src/Dino_Velociraptor.glb', DINO('Velociraptor'), { simplify: .6, pal: { Brown: '#c8743a', Black: '#2a2a2a', LightBrown: '#f0d6a8' } }], dino_apato: ['src/Dino_Apatosaurus.glb', DINO('Apatosaurus'), { simplify: .6, pal: { Brown: '#6f9fb8', Black: '#2a2a2a', Material: '#c4dde8', LightBrown: '#8fb8cc' } }],
   // 사람은 뼈대가 모두 같아서 동작은 person_a 하나에만 두고 나머지는 그 동작을 빌려 쓴다
@@ -72,6 +77,7 @@ for (const [id, [src, keep, opt = {}]] of Object.entries(MODELS)) {
       for (let i = 0; i < n; i++) if (i === 0 || i === n - 1 || t[i] - last >= 1 / 12 - 1e-4) { keepI.push(i); last = t[i]; }
       if (keepI.length === n) continue; const t2 = new Float32Array(keepI.length), o2 = new Float32Array(keepI.length * w); keepI.forEach((k, j) => { t2[j] = t[k]; for (let c = 0; c < w; c++) o2[j * w + c] = o[k * w + c]; });
       sm.setInput(doc.createAccessor().setType('SCALAR').setArray(t2).setBuffer(ti.getBuffer())).setOutput(doc.createAccessor().setType(to.getType()).setArray(o2).setBuffer(to.getBuffer())); } }
+  if (opt.rename) for (const a of root.listAnimations()) if (opt.rename[a.getName()]) a.setName(opt.rename[a.getName()]);   // 동작 이름을 게임에서 쓰는 이름으로
   const one = doc.createMaterial('v').setRoughnessFactor(1).setMetallicFactor(0), pngs = new Map(), buf = root.listBuffers()[0];
   for (const mesh of root.listMeshes()) for (const prim of mesh.listPrimitives()) {
     const mat = prim.getMaterial(), pc = mat && opt.pal && opt.pal[mat.getName()], f0 = mat ? mat.getBaseColorFactor() : [1, 1, 1, 1], f = pc ? hex(pc) : opt.lift ? f0.map((v, i) => i < 3 ? Math.pow(v, 1 / (2.2 * opt.lift)) : v) : f0, tex = mat && mat.getBaseColorTexture(), uv = prim.getAttribute('TEXCOORD_0'), old = prim.getAttribute('COLOR_0'), n = prim.getAttribute('POSITION').getCount(), col = new Uint16Array(n * 3);

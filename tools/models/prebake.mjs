@@ -9,7 +9,8 @@ const [src, out] = process.argv.slice(2), io = new NodeIO().registerExtensions(A
 const lin = v => { v /= 255; return v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); };
 const one = doc.createMaterial('v').setRoughnessFactor(1).setMetallicFactor(0), imgs = new Map(), buf = root.listBuffers()[0], seen = {};
 for (const mesh of root.listMeshes()) for (const prim of mesh.listPrimitives()) {
-  const mat = prim.getMaterial(), f = mat ? mat.getBaseColorFactor() : [1, 1, 1, 1], tex = mat && mat.getBaseColorTexture(), uv = prim.getAttribute('TEXCOORD_0'), old = prim.getAttribute('COLOR_0'), n = prim.getAttribute('POSITION').getCount(), col = new Float32Array(n * 3);
+  const mat = prim.getMaterial(), sg = mat && mat.getExtension('KHR_materials_pbrSpecularGlossiness'), f = sg ? sg.getDiffuseFactor() : mat ? mat.getBaseColorFactor() : [1, 1, 1, 1], tex = sg ? sg.getDiffuseTexture() : mat && mat.getBaseColorTexture(),   // 옛 방식(specular-glossiness) 재질도 읽는다
+    uv = prim.getAttribute('TEXCOORD_0'), old = prim.getAttribute('COLOR_0'), n = prim.getAttribute('POSITION').getCount(), col = new Float32Array(n * 3);
   let img = null; if (tex && uv) { img = imgs.get(tex); if (!img) { const b = Buffer.from(tex.getImage()); img = tex.getMimeType() === 'image/png' ? PNG.sync.read(b) : jpeg.decode(b, { useTArray: true, maxMemoryUsageInMB: 2048 }); imgs.set(tex, img); } }
   if (mat) seen[mat.getName() + (tex ? '[tex]' : '') + (old ? '[vc]' : '') + ':' + f.slice(0, 3).map(v => v.toFixed(2)).join('/')] = 1;
   for (let i = 0; i < n; i++) { let c = [f[0], f[1], f[2]];

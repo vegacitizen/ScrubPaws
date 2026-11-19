@@ -453,7 +453,7 @@ function propBox(id, len, hgt, wid, parent, x, top, z) {   // 상자 크기에 �
   const m = prop(id, 1, parent); if (!m) return null; const b = m.geometry.boundingBox, lx = b.max.x - b.min.x, lz = b.max.z - b.min.z, turn = lz > lx; m.scale.set((turn ? wid : len) / lx, hgt, (turn ? len : wid) / lz); if (turn) m.rotation.y = PI / 2; m.position.set(x, top - hgt, z); return m;
 }
 const WILD_STILL = { ibex: ['goat', 2.2, [.95, .92, .88], PI / 2], llama: ['llama', 2.6, null, 0], hippo: ['hippo', 1.5, null, PI] };   // 뼈대 없는 모형을 쓰는 야생 동물: [모형, 키(r의 배수), 색, 앞 방향 보정]
-const WILD_RIG = { wildhorse: ['horse', 2.1, [.62, .56, .52]], bison: ['bull', 1.75, [.62, .5, .42]], unicorn: ['horse_white', 2.15, [1.12, 1.05, 1.2]], alpaca: ['alpaca', 2.5], donkey: ['donkey', 2.1], deer: ['stag', 2.6], roe: ['deer', 2.3], whitedeer: ['stag', 2.6, [2.4, 2.4, 2.6]], fox2: ['fox', 1.9], wolf: ['wolf', 2] };
+const WILD_RIG = { wildhorse: ['whorse', 2.1], bison: ['bison', 1.8], unicorn: ['horse_white', 2.15, [1.12, 1.05, 1.2]], alpaca: ['alpaca', 2.5], donkey: ['donkey', 2.1], deer: ['stag', 2.6], roe: ['deer', 2.3], whitedeer: ['stag', 2.6, [2.4, 2.4, 2.6]], fox2: ['fox', 1.9], wolf: ['wolf', 2] };
 const TREE_ROUND = ['tree_oak', 'tree_fat', 'tree_oak', 'tree_fat', 'tree_autumn'], TREE_PINE = ['tree_pine', 'tree_pine_tall', 'tree_dark'];
 /* ---------- 손에 든 도구 · 덫 · 반짝이 · 경고 표시: 이모지 그림 대신 쓰는 작은 3D 모형 ---------- */
 function shapeP(g) { const Q = lowGeo(); return { s: (c, sx, sy, sz, x, y, z) => M(Q.sph, c, sx, sy, sz, x, y, z, g), cy: (c, sx, sy, sz, x, y, z) => M(Q.cyl, c, sx, sy, sz, x, y, z, g), co: (c, sx, sy, sz, x, y, z) => M(Q.cone, c, sx, sy, sz, x, y, z, g), bx: (c, sx, sy, sz, x, y, z) => M(G.box, c, sx, sy, sz, x, y, z, g), tor: (c, sx, sy, sz, x, y, z) => M(Q.tor, c, sx, sy, sz, x, y, z, g) }; }
@@ -783,11 +783,11 @@ const KINDS = {
     sp: { r: 34, v: 'grunt', sp: 60, col: '#ffffff', col2: '#ffffff', dark: '#2a2a2e', ear: 'round', tail: 'short', panda: 1, muzzle: 1, leg: .35, head: .6, cry: '뀨', p: 1 } },
   /* 덩치 큰 희귀 동물: 높은 울타리가 있어야 하고 늦게 열린다 */
   camel: { n: '낙타', e: '🐫', rareName: '흰 낙타', diet: ['hay', 'clover', 'carrot'], fav: 'carrot', buy: 14000, sell: 12500, grow: 150, preg: 90,
-    sp: { r: 44, v: 'groan', sp: 75, col: '#d2a86a', col2: '#ead2a4', dark: '#8a6238', ear: 'round', earS: .7, tail: 'hair', neck: .8, muzzle: 1, leg: .85, head: .4, cry: '끄어', p: .6 } },
+    sp: { model: 'camel', r: 44, v: 'groan', sp: 75, col: '#d2a86a', col2: '#ead2a4', dark: '#8a6238', ear: 'round', earS: .7, tail: 'hair', neck: .8, muzzle: 1, leg: .85, head: .4, cry: '끄어', p: .6 } },
   giraffe: { n: '기린', e: '🦒', rareName: '흰 기린', diet: ['hay', 'clover', 'corn'], fav: 'clover', buy: 32000, sell: 29000, grow: 185, preg: 110,
     sp: { model: 'giraffe', r: 42, v: 'grunt', sp: 95, col: '#f2c45c', col2: '#fbe6ad', dark: '#9a5a22', ear: 'pointy', tail: 'hair', mane: 1, neck: 2.1, muzzle: 1, leg: 1.25, head: .36, cry: '음음', p: .8, spots: 1 } },
   elephant: { n: '코끼리', e: '🐘', rareName: '흰 코끼리', diet: ['hay', 'corn', 'pumpkin', 'bamboo'], fav: 'pumpkin', buy: 55000, sell: 50000, grow: 210, preg: 130,
-    sp: { r: 56, v: 'trumpet', sp: 55, col: '#9ba3ad', col2: '#b9c0c8', dark: '#7c848e', ear: 'floppy', earS: 2, tail: 'hair', leg: .5, head: .56, cry: '뿌우', p: .45 } },
+    sp: { model: 'elephant', r: 56, v: 'trumpet', sp: 55, col: '#9ba3ad', col2: '#b9c0c8', dark: '#7c848e', ear: 'floppy', earS: 2, tail: 'hair', leg: .5, head: .56, cry: '뿌우', p: .45 } },
   /* 공룡: 실험실에서 복원한다. 철 울타리가 있어야 하고 새끼를 낳지 않는다. 육식 공룡은 고기만 먹는다 */
   proto: { dino: 1, n: '프로토케라톱스', e: '🦕', diet: ['hay', 'clover'], fav: 'clover', buy: 6000, sell: 16000, grow: 140, preg: 0,
     sp: { model: 'proto', r: 26, v: 'groan', sp: 70, col: '#cdb26e', col2: '#eedfae', dark: '#8a6f3a', ear: 'none', tail: 'none', leg: .35, head: .55, cry: '끄르', p: 1, frill: 1 } },
@@ -3435,6 +3435,8 @@ const MODELS = {
   brachio: { pack: 'dino_apato', hk: 1.1, yaw: 0, clips: { idle: 'Armature|Apatosaurus_Idle', walk: 'Armature|Apatosaurus_Walk', run: 'Armature|Apatosaurus_Run' } },
   wolf: { pack: 'wolf', hk: 1.9, yaw: 0, clips: { idle: 'Idle', walk: 'Gallop' } },
   fox: { pack: 'fox', hk: 1.9, yaw: 0, clips: { idle: 'Idle', walk: 'Gallop' } },
+  camel: { pack: 'camel', hk: 2.4, yaw: 0, clips: { idle: 'Idle', walk: 'Walk' } },
+  elephant: { pack: 'mammoth', hk: 2.1, yaw: 0, clips: { idle: 'Idle', walk: 'Walk' } },
   giraffe: { pack: 'giraffe', hk: 3.4, yaw: PI / 2, clips: {} },   // yaw: 모형의 앞 방향 보정
   goat: { pack: 'goat', hk: 2.1, yaw: PI / 2, clips: {} },
   cow: { pack: 'cow', hk: 1.95, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } },
