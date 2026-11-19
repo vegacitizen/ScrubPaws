@@ -79,6 +79,21 @@
   .buy.tile.on,.buy.tile.on:disabled{background:var(--accent);color:#fff;opacity:1}
   .buy.tile:disabled{background:#e6ddd0;opacity:.6}
   .tabs{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:8px 0}
+  .cell{display:inline-flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:1px;vertical-align:top;width:92px;min-height:96px;margin:3px;padding:6px 4px 5px;background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:14px;font:13px var(--display);cursor:pointer}
+  .cell .ci{font-size:28px;line-height:1.15} .cell .cn{font-size:12.5px;line-height:1.2;max-height:2.4em;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
+  .cell .cp{margin-top:auto;font-size:12px;background:var(--good);color:#fff;border-radius:999px;padding:1px 8px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .cell.off{background:#ece4d8;border-color:#b9ada4} .cell.off .ci,.cell.off .cn{opacity:.55} .cell.off .cp{background:#b9ada4}
+  .cell.own{background:#eef7e6} .cell.own .cp{background:#7fae5a}
+  .cell.sel{outline:4px solid var(--accent);outline-offset:1px}
+  #det{position:sticky;bottom:-2px;background:var(--paper);border-top:3px solid var(--ink);margin:8px -6px 0;padding:8px 8px 6px;text-align:left;z-index:2}
+  #det .dh{display:flex;align-items:center;gap:8px;font-size:clamp(16px,3vw,19px)} #det .dh .ci{font-size:26px} #det .dh b{font-weight:400}
+  #det .ds{margin:4px 0;color:#8a6a55;font-size:clamp(13px,2.4vw,15px);line-height:1.35} #det .dno{margin:4px 0;color:#c0392b;font-size:clamp(14px,2.6vw,16px)} #det .dok{margin:4px 0;color:#3f8f4a}
+  #det .dh b{flex:1;min-width:0} #det .btn{margin:0;padding:5px 16px;font-size:clamp(14px,2.6vw,17px);white-space:nowrap} #det .dh .dok{font-size:14px;white-space:nowrap}
+  #det .ds{max-height:4.1em;overflow-y:auto}
+  .shoph{margin:0 0 4px}
+  @media (max-height:560px){ #card .tabs{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;margin:4px 0;padding-bottom:2px} #card .tab{white-space:nowrap;padding:4px 9px;font-size:14px;flex:0 0 auto}
+    .cell{width:84px;min-height:86px;margin:2px} .cell .ci{font-size:24px} #det{padding:5px 8px 4px} #det .ds{max-height:2.8em} }
+  details.help{text-align:left;margin:8px 0} details.help summary{cursor:pointer;color:#8a6a55;font-size:clamp(13px,2.4vw,15px)}
   .tab{font:clamp(14px,2.6vw,17px) var(--display);background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:12px;padding:6px 12px;cursor:pointer}
   .tab.on{background:var(--accent);color:#fff}
   .sec{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;font:clamp(15px,2.8vw,18px) var(--display);background:#f6ead8;color:var(--ink);border:3px solid var(--ink);border-radius:12px;padding:8px 12px;margin:8px 0 2px;cursor:pointer;text-align:left}
@@ -858,7 +873,7 @@ function openCheese() {   // 치즈 저장고: 덩이마다 숙성도와 값을 
 }
 function openBarn() {
   if (state !== 'play') return; state = 'menu'; const it = !isNight() && WX[wx].item;
-  const row = (icon, name, sub, btn, id, ok) => '<div class="shop"><span class="si">' + icon + '</span><span class="sn"><b>' + name + '</b><br><span class="sub">' + sub + '</span></span><button class="buy" data-id="' + id + '" type="button"' + (ok ? '' : ' disabled') + '>' + btn + '</button></div>';
+  cells = []; const row = cellHtml;
   let h = '<h2>🧰 창고 ' + barnLv + '단계</h2><p class="pay">작물 보관 ' + storeUsed() + ' / ' + storeCap() + '칸 · 건초 더미 ' + hayStock + ' / ' + HAY_CAP + '</p><p class="sub">들 것을 누르세요. 낮에는 농장 일 도구, 밤에는 맹수를 쫓는 도구가 나와요. 🔄 버튼으로도 바꿔요.</p>';
   const tile = (icon, name, id, on, ok) => '<button class="buy tile' + (on ? ' on' : '') + '" data-id="' + id + '" type="button"' + (ok ? '' : ' disabled') + '><span>' + icon + '</span>' + name + '</button>';
   h += '<p class="sub dexh">도구</p><div class="tiles">'; for (const k in TOOLS) { if (k === 'seed' || k === 'fert' || (k === 'fork' && level < LV.fork) || (k === 'clap' && level < 2) || (k === 'gong' && !gong) || (k === 'crow' && crowInv <= 0) || !toolList().includes(k)) continue; const has = k !== 'gun' || gun; h += tile(TOOLS[k].e, TOOLS[k].n + (has ? '' : ' 🔒'), 'tool:' + k, pl.tool === k, has && pl.tool !== k); } h += '</div>';
@@ -872,7 +887,7 @@ function openBarn() {
   if (dairy) h += row('🧀', '치즈 저장고 · ' + cheese.length + '덩이', cheese.length ? '지금 모두 팔면 ' + cheeseValue().toLocaleString() + '원 · 묵힐수록 값이 올라요 · 지금 만드는 치즈 품질 ' + gradeOf(cheeseQ()) + ' ×' + cheeseQ().toFixed(2) : '소젖을 짜면 여기에 쌓여요 · 지금 만드는 치즈 품질 ' + gradeOf(cheeseQ()) + ' ×' + cheeseQ().toFixed(2), '열기', 'cheese:x', true);
   h += row('💰', '가축 팔기', '가축마다 값을 보고 골라 팔아요', '열기', 'sell:x', animals.length > 0);
   if (own.plane && barns2.length && !pl.carry) barnList().forEach((q, i) => { if (Math.hypot(q.x - pl.x, q.y - pl.y) >= 85) h += row('✈️', (i + 1) + '번 창고로 날아가기', '비행기를 타고 바로 옮겨 가요', '이동', 'goto:' + i, true); });
-  showOv(h + '<button class="btn" id="go">닫기</button>'); const close = () => { state = 'play'; hideOv(); }; $('go').onclick = close;
+  showOv(h + '<div id="det"><p class="ds">👆 아이콘을 누르면 설명이 나와요.</p></div><button class="btn" id="go">닫기</button>'); const close = () => { state = 'play'; hideOv(); }; $('go').onclick = close;
   document.querySelectorAll('#card .buy').forEach(b => { b.onclick = () => { const [op, arg] = b.dataset.id.split(':'); initAudio(); SFX.take();
     if (op === 'tool') { pl.tool = arg; saveGame(); close(); showToast(TOOLS[arg].e + ' ' + TOOLS[arg].n + '을(를) 들었어요 · 도구 버튼: ' + toolLabel(), 3); }
     else if (op === 'seed') { pl.tool = 'seed'; pl.seedType = arg; saveGame(); close(); showToast(CROPS[arg].e + ' ' + CROPS[arg].n + ' 씨앗을 들었어요. 들판에서 [씨 뿌리기]를 누르세요', 3); }
@@ -978,11 +993,11 @@ function updateHose(dt) {
 /* ---------- 상점 (낮밤 관계없이 열 수 있고, 여는 동안 시간은 멈춘다) ---------- */
 function openShop(tab) {
   if (state !== 'play' && state !== 'shop' && state !== 'exam') return; state = 'shop'; tab = tab || 'buy';
-  const won = v => v.toLocaleString() + '원', tabs = [['buy', '가축 사기'], ['sell', '가축 팔기'], ['gear', '시설·장비'], ['seed', '씨앗·먹이'], ['auto', '일꾼·자동화'], ['lic', '자격증']], lockMsg = k => '<p class="sub">🔒 ' + OPEN_NAME[k] + '은(는) 농장 레벨 ' + OPEN_LV[k] + '부터 나와요. (지금 레벨 ' + level + ')</p>';
+  const won = v => v.toLocaleString() + '원', tabs = [['buy', '🐾 가축 사기'], ['sell', '💰 가축 팔기'], ['gear', '🏗️ 시설·장비'], ['seed', '🌱 씨앗·먹이'], ['auto', '👷 일꾼·자동화'], ['lic', '📜 자격증']], lockMsg = k => '<p class="sub">🔒 ' + OPEN_NAME[k] + '은(는) 농장 레벨 ' + OPEN_LV[k] + '부터 나와요. (지금 레벨 ' + level + ')</p>';
 
   if (tab === 'land' || tab === 'wx') tab = 'gear';
-  let h = '<h2>농장 상점</h2><p class="pay">💰 <b>' + (inf ? '∞ 무한' : won(money)) + '</b> · ⭐ 레벨 ' + level + ' · 가축 ' + animals.length + '마리</p><div class="tabs">' + tabs.map(t => '<button class="tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '" type="button">' + (((t[0] === 'seed' || t[0] === 'lic') && !isOpen(t[0])) || (t[0] === 'auto' && level < 3) ? '🔒 ' : '') + t[1] + '</button>').join('') + '</div>';
-  const row = (icon, name, sub, btn, id, ok) => '<div class="shop"><span class="si">' + icon + '</span><span class="sn"><b>' + name + '</b><br><span class="sub">' + sub + '</span></span><button class="buy" data-id="' + id + '" type="button"' + (ok ? '' : ' disabled') + '>' + btn + '</button></div>';
+  let h = '<p class="pay shoph">🛒 상점 · 💰 <b>' + (inf ? '∞ 무한' : won(money)) + '</b> · ⭐ 레벨 ' + level + ' · 가축 ' + animals.length + '마리</p><div class="tabs">' + tabs.map(t => '<button class="tab' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '" type="button">' + (((t[0] === 'seed' || t[0] === 'lic') && !isOpen(t[0])) || (t[0] === 'auto' && level < 3) ? '🔒 ' : '') + t[1] + '</button>').join('') + '</div>';
+  cells = []; const row = cellHtml;
   if (tab === 'buy') { const free = PENS.find(p => p.own && inPen(p).length < p.cap);
     const nx = []; let dn = 0; for (const k in KINDS) { const K = KINDS[k]; if (K.dino && !lab) continue; if (LV.animal[k] > level) { nx.push([LV.animal[k], K.e + ' ' + K.n]); continue; } if (K.dino && !dn++) h += '<p class="sub dexh">🧬 실험실: 공룡 복원</p>'; h += row(K.e, K.n + (K.dino ? ' 아기' + (K.meat ? ' · 육식' : ' · 초식') : ''), '먹이 ' + dietText(K.diet) + ' · 가장 좋아함 ' + feedInfo(K.fav).e + feedInfo(K.fav).n + ' · 다 크면 약 ' + won(K.sell) + ' · ' + FENCE[NEED[k]].n + ' 이상' + (penFor(k) ? '' : K.meat ? ' · ⚠️ 육식 공룡이 없는 철 울타리가 필요해요' : ' · ⚠️ 맞는 울타리에 빈자리가 없어요'), won(K.buy), 'buy:' + k, money >= K.buy && !!penFor(k)); } h += nextTeaser(nx);
     if (!lab) h += '<p class="sub">🧬 ' + (level >= LAB_LV ? '시설·장비에서 실험실을 지으면 공룡을 복원할 수 있어요.' : '농장 레벨 ' + LAB_LV + '부터 실험실을 지어 공룡을 복원할 수 있어요.') + '</p>'; else h += '<p class="sub">🦖 공룡은 아기로 태어나 철 울타리 안에서 자라요. 육식 공룡은 울타리 하나에 한 마리만 키울 수 있고, 살아 있는 가축을 먹어요(아기 때는 닭, 조금 크면 양·염소·돼지, 다 크면 소보다 큰 가축). 다 크기 전에는 🥩 고기(씨앗·비료 탭)도 먹지만 더디게 자라요. 같은 울타리의 가축과 사람을 모두 공격하니, 멀리 있을 때 먹이를 내려놓고 나오세요. 다 크면 아기 때의 10배가 넘는 값에 팔려요.</p><p class="sub">🦕 초식 공룡은 울타리 안의 다 자란 나무에서 먹어요(프로토케라톱스 1, 트리케라톱스 2, 브라키오사우루스 4만큼 필요 · 소철 1그루가 2, 과일나무가 1). 나무가 모자라면 여물통 먹이를 먹지만 더 빨리 배고파지고 더디게 자라요.</p>';
@@ -995,7 +1010,7 @@ function openShop(tab) {
   else if (tab === 'auto') {   // 자동화 장치: 사고, 켜고 끄고, 고친다
     h += '<p class="sub dexh">일꾼 (' + workers.length + ' / ' + maxWorkers() + '명)</p>';
     if (level < 3) h += '<p class="sub">🔒 일꾼은 농장 레벨 3부터 고용할 수 있어요. (지금 레벨 ' + level + ')</p>';
-    else { for (const k in JOBS) { const J = JOBS[k], n = workers.filter(w => w.job === k).length; if (J.lv && level < J.lv) continue; h += row(J.e, J.n + (n ? ' ' + n + '명' : '') + (k === 'cheeser' && n ? ' · 숙련 ' + workers.filter(w => w.job === k).map(w => Math.min(10, w.days || 0) + '일').join(', ') : ''), J.d + ' · 품삯 하루 ' + won(J.wage), '고용', 'hire:' + k, workers.length < maxWorkers() && (!J.need || J.need())); if (n) h += row('👋', J.n + ' 한 명 내보내기', '내보내면 품삯이 나가지 않아요', '내보내기', 'fire:' + k, true); }
+    else { for (const k in JOBS) { const J = JOBS[k], n = workers.filter(w => w.job === k).length; if (J.lv && level < J.lv) continue; h += row(J.e, J.n + (n ? ' ' + n + '명' : '') + (k === 'cheeser' && n ? ' · 숙련 ' + workers.filter(w => w.job === k).map(w => Math.min(10, w.days || 0) + '일').join(', ') : ''), J.d + ' · 품삯 하루 ' + won(J.wage) + (workers.length >= maxWorkers() ? ' · ⚠️ 일꾼 자리가 없어요 (' + workers.length + ' / ' + maxWorkers() + '명). 레벨을 올리거나 창고를 더 지으세요' : J.need && !J.need() ? ' · ⚠️ 이 일에 필요한 도구·시설이나 가축이 아직 없어요' : ''), '고용', 'hire:' + k, workers.length < maxWorkers() && (!J.need || J.need())); if (n) h += row('👋', J.n + ' 한 명 내보내기', '내보내면 품삯이 나가지 않아요', '내보내기', 'fire:' + k, true); }
       if (lab && suit) { const q = PENS[preyPen]; h += row('🍖', '먹이용 울타리: ' + (q && q.own ? (q.i + 1) + '번 울타리 (가축 ' + inPen(q).length + '마리)' : '정하지 않음'), '사육사가 이 울타리에서 크기가 맞는 가장 싼 가축을 골라, 배고픈 다 큰 육식 공룡에게 넣어 줘요. 희귀·전설 가축과 공룡은 건드리지 않아요', '바꾸기', 'preypen', true); }
       h += '<p class="sub">일꾼은 아침마다 품삯을 받고 낮 동안 일해요. 여러 명이면 각자 따로 일해서 같은 시간에 더 많이 해요. 고용할 수 있는 수는 레벨 3에 1명, 5에 2명, 7에 4명, 9에 6명이고, 창고를 한 채 더 지을 때마다 2명씩 늘어요.</p>'; }
     h += '<p class="sub dexh">자동화 장치</p>';
@@ -1068,11 +1083,12 @@ function openShop(tab) {
     flush(); h = h0;
     const SEC = [['fac', '🏗️', '농장 시설'], ['tool', '🧰', '도구·장비'], ['chicken', '🐔', '닭'], ['sheep', '🐑', '양'], ['pig', '🐷', '돼지'], ['cow', '🐮', '소'], ['goat', '🐐', '염소'], ['horse', '🐴', '말'], ['panda', '🐼', '판다'], ['camel', '🐫', '낙타'], ['giraffe', '🦒', '기린'], ['elephant', '🐘', '코끼리'], ['dino', '🦕', '공룡'], ['wx', '🌦️', '날씨 장비 (창고에 비치)']];
     if (gearSec && !G[gearSec]) gearSec = 'fac';
-    for (const [k, e2, n2] of SEC) { const v = G[k]; if (!v) continue; const can = (v.match(/data-id="[^"]*" type="button">/g) || []).length, own = (v.match(/✔️/g) || []).length, all = (v.match(/class="shop"/g) || []).length, on = gearSec === k;
-      h += '<button class="sec' + (on ? ' on' : '') + '" data-sec="' + k + '" type="button"><span>' + (on ? '▾' : '▸') + ' ' + e2 + ' ' + n2 + '</span><span class="sc">' + (can ? '<i class="can">살 수 있음 ' + can + '</i>' : '') + (own ? '<i>보유 ' + own + '</i>' : '') + (!can && !own ? '<i>' + all + '개</i>' : '') + '</span></button>' + (on ? v : ''); }
+    for (const [k, e2, n2] of SEC) { const v = G[k]; if (!v) continue;
+      h += '<p class="sub dexh">' + e2 + ' ' + n2 + '</p>' + v; }
     h += nextTeaser(nx);
   }
-  showOv(h + '<button class="btn" id="go">농장으로</button>');
+  { const helps = []; h = h.replace(/<p class="sub">([\s\S]*?)<\/p>/g, (m0, t) => { if (/^\s*(🔜|🔒)/.test(t)) return m0; helps.push(t); return ''; }); if (helps.length) h += '<details class="help"><summary>ℹ️ 도움말 보기</summary>' + helps.map(t => '<p class="sub">' + t + '</p>').join('') + '</details>'; }
+  showOv(h + '<div id="det"><p class="ds">👆 아이콘을 누르면 설명이 나와요. 흐린 것은 아직 조건이 안 맞는 것이에요.</p></div><button class="btn" id="go">농장으로</button>');
   document.querySelectorAll('#card .tab').forEach(b => { b.onclick = () => openShop(b.dataset.tab); });
   document.querySelectorAll('#card .sec').forEach(b => { b.onclick = () => { gearSec = gearSec === b.dataset.sec ? '' : b.dataset.sec; const y = $('card').scrollTop; openShop('gear'); $('card').scrollTop = y; }; });
   document.querySelectorAll('#card .buy').forEach(b => { b.onclick = () => { const [op, arg, arg2] = b.dataset.id.split(':'); initAudio();
@@ -2030,12 +2046,35 @@ function update(dt) {
 }
 
 /* ---------- 오버레이 ---------- */
-let ovKey = '';
+let ovKey = '', cells = [], cellSel = '';
+/* 메뉴의 한 칸: 아이콘 · 이름 · 값. 누르면 아래 설명 칸에 꼭 필요한 설명과 [사기] 버튼, 못 사면 그 까닭이 나온다 */
+function cellHtml(icon, name, sub, btn, id, ok) {
+  let ic = icon, nm = name, own = false; if (icon === '✔️') { own = true; const m = name.match(/^(\p{Extended_Pictographic}\uFE0F?(?:\u200D\p{Extended_Pictographic}\uFE0F?)*)\s*/u); if (m) { ic = m[1]; nm = name.slice(m[0].length); } }
+  cells.push({ icon: ic, name: nm, sub, btn, id, ok, own });
+  return '<button class="cell' + (ok ? '' : own ? ' own' : ' off') + '" type="button" data-c="' + (cells.length - 1) + '"><span class="ci">' + ic + '</span><span class="cn">' + nm + '</span><span class="cp">' + (own ? '✔ ' : '') + btn + '</span><i class="buy" data-id="' + id + '" hidden></i></button>';
+}
+function whyNot(c) {
+  const l = [], m = c.btn.match(/([\d,]+)원/), price = m ? +m[1].replace(/,/g, '') : 0, lv = c.btn.match(/레벨 (\d+)부터/), b = c.sub.match(/(🏚️[^·<]*있어야[^·<]*)/);
+  if (lv) l.push('농장 레벨 ' + lv[1] + '부터 할 수 있어요 (지금 레벨 ' + level + ')');
+  for (const w of c.sub.matchAll(/⚠️\s*([^·<]+)/g)) l.push(w[1].trim()); if (b) l.push(b[1].trim()); if (/손이 비어야/.test(c.sub)) l.push('손에 든 것을 먼저 내려놓으세요');
+  if (price && money < price) l.push('돈이 모자라요 (필요 ' + price.toLocaleString() + '원 · 가진 돈 ' + money.toLocaleString() + '원)');
+  if (!l.length && ['최고', '설치됨', '완료'].includes(c.btn)) l.push('이미 갖추었어요');
+  return l.length ? l.join(' · ') : '지금은 조건이 맞지 않아요';
+}
+function showCell(i) {
+  const c = cells[i], D2 = $('det'); if (!c || !D2) return; cellSel = c.id + '|' + c.name.replace(/[\d,.]+/g, '');
+  document.querySelectorAll('#card .cell').forEach(x => x.classList.toggle('sel', +x.dataset.c === i));
+  const m = c.btn.match(/^[\d,]+원$/), sub = c.sub.replace(/\s*·\s*⚠️[^·<]*/g, '').replace(/\s*·\s*손이 비어야 해요/g, '');
+  D2.innerHTML = '<div class="dh"><span class="ci">' + c.icon + '</span><b>' + c.name + '</b>' + (c.ok ? '<button class="btn" id="cbuy" type="button">' + (m ? '사기 · ' + c.btn : c.btn) + '</button>' : c.own ? '<span class="dok">✔ 갖추었어요</span>' : '') + '</div>' + (c.ok || c.own ? '' : '<p class="dno">🚫 ' + whyNot(c) + '</p>') + '<p class="ds">' + sub + '</p>';
+  D2.hidden = false; const bb = $('cbuy'); if (bb) bb.onclick = () => { const e = document.querySelector('#card .cell[data-c="' + i + '"] .buy'); if (e) e.click(); };
+}
+$('card').addEventListener('click', e => { const t = e.target.closest ? e.target.closest('.cell') : null; if (t) showCell(+t.dataset.c); });
 function showOv(html) {   // 같은 메뉴를 다시 그릴 때(물건을 산 뒤 등)는 보던 자리를 지키고, 다른 메뉴는 맨 위부터 보인다
   const C = $('card'), O = $('ov'), was = !O.hidden, y1 = C.scrollTop, y2 = O.scrollTop; C.innerHTML = html; O.hidden = false;
   const hd = C.querySelector('h1,h2'), tb = C.querySelector('.tab.on'), key = (hd ? hd.textContent : '') + '|' + (tb ? tb.dataset.tab : ''), same = was && key === ovKey; ovKey = key;
   const b = $('go'); if (b) { try { b.focus({ preventScroll: true }); } catch (e) { b.focus(); } }
   C.scrollTop = same ? y1 : 0; O.scrollTop = same ? y2 : 0;
+  if (!same) cellSel = ''; else if (cellSel && $('det')) { const i = cells.findIndex(c => c.id + '|' + c.name.replace(/[\d,.]+/g, '') === cellSel); if (i >= 0) showCell(i); }
 }
 $('ov').addEventListener('click', e => {   // 메뉴 바깥을 누르면 닫는다 (닫기만 하는 메뉴에서만)
   if (e.target !== $('ov')) return; const g = $('go'), k = $('back');
