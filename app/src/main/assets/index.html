@@ -433,6 +433,9 @@ function rigClone(id, h, tint) {
   root.traverse(o => { if (o.isMesh) { o.material = mt; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
   const mixer = new THREE.AnimationMixer(root), acts = {}; for (const c of pr.anims) acts[c.name] = mixer.clipAction(c); return { g, rig: { mixer, acts, cur: null } };
 }
+function addHorn(m, id) {                  // 유니콘의 뿔: 머리뼈에 붙여 고개를 따라 움직인다
+  let head = null; m.g.traverse(o => { if (o.isBone && o.name === 'Head') head = o; }); if (!head) return; const h = packRig(id).h, ws = new THREE.Vector3(); m.g.updateMatrixWorld(true); head.getWorldScale(ws); const k = m.g.children[0].scale.x / ws.x, horn = M(lowGeo().cone, glossy('#ffd24a'), h * .04 * k, h * .32 * k, h * .04 * k, 0, h * .06 * k, h * .14 * k, head); horn.rotation.x = 1.57; horn.castShadow = true;
+}
 function rigPlay(m, name, dt) { const x = m.rig, a = x.acts[name] || x.acts.Idle || x.acts.idle; if (a && x.cur !== a) { a.reset().fadeIn(.2).play(); if (x.cur) x.cur.fadeOut(.2); x.cur = a; } x.mixer.update(dt); }
 function propLen(id, len, parent, sink) {   // 길이에 맞춰 놓는다(배). 긴 쪽이 앞뒤(x)가 되게 돌린다
   const m = prop(id, 1, parent); if (!m) return null; const b = m.geometry.boundingBox, lx = b.max.x - b.min.x, lz = b.max.z - b.min.z, k = len / Math.max(lx, lz); m.scale.setScalar(k); if (lz > lx) m.rotation.y = PI / 2; m.position.y = -(sink || 0) * k; return m;
@@ -440,7 +443,7 @@ function propLen(id, len, parent, sink) {   // 길이에 맞춰 놓는다(배). 
 function propBox(id, len, hgt, wid, parent, x, top, z) {   // 상자 크기에 맞춰 늘려 놓는다(선착장). 윗면이 top 높이에 온다
   const m = prop(id, 1, parent); if (!m) return null; const b = m.geometry.boundingBox, lx = b.max.x - b.min.x, lz = b.max.z - b.min.z, turn = lz > lx; m.scale.set((turn ? wid : len) / lx, hgt, (turn ? len : wid) / lz); if (turn) m.rotation.y = PI / 2; m.position.set(x, top - hgt, z); return m;
 }
-const WILD_RIG = { wildhorse: ['horse', 2.1, [.62, .56, .52]], deer: ['stag', 2.6], roe: ['deer', 2.3], whitedeer: ['stag', 2.6, [2.4, 2.4, 2.6]], fox2: ['fox', 1.9], wolf: ['wolf', 2] };
+const WILD_RIG = { wildhorse: ['horse', 2.1, [.62, .56, .52]], bison: ['bull', 1.75, [.62, .5, .42]], unicorn: ['horse_white', 2.15, [1.12, 1.05, 1.2]], alpaca: ['alpaca', 2.5], donkey: ['donkey', 2.1], deer: ['stag', 2.6], roe: ['deer', 2.3], whitedeer: ['stag', 2.6, [2.4, 2.4, 2.6]], fox2: ['fox', 1.9], wolf: ['wolf', 2] };
 const TREE_ROUND = ['tree_oak', 'tree_fat', 'tree_oak', 'tree_fat', 'tree_autumn'], TREE_PINE = ['tree_pine', 'tree_pine_tall', 'tree_dark'];
 /* ---------- 작물 ---------- */
 const CROP_RIPE = {
@@ -480,7 +483,7 @@ const WILD_LOOK = {
   bird: { bird: 1, c: '#5f7fa8', c2: '#e8eef4', headC: '#4f6f98', beak: '#f0a020', leg: '#c9853a', small: 1 }
 };
 function makeWild(k) {
-  if (WILD_RIG[k]) { const q = WILD_RIG[k], m = rigClone(q[0], WILD[k].r * q[1], q[2]); if (m) return m; }
+  if (WILD_RIG[k]) { const q = WILD_RIG[k], m = rigClone(q[0], WILD[k].r * q[1], q[2]); if (m) { if (k === 'unicorn') addHorn(m, q[0]); return m; } }
   const o = WILD_LOOK[k] || WILD_LOOK.deer, r = k === 'bird' ? 9 : WILD[k].r, g = new THREE.Group(), inner = new THREE.Group(), Q = lowGeo(), dark = '#2a1e16'; g.add(inner);
   if (o.bird) {
     const body = baked('wild:' + k, b => { const S = (c, sx, sy, sz, x, y, z) => M(Q.sph, c, sx, sy, sz, x, y, z, b), nk = o.tall ? r * 1.1 : r * .45, hy = r * 1.25 + nk, hx = r * .7, hr = r * .42;
@@ -1015,7 +1018,7 @@ function startDay() {
 function spawnPred(kind0) {
   const L = nightLevel(), kind = kind0 || (L.bear && !preds.some(q => q.kind === 'bear') && Math.random() < L.bear ? 'bear' : day >= 2 && Math.random() < .3 ? 'fox' : 'wolf'), D = PRED[kind], side = Math.floor(R(0, 4));
   const x = side === 0 ? -40 : side === 1 ? WORLD.w + 40 : R(0, WORLD.w), y = side === 2 ? -40 : side === 3 ? WORLD.h + 40 : R(0, WORLD.h);
-  const q = { kind, D, sp: D.sp, x, y, hp: D.hp, life: D.life, dead: 0, speed: D.speed * L.speed, target: null, breakT: 0, inside: -1, carry: null, retreatT: 0, rx: 0, ry: 0, flee: false, moving: true, phase: 0, seed: R(0, 100), stun: 0 }; preds.push(q);
+  const q = { kind, D, model: kind === 'bear' ? '' : kind, sp: D.sp, x, y, hp: D.hp, life: D.life, dead: 0, speed: D.speed * L.speed, target: null, breakT: 0, inside: -1, carry: null, retreatT: 0, rx: 0, ry: 0, flee: false, moving: true, phase: 0, seed: R(0, 100), stun: 0 }; preds.push(q);
   emote(q, 'idle'); say({ x: clamp(x, 60, WORLD.w - 60), y: clamp(y, 60, WORLD.h - 60), sp: D.sp }, D.sp.cry, '#e2493f', 1); return q;
 }
 function releasePrey(q) {   // 물고 가던 가축을 놓친다. 가축은 제 울타리로 돌아간다
@@ -2712,10 +2715,11 @@ Object.assign(WILD, {
   roe: { n: '노루', e: '🦌', r: 22, sp: 200, trap: 2, live: 1800, shot: 800, lv: 1, w: 6, meat: 1 }, ibex: { n: '산양', e: '🐐', r: 20, sp: 190, trap: 2, live: 2200, shot: 900, lv: 1, w: 5, meat: 1 },
   wildhorse: { n: '야생 말', e: '🐎', r: 32, sp: 250, trap: 3, live: 6000, shot: 1600, lv: 1, w: 5, meat: 3 }, bison: { n: '들소', e: '🦬', r: 40, sp: 170, trap: 3, live: 8000, shot: 2600, lv: 3, w: 3, meat: 5, hp: 3 },
   wolf: { n: '늑대', e: '🐺', r: 24, sp: 215, trap: 2, live: 3000, shot: 1400, lv: 2, w: 5, dang: 1, hp: 2, meat: 1 }, bear: { n: '곰', e: '🐻', r: 38, sp: 165, trap: 3, live: 9000, shot: 3500, lv: 3, w: 3, dang: 1, hp: 5, meat: 4 },
-  tiger: { n: '호랑이', e: '🐅', r: 34, sp: 235, trap: 3, live: 30000, shot: 7000, lv: 5, w: 1.6, dang: 1, hp: 4, meat: 3 }
+  tiger: { n: '호랑이', e: '🐅', r: 34, sp: 235, trap: 3, live: 30000, shot: 7000, lv: 5, w: 1.6, dang: 1, hp: 4, meat: 3 },
+  alpaca: { n: '알파카', e: '🦙', r: 24, sp: 175, trap: 2, live: 2600, shot: 900, lv: 2, w: 4, meat: 1 }, donkey: { n: '당나귀', e: '🐴', r: 28, sp: 190, trap: 2, live: 3200, shot: 1100, lv: 2, w: 4, meat: 2 }
 });
 WILD.boar.lv = 1; WILD.deer.lv = 1; WILD.boar.meat = 2; WILD.deer.meat = 2; WILD.boar.hp = 2; WILD.leopard.dang = 1; WILD.leopard.hp = 3;
-const HAB = { rabbit: 'fwe', duck: 'l', boar: 'ne', deer: 'nme', peacock: 'e', whitedeer: 'n', leopard: 'm', unicorn: 'nw', squirrel: 'n', fox2: 'ewn', roe: 'nw', ibex: 'm', wildhorse: 'w', bison: 'w', wolf: 'nwm', bear: 'nm', tiger: 'nm' };
+const HAB = { rabbit: 'fwe', duck: 'l', boar: 'ne', deer: 'nme', peacock: 'e', whitedeer: 'n', leopard: 'm', unicorn: 'nw', squirrel: 'n', fox2: 'ewn', roe: 'nw', ibex: 'm', wildhorse: 'w', bison: 'w', wolf: 'nwm', bear: 'nm', tiger: 'nm', alpaca: 'mw', donkey: 'we' };
 const WILD_MAX = 40, WILD_TARGET = 36, wildCap = k => WILD[k].rare ? 1 : WILD[k].dang ? (k === 'tiger' ? 2 : 4) : 6;
 const habRect = h => h === 'n' ? [-2100, -1250, 2600, -220] : h === 'm' ? [2600, -1250, MAP.x1 - 100, -220] : h === 'w' ? [-2100, -150, -220, MAP.y1 - 100]
   : h === 'f' ? [380, 170, WORLD.w - 60, WORLD.h - 60] : Math.random() < .55 ? [WORLD.w + 120, -150, MAP.x1 - 100, LAKE.y - LAKE.ry - 80] : [80, WORLD.h + 120, LAKE.x - LAKE.rx - 160, MAP.y1 - 100];
@@ -3286,6 +3290,8 @@ const MODELS = {
   trike: { pack: 'dino_trike', hk: 1.5, yaw: 0, clips: { idle: 'Armature|Triceratops_Idle', walk: 'Armature|Triceratops_Walk', run: 'Armature|Triceratops_Run' } },
   proto: { pack: 'dino_trike', tint: [1.5, 1.05, .78], hk: 1.5, yaw: 0, clips: { idle: 'Armature|Triceratops_Idle', walk: 'Armature|Triceratops_Walk', run: 'Armature|Triceratops_Run' } },
   brachio: { pack: 'dino_apato', hk: 1.1, yaw: 0, clips: { idle: 'Armature|Apatosaurus_Idle', walk: 'Armature|Apatosaurus_Walk', run: 'Armature|Apatosaurus_Run' } },
+  wolf: { pack: 'wolf', hk: 1.9, yaw: 0, clips: { idle: 'Idle', walk: 'Gallop' } },
+  fox: { pack: 'fox', hk: 1.9, yaw: 0, clips: { idle: 'Idle', walk: 'Gallop' } },
   cow: { pack: 'cow', hk: 1.95, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } },
   horse: { pack: 'horse', hk: 2.2, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } },
   cowdance: { data: 'COWDANCE_GLTF', hk: 2.3, yaw: 0, clips: { idle: 'CowRig|PolishDance' } },

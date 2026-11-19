@@ -4,7 +4,7 @@
 
 | 파일 | 팩 | 가져온 방법 |
 | --- | --- | --- |
-| `Cow.glb`, `Horse.glb` | Ultimate Animated Animals (2021-07) | glTF에서 쓰는 동작만 남김(`trim.mjs`) |
+| `Cow.glb`, `Horse.glb`, `Bull.glb`, `Horse_White.glb`, `Alpaca.glb`, `Donkey.glb` | Ultimate Animated Animals (2021-07) | glTF에서 쓰는 동작만 남김(`trim.mjs`) |
 | `Casual*.glb`, `OldClassy_Female.glb`, `Worker_*.glb` | Ultimate Animated Character Pack (2019-11) | glTF에서 쓰는 동작만 남김(`trim.mjs`) |
 | `Sheep.glb`, `Pig.glb` | Farm Animals Pack (2018) | FBX → GLB |
 | `Dino_*.glb` | Dinosaur Animated Pack (2018-12) | FBX → GLB |
