@@ -898,7 +898,7 @@ function openCheese() {   // 치즈 저장고: 덩이마다 숙성도와 값을 
 function openBarn() {
   if (state !== 'play') return; state = 'menu'; const it = !isNight() && WX[wx].item;
   cells = []; const row = cellHtml;
-  let h = '<h2>🧰 창고 ' + barnLv + '단계</h2><p class="pay">작물 보관 ' + storeUsed() + ' / ' + storeCap() + '칸 · 건초 더미 ' + hayStock + ' / ' + HAY_CAP + '</p><p class="sub">🔄 버튼으로 고를 도구를 여기서 정해요. 삽·곡괭이·낚싯대·그물·총은 낮에도 밤에도 쓸 수 있어요.</p>';
+  let h = '<h2>🧰 창고 ' + barnLv + '단계</h2><p class="pay">작물 보관 ' + storeUsed() + ' / ' + storeCap() + '칸 · 건초 더미 ' + hayStock + ' / ' + HAY_CAP + '</p><p class="sub">🔄 버튼으로 고를 도구를 여기서 정해요. 물호스·삽·곡괭이·낚싯대·그물·총은 낮에도 밤에도 쓸 수 있어요.</p>';
   const tile = (icon, name, id, on, ok) => '<button class="buy tile' + (on ? ' on' : '') + '" data-id="' + id + '" type="button"' + (ok ? '' : ' disabled') + '><span>' + icon + '</span>' + name + '</button>';
   { const G2 = toolGroups(), now = toolList(), grp = (title, l, lock) => { h += '<p class="sub dexh">' + title + '</p><div class="tiles">' + l.map(k => tile(TOOLS[k].e, (toolOff[k] && k !== 'hose' && k !== 'torch' ? '⬜ ' : '✅ ') + TOOLS[k].n, 'tool:' + k, pl.tool === k, true)).join('') + (lock || []).map(q => tile(q[0], '🔒 ' + q[1], 'x', false, false)).join('') + '</div>'; };
     grp('☀️ 낮 도구', G2.day); grp('🌙 밤 도구', G2.night);
@@ -1885,7 +1885,7 @@ function ignite(k, o, x, y) {   // 이미 타고 있거나 탈 수 없는 것은
   if (k === 'fence' && o.tier >= 4) { if (!(fireWarnT > gt)) { fireWarnT = gt + 3; showToast('철 울타리는 불에 타지 않아요', 3); } return false; }
   if (k === 'plot' && o.wet > 12) return false;   // 흠뻑 젖은 작물은 잘 타지 않는다
   fires.push({ k, o, x, y, t: 0, hp: 1.5, sp: R(1.5, 3), seed: R(0, 9) }); burst(x, y, 'spark', 8);
-  if (!(fireWarnT > gt)) { fireWarnT = gt + 4; showToast('🔥 ' + FIRE_N[k] + '에 불이 붙었어요! 물호스로 물을 뿌려 끄세요. 그냥 두면 번져요', 5); noise(.4, 600, .8, .3, 0, 'bandpass'); }
+  if (!(fireWarnT > gt)) { fireWarnT = gt + 4; showToast('🔥 ' + FIRE_N[k] + '에 불이 붙었어요! 물호스(🔄로 바꿔 들어요)로 물을 뿌려 끄세요. 그냥 두면 번져요', 5); noise(.4, 600, .8, .3, 0, 'bandpass'); }
   return true;
 }
 function burnablesNear(x, y, r) {   // (x, y) 둘레에서 불이 붙을 수 있는 것들
@@ -2282,12 +2282,12 @@ function showLetter(d) {
 /* 도구 빠른 전환: 창고까지 가지 않아도 가진 도구를 차례로 바꿔 든다 */
 let toolOff = {};   // 창고에서 🔄 순서에서 빼 둔 도구
 function toolGroups() {   // 가진 도구를 낮 · 밤 · 범용(낮과 밤 모두)으로 나눈다
-  const day = ['hose', 'scratch']; if (treats > 0) day.push('treat'); if (flute) day.push('flute'); if (level >= 2) day.push('clap'); if (gong) day.push('gong'); if (crowInv > 0) day.push('crow'); for (let i = 1; i <= 3; i++) if (trapInv[i] > 0) day.push('trap' + i);
-  const uni = []; if (hasShovel) uni.push('shovel'); if (pickLv) uni.push('pick'); if (rodLv) uni.push('rod'); if (netLv) uni.push('net'); if (gun) uni.push('gun');
+  const day = ['scratch']; if (treats > 0) day.push('treat'); if (flute) day.push('flute'); if (level >= 2) day.push('clap'); if (gong) day.push('gong'); if (crowInv > 0) day.push('crow'); for (let i = 1; i <= 3; i++) if (trapInv[i] > 0) day.push('trap' + i);
+  const uni = ['hose']; if (hasShovel) uni.push('shovel'); if (pickLv) uni.push('pick'); if (rodLv) uni.push('rod'); if (netLv) uni.push('net'); if (gun) uni.push('gun');
   return { day, night: ['torch'], uni };
 }
 function toolList() {   // 지금 🔄로 고를 수 있는 도구: 낮(또는 밤) 도구 + 범용 도구 가운데 창고에서 골라 둔 것
-  const G2 = toolGroups(), l = (isNight() ? G2.night : G2.day).concat(G2.uni).filter(k => !toolOff[k] || k === 'hose' || k === 'torch');
+  const G2 = toolGroups(), l = (isNight() ? G2.night.concat(['hose']) : ['hose'].concat(G2.day)).concat(G2.uni.filter(k => k !== 'hose')).filter(k => !toolOff[k] || k === 'hose' || k === 'torch');
   if (!isNight()) { for (const k in CROPS) if (seeds[k] > 0) l.push('seed:' + k); if (fert > 0) l.push('fert'); } return l;
 }
 function fixTool() { const l = toolList(), cur = pl.tool === 'seed' ? 'seed:' + pl.seedType : pl.tool; if (!l.includes(cur)) pl.tool = l[0]; }   // 낮밤이 바뀌면 그때 쓸 수 있는 도구로 바꿔 든다
