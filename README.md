@@ -482,10 +482,9 @@ GitHub Actions 실행 결과의 `ScrubPaws-debug-apk` 아티팩트에서도 내�
 ## 크레딧
 
 - 3D 렌더링: three.js r149 (MIT 라이선스)
-- 양 모델: "Sheep anim" (https://sketchfab.com/3d-models/sheep-anim-dfdefe7cb9364b2aa2988321c79db1a9) by blam (https://sketchfab.com/Blam577895), CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
-- 판다 모델: "Panda" (https://sketchfab.com/3d-models/panda-388c3230515848cb9c07724f2230af43) by firoh (https://sketchfab.com/firoh), CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
-- 소 모델: "Cow" (https://sketchfab.com/3d-models/cow-3c1bbce7a64640cca28b49b3d181e347) by kenchoo (https://sketchfab.com/kenchoo), Sketchfab Standard License (https://sketchfab.com/licenses)
-- 춤추는 소 모델: "Cow Dance" (https://sketchfab.com/3d-models/cow-dance-5bbb07e167214a7094659045470d56ee) by Peepocraft (https://sketchfab.com/peepocraft_), Sketchfab Standard License (https://sketchfab.com/licenses)
+- 3D 모형(모두 CC0 1.0): Quaternius (https://quaternius.com) 의 Ultimate Nature Pack · Ultimate Animated Animals · Farm Animals · Dinosaur Animated Pack · Ultimate Animated Character Pack · Cute Fish Pack · Ships, Kenney (https://kenney.nl) 의 Car Kit(트랙터)
+- 모형은 `tools/models`의 도구로 줄이고 색을 맞춰 `pack_models.js` 한 파일로 묶습니다. 원본과 출처는 `tools/models/src/README.md`에 있습니다.
+- v7.12.0부터 예전의 Sketchfab 모델(양·소·판다·춤추는 소)은 쓰지 않습니다.
 
 게임 안에서는 모델의 크기를 맞추고, 더러움에 따라 색을 입히며, 희귀 가축은 황금빛으로 물들여 씁니다.
 닭·돼지·말·늑대·곰·주인공과 배경, 소리는 코드로 만든 것입니다.
