@@ -485,6 +485,11 @@ GitHub Actions 실행 결과의 `ScrubPaws-debug-apk` 아티팩트에서도 내�
 - 3D 모형(모두 CC0 1.0): Quaternius (https://quaternius.com) 의 Ultimate Nature Pack · Ultimate Animated Animals · Farm Animals · Dinosaur Animated Pack · Ultimate Animated Character Pack · Cute Fish Pack · Ships · Farm Buildings · Medieval Village Pack · Ultimate Fantasy RTS · Ultimate Food Pack · Animated Fish Pack · Survival Pack · Animated FPS Guns(이 팩만 폴더에 라이선스 파일이 없어 확인하지 못함), Kenney (https://kenney.nl) 의 Car Kit(트랙터)
 - 모형은 `tools/models`의 도구로 줄이고 색을 맞춰 `pack_models.js` 한 파일로 묶습니다. 원본과 출처는 `tools/models/src/README.md`에 있습니다.
 - v7.12.0부터 예전의 Sketchfab 모델(양·소·판다·춤추는 소)은 쓰지 않습니다.
+- 기린: "Giraffe Low Poly" (https://sketchfab.com/3d-models/giraffe-low-poly-cc56a519d6654580b5939154e4719531) by millermeln (https://sketchfab.com/millermeln), CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+- 염소·산양: "Low-poly Goat" (https://sketchfab.com/3d-models/low-poly-goat-e08bb2e734004870b1ed4c21f111a854) by Zafflex (https://sketchfab.com/Zafflex), CC-BY-4.0
+- 하마: "Low poly angry looking hippo" (https://sketchfab.com/3d-models/low-poly-angry-looking-hippo-451daef26695425ab1b751f503f182e6) by Tiberiu Uncu (https://sketchfab.com/pangolinbc), CC-BY-4.0
+- 라마: "Low Poly Llama 3d Model Free" (https://sketchfab.com/3d-models/low-poly-llama-3d-model-free-fe23d7daf59940ffb7f982701d7de7f4) by iRahulRajput (https://sketchfab.com/rt699448), CC-BY-4.0
+- 위 네 모형은 텍스처를 꼭짓점 색으로 바꾸고 삼각형 수를 줄여서 씁니다.
 
 게임 안에서는 모델의 크기를 맞추고, 더러움에 따라 색을 입히며, 희귀 가축은 황금빛으로 물들여 씁니다.
 닭·돼지·말·늑대·곰·주인공과 배경, 소리는 코드로 만든 것입니다.
@@ -884,3 +889,6 @@ v5.0.0의 공룡 값과 먹이 규칙은 이 절의 내용으로 바뀌었어요
 
 # v8.1.0 — 새 모습과 탈것
 - v8.0.0의 화면 개선과 탈것 6종(v7.7.0)을 하나로 합쳤어요.
+
+# v8.2.0 — 기린 · 염소 모형과 새 야생 동물
+- 기린과 염소가 새 모형으로 보이고, 라마와 하마가 야생 동물로 새로 나타나요.

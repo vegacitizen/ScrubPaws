@@ -1,4 +1,6 @@
-# Quaternius 원본 (모두 CC0 1.0)
+# 모형 원본
+
+## Quaternius (CC0 1.0)
 
 각 팩의 License.txt에 "CC0 1.0 Universal (CC0 1.0) Public Domain Dedication"으로 적혀 있다. 만든이: Quaternius (https://quaternius.com).
 
@@ -20,3 +22,16 @@
 | `Gun_*.glb` | Animated FPS Guns (2018-06) | FBX → GLB. **이 폴더에는 License.txt가 없었다.** 같은 작가의 다른 팩은 모두 CC0이지만 이 팩의 라이선스는 폴더 안에서 확인하지 못했다 |
 
 FBX → GLB는 three.js(0.160)의 FBXLoader로 읽어 GLTFExporter로 내보냈다. 색과 삼각형 수는 `build.mjs`의 옵션(pal · lift · simplify)으로 맞춘다.
+
+## Sketchfab (CC-BY 4.0 — 출처를 밝혀야 함)
+
+`prebake.mjs`로 텍스처와 재질 색을 꼭짓점 색으로 바꿔 넣었다(모양은 그대로, 묶을 때 삼각형 수를 줄임).
+
+| 파일 | 원본 |
+| --- | --- |
+| `Extra_Giraffe.glb` | "Giraffe Low Poly" (https://sketchfab.com/3d-models/giraffe-low-poly-cc56a519d6654580b5939154e4719531) by millermeln (https://sketchfab.com/millermeln), CC-BY-4.0 |
+| `Extra_Goat.glb` | "Low-poly Goat" (https://sketchfab.com/3d-models/low-poly-goat-e08bb2e734004870b1ed4c21f111a854) by Zafflex (https://sketchfab.com/Zafflex), CC-BY-4.0 |
+| `Extra_Hippo.glb` | "Low poly angry looking hippo" (https://sketchfab.com/3d-models/low-poly-angry-looking-hippo-451daef26695425ab1b751f503f182e6) by Tiberiu Uncu (https://sketchfab.com/pangolinbc), CC-BY-4.0 |
+| `Extra_Llama.glb` | "Low Poly Llama 3d Model Free" (https://sketchfab.com/3d-models/low-poly-llama-3d-model-free-fe23d7daf59940ffb7f982701d7de7f4) by iRahulRajput (https://sketchfab.com/rt699448), CC-BY-4.0 |
+
+"Giraffe" by Nevermoredmb는 CC-BY-NC(비상업)라서 넣지 않았다.

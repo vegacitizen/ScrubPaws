@@ -452,6 +452,7 @@ function propLen(id, len, parent, sink) {   // 길이에 맞춰 놓는다(배). 
 function propBox(id, len, hgt, wid, parent, x, top, z) {   // 상자 크기에 맞춰 늘려 놓는다(선착장). 윗면이 top 높이에 온다
   const m = prop(id, 1, parent); if (!m) return null; const b = m.geometry.boundingBox, lx = b.max.x - b.min.x, lz = b.max.z - b.min.z, turn = lz > lx; m.scale.set((turn ? wid : len) / lx, hgt, (turn ? len : wid) / lz); if (turn) m.rotation.y = PI / 2; m.position.set(x, top - hgt, z); return m;
 }
+const WILD_STILL = { ibex: ['goat', 2.2, [.95, .92, .88], PI / 2], llama: ['llama', 2.6, null, 0], hippo: ['hippo', 1.5, null, PI] };   // 뼈대 없는 모형을 쓰는 야생 동물: [모형, 키(r의 배수), 색, 앞 방향 보정]
 const WILD_RIG = { wildhorse: ['horse', 2.1, [.62, .56, .52]], bison: ['bull', 1.75, [.62, .5, .42]], unicorn: ['horse_white', 2.15, [1.12, 1.05, 1.2]], alpaca: ['alpaca', 2.5], donkey: ['donkey', 2.1], deer: ['stag', 2.6], roe: ['deer', 2.3], whitedeer: ['stag', 2.6, [2.4, 2.4, 2.6]], fox2: ['fox', 1.9], wolf: ['wolf', 2] };
 const TREE_ROUND = ['tree_oak', 'tree_fat', 'tree_oak', 'tree_fat', 'tree_autumn'], TREE_PINE = ['tree_pine', 'tree_pine_tall', 'tree_dark'];
 /* ---------- 손에 든 도구 · 덫 · 반짝이 · 경고 표시: 이모지 그림 대신 쓰는 작은 3D 모형 ---------- */
@@ -526,6 +527,7 @@ const WILD_LOOK = {
   bird: { bird: 1, c: '#5f7fa8', c2: '#e8eef4', headC: '#4f6f98', beak: '#f0a020', leg: '#c9853a', small: 1 }
 };
 function makeWild(k) {
+  if (WILD_STILL[k] && propGeo(WILD_STILL[k][0])) { const q = WILD_STILL[k], g = new THREE.Group(), inner = new THREE.Group(), fit = new THREE.Group(), m = prop(q[0], WILD[k].r * q[1], fit), d = () => new THREE.Group(); if (q[2]) { m.material = m.material.clone(); m.material.color.setRGB(q[2][0], q[2][1], q[2][2]); } fit.rotation.y = PI / 2 + (q[3] || 0); inner.add(fit); g.add(inner); return { g, inner, legs: [d(), d(), d(), d()], r: WILD[k].r, hop: 0, still: 1 }; }
   if (WILD_RIG[k]) { const q = WILD_RIG[k], m = rigClone(q[0], WILD[k].r * q[1], q[2]); if (m) { if (k === 'unicorn') addHorn(m, q[0]); return m; } }
   const o = WILD_LOOK[k] || WILD_LOOK.deer, r = k === 'bird' ? 9 : WILD[k].r, g = new THREE.Group(), inner = new THREE.Group(), Q = lowGeo(), dark = '#2a1e16'; g.add(inner);
   if (o.bird) {
@@ -572,7 +574,7 @@ function animWild(o, m, dt, flying) {      // 움직이는 방향을 보고 걷�
   if (mv) { o._ang = faceTo(dx, dy); o._ph = (o._ph || 0) + dt * (7 + v * .035); } if (o._ang != null) turn(m.g, o._ang, Math.min(1, dt * 9)); if (m.rig) { rigPlay(m, mv ? (v > 185 ? 'Gallop' : 'Walk') : 'Idle', dt); return mv; }
   const ph = o._ph || 0, sw = mv ? Math.sin(ph) * .6 : 0;
   if (m.bird) { m.legs[0].rotation.z = sw; m.legs[1].rotation.z = -sw; const fl = flying ? Math.sin(gt * 24) * .9 - .3 : 0; m.wings[0].rotation.x = -fl; m.wings[1].rotation.x = fl; m.inner.position.y = mv && !flying ? Math.abs(Math.sin(ph)) * 1.5 : 0; m.inner.rotation.z = flying ? .15 : 0; }
-  else { m.legs[0].rotation.z = sw; m.legs[3].rotation.z = sw; m.legs[1].rotation.z = -sw; m.legs[2].rotation.z = -sw; m.inner.position.y = mv ? Math.abs(Math.sin(ph * (m.hop ? .5 : 1))) * m.r * (m.hop ? .45 : .06) : Math.sin(gt * 2 + (o.seed || 0)) * m.r * .012; m.inner.rotation.z = m.hop && mv ? Math.cos(ph * .5) * .16 : 0; }
+  else { m.legs[0].rotation.z = sw; m.legs[3].rotation.z = sw; m.legs[1].rotation.z = -sw; m.legs[2].rotation.z = -sw; m.inner.position.y = mv ? Math.abs(Math.sin(ph * (m.hop ? .5 : 1))) * m.r * (m.hop ? .45 : m.still ? .12 : .06) : Math.sin(gt * 2 + (o.seed || 0)) * m.r * .012; m.inner.rotation.z = m.hop && mv ? Math.cos(ph * .5) * .16 : m.still && mv ? Math.sin(ph) * .05 : 0; }
   return mv;
 }
 function modelSlot(parent, n) { const l = []; for (let i = 0; i < n; i++) l.push({ k: null, m: null, by: {} }); l.parent = parent; return l; }
@@ -776,14 +778,14 @@ const KINDS = {
   horse: { n: '말', e: '🐴', rareName: '경주마', diet: ['hay', 'clover', 'carrot'], fav: 'carrot', buy: 9000, sell: 8200, grow: 150, preg: 90,
     sp: { model: 'horse', r: 40, v: 'neigh', sp: 120, col: '#a8683a', col2: '#d9a878', dark: '#4a2c14', ear: 'pointy', tail: 'hair', mane: 1, neck: .55, muzzle: 1, leg: .75, head: .5, cry: '히힝', p: .7 } },
   goat: { n: '염소', e: '🐐', diet: ['hay', 'clover', 'carrot'], fav: 'carrot', buy: 2000, sell: 1750, grow: 100, preg: 55,
-    sp: { r: 22, v: 'bleat', sp: 95, col: '#e8dcc8', col2: '#fff6e6', dark: '#6b5a48', ear: 'floppy', tail: 'short', horns: 1, beard: 1, leg: .5, head: .5, cry: '매애', p: 1.3 } },
+    sp: { model: 'goat', r: 22, v: 'bleat', sp: 95, col: '#e8dcc8', col2: '#fff6e6', dark: '#6b5a48', ear: 'floppy', tail: 'short', horns: 1, beard: 1, leg: .5, head: .5, cry: '매애', p: 1.3 } },
   panda: { n: '판다', e: '🐼', diet: ['bamboo'], fav: 'bamboo', buy: 20000, sell: 18000, grow: 170, preg: 100,
     sp: { r: 34, v: 'grunt', sp: 60, col: '#ffffff', col2: '#ffffff', dark: '#2a2a2e', ear: 'round', tail: 'short', panda: 1, muzzle: 1, leg: .35, head: .6, cry: '뀨', p: 1 } },
   /* 덩치 큰 희귀 동물: 높은 울타리가 있어야 하고 늦게 열린다 */
   camel: { n: '낙타', e: '🐫', rareName: '흰 낙타', diet: ['hay', 'clover', 'carrot'], fav: 'carrot', buy: 14000, sell: 12500, grow: 150, preg: 90,
     sp: { r: 44, v: 'groan', sp: 75, col: '#d2a86a', col2: '#ead2a4', dark: '#8a6238', ear: 'round', earS: .7, tail: 'hair', neck: .8, muzzle: 1, leg: .85, head: .4, cry: '끄어', p: .6 } },
   giraffe: { n: '기린', e: '🦒', rareName: '흰 기린', diet: ['hay', 'clover', 'corn'], fav: 'clover', buy: 32000, sell: 29000, grow: 185, preg: 110,
-    sp: { r: 42, v: 'grunt', sp: 95, col: '#f2c45c', col2: '#fbe6ad', dark: '#9a5a22', ear: 'pointy', tail: 'hair', mane: 1, neck: 2.1, muzzle: 1, leg: 1.25, head: .36, cry: '음음', p: .8, spots: 1 } },
+    sp: { model: 'giraffe', r: 42, v: 'grunt', sp: 95, col: '#f2c45c', col2: '#fbe6ad', dark: '#9a5a22', ear: 'pointy', tail: 'hair', mane: 1, neck: 2.1, muzzle: 1, leg: 1.25, head: .36, cry: '음음', p: .8, spots: 1 } },
   elephant: { n: '코끼리', e: '🐘', rareName: '흰 코끼리', diet: ['hay', 'corn', 'pumpkin', 'bamboo'], fav: 'pumpkin', buy: 55000, sell: 50000, grow: 210, preg: 130,
     sp: { r: 56, v: 'trumpet', sp: 55, col: '#9ba3ad', col2: '#b9c0c8', dark: '#7c848e', ear: 'floppy', earS: 2, tail: 'hair', leg: .5, head: .56, cry: '뿌우', p: .45 } },
   /* 공룡: 실험실에서 복원한다. 철 울타리가 있어야 하고 새끼를 낳지 않는다. 육식 공룡은 고기만 먹는다 */
@@ -2789,10 +2791,11 @@ Object.assign(WILD, {
   wildhorse: { n: '야생 말', e: '🐎', r: 32, sp: 250, trap: 3, live: 6000, shot: 1600, lv: 1, w: 5, meat: 3 }, bison: { n: '들소', e: '🦬', r: 40, sp: 170, trap: 3, live: 8000, shot: 2600, lv: 3, w: 3, meat: 5, hp: 3 },
   wolf: { n: '늑대', e: '🐺', r: 24, sp: 215, trap: 2, live: 3000, shot: 1400, lv: 2, w: 5, dang: 1, hp: 2, meat: 1 }, bear: { n: '곰', e: '🐻', r: 38, sp: 165, trap: 3, live: 9000, shot: 3500, lv: 3, w: 3, dang: 1, hp: 5, meat: 4 },
   tiger: { n: '호랑이', e: '🐅', r: 34, sp: 235, trap: 3, live: 30000, shot: 7000, lv: 5, w: 1.6, dang: 1, hp: 4, meat: 3 },
-  alpaca: { n: '알파카', e: '🦙', r: 24, sp: 175, trap: 2, live: 2600, shot: 900, lv: 2, w: 4, meat: 1 }, donkey: { n: '당나귀', e: '🐴', r: 28, sp: 190, trap: 2, live: 3200, shot: 1100, lv: 2, w: 4, meat: 2 }
+  alpaca: { n: '알파카', e: '🦙', r: 24, sp: 175, trap: 2, live: 2600, shot: 900, lv: 2, w: 4, meat: 1 }, donkey: { n: '당나귀', e: '🐴', r: 28, sp: 190, trap: 2, live: 3200, shot: 1100, lv: 2, w: 4, meat: 2 },
+  llama: { n: '라마', e: '🦙', r: 26, sp: 170, trap: 2, live: 2800, shot: 950, lv: 3, w: 4, meat: 1 }, hippo: { n: '하마', e: '🦛', r: 40, sp: 120, trap: 3, live: 9500, shot: 3000, lv: 6, w: 2, meat: 5, hp: 4 }
 });
 WILD.boar.lv = 1; WILD.deer.lv = 1; WILD.boar.meat = 2; WILD.deer.meat = 2; WILD.boar.hp = 2; WILD.leopard.dang = 1; WILD.leopard.hp = 3;
-const HAB = { rabbit: 'fwe', duck: 'l', boar: 'ne', deer: 'nme', peacock: 'e', whitedeer: 'n', leopard: 'm', unicorn: 'nw', squirrel: 'n', fox2: 'ewn', roe: 'nw', ibex: 'm', wildhorse: 'w', bison: 'w', wolf: 'nwm', bear: 'nm', tiger: 'nm', alpaca: 'mw', donkey: 'we' };
+const HAB = { rabbit: 'fwe', duck: 'l', boar: 'ne', deer: 'nme', peacock: 'e', whitedeer: 'n', leopard: 'm', unicorn: 'nw', squirrel: 'n', fox2: 'ewn', roe: 'nw', ibex: 'm', wildhorse: 'w', bison: 'w', wolf: 'nwm', bear: 'nm', tiger: 'nm', alpaca: 'mw', donkey: 'we', llama: 'mw', hippo: 'l' };
 const WILD_MAX = 40, WILD_TARGET = 36, wildCap = k => WILD[k].rare ? 1 : WILD[k].dang ? (k === 'tiger' ? 2 : 4) : 6;
 const habRect = h => h === 'n' ? [-2100, -1250, 2600, -220] : h === 'm' ? [2600, -1250, MAP.x1 - 100, -220] : h === 'w' ? [-2100, -150, -220, MAP.y1 - 100]
   : h === 'f' ? [380, 170, WORLD.w - 60, WORLD.h - 60] : Math.random() < .55 ? [WORLD.w + 120, -150, MAP.x1 - 100, LAKE.y - LAKE.ry - 80] : [80, WORLD.h + 120, LAKE.x - LAKE.rx - 160, MAP.y1 - 100];
@@ -3432,6 +3435,8 @@ const MODELS = {
   brachio: { pack: 'dino_apato', hk: 1.1, yaw: 0, clips: { idle: 'Armature|Apatosaurus_Idle', walk: 'Armature|Apatosaurus_Walk', run: 'Armature|Apatosaurus_Run' } },
   wolf: { pack: 'wolf', hk: 1.9, yaw: 0, clips: { idle: 'Idle', walk: 'Gallop' } },
   fox: { pack: 'fox', hk: 1.9, yaw: 0, clips: { idle: 'Idle', walk: 'Gallop' } },
+  giraffe: { pack: 'giraffe', hk: 3.4, yaw: PI / 2, clips: {} },   // yaw: 모형의 앞 방향 보정
+  goat: { pack: 'goat', hk: 2.1, yaw: PI / 2, clips: {} },
   cow: { pack: 'cow', hk: 1.95, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } },
   horse: { pack: 'horse', hk: 2.2, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } }
 };
@@ -3443,8 +3448,8 @@ function loadModels() {
     try {
       const use = g => {
         const skinned = []; g.scene.traverse(o => { if (o.isSkinnedMesh) skinned.push(o); if (o.isMesh) { o.material = cfg.pack ? mkMat({ vertexColors: true }) : mkMat({ map: o.material.map || null, color: o.material.color }); if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); } });
-        if (!skinned.length) return;
         g.scene.updateMatrixWorld(true); const box = new THREE.Box3(), v = new THREE.Vector3();   // 뼈대를 적용한 실제 크기
+        if (!skinned.length) { if (!cfg.pack) return; box.setFromObject(g.scene); cfg.still = true; }   // 뼈대 없는 모형: 걸을 때 몸 전체가 까딱거린다
         for (const mesh of skinned) { mesh.skeleton.update(); const pos = mesh.geometry.attributes.position; for (let i = 0; i < pos.count; i += 2) { v.fromBufferAttribute(pos, i); mesh.boneTransform(i, v); v.applyMatrix4(mesh.matrixWorld); box.expandByPoint(v); } }
         cfg.proto = { root: g.scene, anims: g.animations, h: box.max.y - box.min.y, off: [-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2] };
         window.__models = (window.__models || 0) + 1;
@@ -3544,6 +3549,7 @@ function syncCreature(a, dt, pred) {
   if (md.ext) { const x = md.ext, eat = a.state === 'eat', want = sleeping && x.acts.sleep ? 'sleep' : eat && x.acts.eat ? 'eat' : moving && x.acts.walk ? (a.attackedT > 0 && x.acts.run ? 'run' : 'walk') : 'idle', n = x.acts[want] || x.acts.idle;
     if (n && x.act !== n) { if (x.act) x.act.fadeOut(.25); n.reset().fadeIn(.25).play(); x.act = n; }
     x.mixer.update(sleeping && !x.acts.sleep ? 0 : dt * (want === 'walk' ? 1.3 : 1));
+    if (x.cfg.still) { const mv = moving && !sleeping ? 1 : 0, ph = t * 11 + a.seed; x.holder.position.y = mv * Math.abs(Math.sin(ph)) * r * .1; x.holder.rotation.z = mv * Math.sin(ph) * .05 + (a.state === 'eat' ? -.16 : 0); x.holder.rotation.x = mv * Math.sin(ph * .5) * .04; }
     if (a.rare && a.kind === 'cow') { const dz = sleeping ? 0 : 1; x.holder.position.y = Math.abs(Math.sin(t * 7)) * r * .22 * dz; x.holder.rotation.y = Math.sin(t * 3.5) * .6 * dz; x.holder.rotation.z = Math.sin(t * 7) * .08 * dz; }   // 춤추는 소
     for (const q of x.mats) q.m.color.copy(q.base).lerp(grime, dg * .6);
     const shorn = a.kind === 'sheep' ? .8 + .2 * Math.min(1, a.prod) : 1; x.holder.scale.set(1, shorn, pg * shorn); x.holder.position.x = scared && !carried ? Math.sin(t * 40) : 0; }

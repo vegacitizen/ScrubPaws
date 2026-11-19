@@ -27,7 +27,7 @@ const TOWN = { Plaster: '#eadfc0', Beige: '#eadfc0', Wood: '#8a5a34', Wood_Light
 const farm = (f, k) => ['src/Farm_' + f + '.glb', null, { pal: FARM, simplify: k || .5 }], town = (f, k) => ['src/Village_' + f + '.glb', null, { pal: TOWN, simplify: k || .5 }], rts = (f, pal) => ['src/RTS_' + f + '.glb', null, { pal: pal || {}, simplify: .6 }];
 const GUNC = { LightMetal: '#8a8f98', Metal: '#5a6068', DarkMetal: '#3a3a40', Black: '#2a2a2e', Wood: '#8a5a34', DarkWood: '#6b4a2a', LightWood: '#c79a63', Barrels: '#4a5058', Barrel: '#4a5058', Trigger: '#2a2a2e', Green: '#4a6a3a', Magazine: '#3a3a40', BulletYellow: '#e8c04a', BulletOrange: '#d98a3a' };
 const MODELS = {   // 게임에서 쓰는 이름: [원본, 남길 동작, 옵션]. 'src/'로 시작하면 이 폴더의 파일, 아니면 npm 꾸러미의 모형
-  // 옵션 — pal: 재질 이름별 색 바꾸기, lift: 어둡게 저장된 색 밝히기(클수록 더 밝게), simplify: 삼각형을 이 비율로 줄이기
+  // 옵션 — pal: 재질 이름별 색 바꾸기, lift: 어둡게 저장된 색 밝히기(클수록 더 밝게), simplify: 삼각형을 이 비율로 줄이기(error: 허용 오차, coarse: 색을 굵게 묶어 더 잘 줄게)
   tree_oak: tree('CommonTree_1', .28), tree_fat: tree('CommonTree_3'), tree_autumn: tree('CommonTree_Autumn_1', .28), tree_pine: tree('PineTree_1'), tree_pine_tall: tree('PineTree_2'), tree_dark: tree('PineTree_3', .3),
   birch: tree('BirchTree_1'), willow: tree('Willow_1'),
   bush: nat('Bush_1', { Green: '#7fb24a' }), bush_large: nat('BushBerries_1', { Green: '#6fa844' }), rock_small: nat('Rock_2'), rock_large: nat('Rock_3'), rock_tall: nat('Rock_1'),
@@ -44,6 +44,8 @@ const MODELS = {   // 게임에서 쓰는 이름: [원본, 남길 동작, 옵션
   gun3: ['src/Gun_SniperRifle.glb', null, { simplify: .4, pal: GUNC }], gun4: ['src/Gun_P90.glb', null, { simplify: .5, pal: { 'Material.001': '#3a3a40', 'Material.002': '#5a6068', 'Material.003': '#2a2a2e', 'Material.004': '#8a8f98' } }],
   torch: ['src/Survival_WoodenTorch.glb', null, { pal: { DarkWood: '#8a5a34', LightGrey: '#9aa0a8', Yellow: '#e8c04a' } }], shovel: ['src/Survival_Shovel.glb', null, { pal: { DarkWood: '#8a5a34', Grey: '#9aa0a8', Red: '#c2523f' } }],
   bonfire: ['src/Survival_Bonfire_Fire.glb', null, { simplify: .6, pal: { Wood: '#8a5a34', LightWood: '#a9744f', Fire: '#ff8a1f' } }], tent: ['src/Survival_Tent.glb', null, { simplify: .6, pal: { DarkWood: '#8a5a34', Black: '#3a3a40', LightGreen: '#8fae6a', Green: '#5f8f4a' } }],
+  // Sketchfab의 CC-BY 4.0 모형(뼈대 없음). prebake.mjs로 꼭짓점 색 GLB로 바꿔 둔 것. 출처는 src/README.md
+  giraffe: ['src/Extra_Giraffe.glb', null, { simplify: .8 }], goat: ['src/Extra_Goat.glb', null, { simplify: .8 }], hippo: ['src/Extra_Hippo.glb', null, { simplify: .8 }], llama: ['src/Extra_Llama.glb', null, { simplify: .1, error: .4, coarse: 1 }],
   tractor: ['tractor'],
   cow: ['src/Cow.glb', ANIMAL], horse: ['src/Horse.glb', ANIMAL], sheep: ['src/Sheep.glb', OLD], pig: ['src/Pig.glb', OLD, { pal: { 'Material.003': '#f2a6b4', Material: '#8a4a52' } }],
   bull: ['src/Bull.glb', ANIMAL], horse_white: ['src/Horse_White.glb', ANIMAL], alpaca: ['src/Alpaca.glb', ANIMAL], donkey: ['src/Donkey.glb', ANIMAL],
@@ -78,7 +80,7 @@ for (const [id, [src, keep, opt = {}]] of Object.entries(MODELS)) {
     for (let i = 0; i < n; i++) { let c = [f[0], f[1], f[2]];
       if (img) { const q = uv.getElement(i, []), u = q[0] * sc[0] + off[0], v = q[1] * sc[1] + off[1], x = Math.min(img.width - 1, Math.max(0, Math.floor((u - Math.floor(u)) * img.width))), y = Math.min(img.height - 1, Math.max(0, Math.floor((v - Math.floor(v)) * img.height))), p = (y * img.width + x) * 4; c = [c[0] * lin(img.data[p]), c[1] * lin(img.data[p + 1]), c[2] * lin(img.data[p + 2])]; }
       if (old) { const q = old.getElement(i, []); c = [c[0] * q[0], c[1] * q[1], c[2] * q[2]]; }
-      for (let k = 0; k < 3; k++) col[i * 3 + k] = Math.round(Math.min(1, Math.max(0, c[k])) * 65535); }
+      for (let k = 0; k < 3; k++) { let v = Math.min(1, Math.max(0, c[k])); if (opt.coarse) v = Math.round(Math.sqrt(v) * 10) / 10, v *= v; col[i * 3 + k] = Math.round(v * 65535); } }
     prim.setAttribute('COLOR_0', doc.createAccessor().setType('VEC3').setArray(col).setNormalized(true).setBuffer(buf)).setAttribute('TEXCOORD_0', null).setMaterial(one); if (opt.simplify) prim.setAttribute('NORMAL', null);   // 줄일 모형은 법선을 버린다(게임에서 다시 계산). 그래야 꼭짓점이 합쳐져 줄어든다
   }
   for (const mesh of root.listMeshes()) {   // 한 모형의 조각을 하나로 합친다(그리는 횟수 줄이기)
@@ -89,7 +91,7 @@ for (const [id, [src, keep, opt = {}]] of Object.entries(MODELS)) {
     np.setIndices(doc.createAccessor().setType('SCALAR').setArray(tot > 65535 ? new Uint32Array(idx) : new Uint16Array(idx)).setBuffer(buf)); for (const p of ps) { mesh.removePrimitive(p); p.dispose(); } mesh.addPrimitive(np);
   }
   for (const e of root.listExtensionsUsed()) if (['EXT_meshopt_compression', 'KHR_materials_unlit', 'KHR_texture_transform'].includes(e.extensionName)) e.dispose();
-  await doc.transform(dedup(), ...(keep ? [resample()] : [flatten()]), join(), weld(), ...(opt.simplify ? [simplify({ simplifier: MeshoptSimplifier, ratio: opt.simplify, error: .05 })] : []), prune(), quantize({ quantizePosition: 14, quantizeNormal: 8, quantizeColor: 8, quantizeWeight: 8 }));
+  await doc.transform(dedup(), ...(keep ? [resample()] : [flatten()]), join(), weld(), ...(opt.simplify ? [simplify({ simplifier: MeshoptSimplifier, ratio: opt.simplify, error: opt.error || .05 })] : []), prune(), quantize({ quantizePosition: 14, quantizeNormal: 8, quantizeColor: 8, quantizeWeight: 8 }));
   const tris = root.listMeshes().reduce((n, m) => n + m.listPrimitives().reduce((k, p) => k + (p.getIndices() ? p.getIndices().getCount() : p.getAttribute('POSITION').getCount()) / 3, 0), 0);
   const glb = await io.writeBinary(doc); out[id] = Buffer.from(glb).toString('base64'); total += glb.byteLength;
   console.log(id.padEnd(16), String(glb.byteLength).padStart(8), 'bytes', String(Math.round(tris)).padStart(6), 'tris', root.listAnimations().map(a => a.getName()).join(' '));
