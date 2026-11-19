@@ -394,11 +394,12 @@ function lightScene(n, L, tx, tz) {       // 낮 · 노을 · 밤의 빛 색과 
 const GL = {}, bakeCache = {};
 function lowGeo() { if (!GL.sph) { GL.sph = new THREE.SphereGeometry(1, 10, 7); GL.cyl = new THREE.CylinderGeometry(1, 1, 1, 8); GL.cone = new THREE.ConeGeometry(1, 1, 8); GL.tor = new THREE.TorusGeometry(1, .1, 5, 14); GL.mat = mkMat({ vertexColors: true }); } return GL; }
 function bake(g) {
-  g.updateMatrixWorld(true); const P = [], N = [], C = [], I = [], v = new THREE.Vector3(), nm = new THREE.Matrix3(); let base = 0;
+  g.updateMatrixWorld(true); const P = [], N = [], C = [], I = [], v = new THREE.Vector3(), nm = new THREE.Matrix3(); let base = 0, flat = false;
   g.traverse(m => { if (!m.isMesh || !m.visible || m.material.isMeshBasicMaterial || m.material.transparent) return; const ge = m.geometry, p = ge.attributes.position, nr = ge.attributes.normal, col = m.material.color, vc = ge.attributes.color, ix = ge.index; nm.getNormalMatrix(m.matrixWorld);
-    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); P.push(v.x, v.y, v.z); v.fromBufferAttribute(nr, i).applyMatrix3(nm).normalize(); N.push(v.x, v.y, v.z); if (vc) C.push(col.r * vc.getX(i), col.g * vc.getY(i), col.b * vc.getZ(i)); else C.push(col.r, col.g, col.b); }
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld); P.push(v.x, v.y, v.z); if (nr) { v.fromBufferAttribute(nr, i).applyMatrix3(nm).normalize(); N.push(v.x, v.y, v.z); } else { N.push(0, 1, 0); flat = true; } if (vc) C.push(col.r * vc.getX(i), col.g * vc.getY(i), col.b * vc.getZ(i)); else C.push(col.r, col.g, col.b); }
     if (ix) for (let i = 0; i < ix.count; i++) I.push(base + ix.getX(i)); else for (let i = 0; i < p.count; i++) I.push(base + i); base += p.count; });
-  const o = new THREE.BufferGeometry(); o.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); o.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); o.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); o.setIndex(I); return o;
+  const o = new THREE.BufferGeometry(); o.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); o.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); o.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); o.setIndex(I); if (flat) { const f = o.toNonIndexed(); f.computeVertexNormals(); return f; }   // 법선이 없는 모형은 면마다 각지게
+  return o;
 }
 function baked(key, build) { const geo = bakeCache[key] || (bakeCache[key] = (() => { const g = new THREE.Group(); build(g); return bake(g); })()); const m = new THREE.Mesh(geo, lowGeo().mat); m.castShadow = true; m.receiveShadow = true; return m; }
 /* ---------- CC0 모형 묶음(pack_models.js): Kenney · Quaternius. 없거나 읽지 못하면 도형으로 만든 모형이 그대로 보인다 ---------- */
@@ -415,12 +416,12 @@ function packMat(sway) {                  // 묶음의 모형은 모두 꼭짓�
 }
 function propGeo(id) {                    // 움직이지 않는 모형을 한 덩어리로: 바닥 가운데가 원점, 높이 1
   if (propCache[id] !== undefined) return propCache[id]; const g = PACK[id]; if (!g) return propCache[id] = null;
-  try { const geo = bake(g.scene); geo.computeBoundingBox(); const b = geo.boundingBox, h = b.max.y - b.min.y; if (!(h > 0)) return propCache[id] = null; geo.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2); geo.scale(1 / h, 1 / h, 1 / h); geo.computeBoundingSphere(); geo.userData.w = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) / h; return propCache[id] = geo; } catch (e) { return propCache[id] = null; }
+  try { const geo = bake(g.scene); geo.computeBoundingBox(); const b = geo.boundingBox, h = b.max.y - b.min.y; if (!(h > 0)) return propCache[id] = null; geo.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2); geo.scale(1 / h, 1 / h, 1 / h); geo.computeBoundingBox(); geo.computeBoundingSphere(); geo.userData.w = Math.max(geo.boundingBox.max.x - geo.boundingBox.min.x, geo.boundingBox.max.z - geo.boundingBox.min.z); return propCache[id] = geo; } catch (e) { return propCache[id] = null; }
 }
 function prop(id, h, parent, x, y, z, sway) { const geo = propGeo(id); if (!geo) return null; const m = new THREE.Mesh(geo, packMat(sway)); m.scale.setScalar(h); m.position.set(x || 0, y || 0, z || 0); m.castShadow = true; m.receiveShadow = true; if (parent) parent.add(m); return m; }
 function packRig(id) {                    // 뼈대와 동작이 있는 모형
   const g = PACK[id]; if (!g || !THREE.SkeletonUtils) return null; if (g.rig !== undefined) return g.rig;
-  try { const sk = []; g.scene.traverse(o => { if (o.isSkinnedMesh) sk.push(o); if (o.isMesh) o.material = packMat(); }); if (!sk.length) return g.rig = null;
+  try { const sk = []; g.scene.traverse(o => { if (o.isSkinnedMesh) sk.push(o); if (o.isMesh) { o.material = packMat(); if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); } }); if (!sk.length) return g.rig = null;
     g.scene.updateMatrixWorld(true); const box = new THREE.Box3(), v = new THREE.Vector3();
     for (const mesh of sk) { mesh.skeleton.update(); const pos = mesh.geometry.attributes.position; for (let i = 0; i < pos.count; i += 2) { v.fromBufferAttribute(pos, i); mesh.boneTransform(i, v); v.applyMatrix4(mesh.matrixWorld); box.expandByPoint(v); } }
     return g.rig = { root: g.scene, anims: g.animations, h: box.max.y - box.min.y, off: [-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2] }; } catch (e) { return g.rig = null; }
@@ -433,6 +434,12 @@ function rigClone(id, h, tint) {
   const mixer = new THREE.AnimationMixer(root), acts = {}; for (const c of pr.anims) acts[c.name] = mixer.clipAction(c); return { g, rig: { mixer, acts, cur: null } };
 }
 function rigPlay(m, name, dt) { const x = m.rig, a = x.acts[name] || x.acts.Idle || x.acts.idle; if (a && x.cur !== a) { a.reset().fadeIn(.2).play(); if (x.cur) x.cur.fadeOut(.2); x.cur = a; } x.mixer.update(dt); }
+function propLen(id, len, parent, sink) {   // 길이에 맞춰 놓는다(배). 긴 쪽이 앞뒤(x)가 되게 돌린다
+  const m = prop(id, 1, parent); if (!m) return null; const b = m.geometry.boundingBox, lx = b.max.x - b.min.x, lz = b.max.z - b.min.z, k = len / Math.max(lx, lz); m.scale.setScalar(k); if (lz > lx) m.rotation.y = PI / 2; m.position.y = -(sink || 0) * k; return m;
+}
+function propBox(id, len, hgt, wid, parent, x, top, z) {   // 상자 크기에 맞춰 늘려 놓는다(선착장). 윗면이 top 높이에 온다
+  const m = prop(id, 1, parent); if (!m) return null; const b = m.geometry.boundingBox, lx = b.max.x - b.min.x, lz = b.max.z - b.min.z, turn = lz > lx; m.scale.set((turn ? wid : len) / lx, hgt, (turn ? len : wid) / lz); if (turn) m.rotation.y = PI / 2; m.position.set(x, top - hgt, z); return m;
+}
 const WILD_RIG = { wildhorse: ['horse', 2.1, [.62, .56, .52]], deer: ['stag', 2.6], roe: ['deer', 2.3], whitedeer: ['stag', 2.6, [2.4, 2.4, 2.6]], fox2: ['fox', 1.9], wolf: ['wolf', 2] };
 const TREE_ROUND = ['tree_oak', 'tree_fat', 'tree_oak', 'tree_fat', 'tree_autumn'], TREE_PINE = ['tree_pine', 'tree_pine_tall', 'tree_dark'];
 /* ---------- 작물 ---------- */
@@ -525,17 +532,24 @@ function animWild(o, m, dt, flying) {      // 움직이는 방향을 보고 걷�
 function modelSlot(parent, n) { const l = []; for (let i = 0; i < n; i++) l.push({ k: null, m: null, by: {} }); l.parent = parent; return l; }
 function slotUse(slots, i, k) { const s = slots[i]; if (s.k !== k) { if (s.m) s.m.g.visible = false; s.k = k; s.m = k ? s.by[k] || (s.by[k] = (m => { slots.parent.add(m.g); return m; })(makeWild(k))) : null; if (s.m) s.m.g.visible = true; } return s.m; }
 /* ---------- 물고기 떼 · 손님 ---------- */
+function lilypads(parent, W, n, seed) {    // 물가의 연잎
+  const geo = propGeo('lilypad'); if (!geo) return; const im = new THREE.InstancedMesh(geo, packMat(), n), d = new THREE.Object3D(); for (let i = 0; i < n; i++) { const a = i * 2.399 + seed, k = .8 + ((i * 7 + seed) % 5) * .028, s = (20 + (i % 4) * 5) / geo.userData.w; d.position.set(W.x + Math.cos(a) * W.rx * k, 1.9, W.y + Math.sin(a) * W.ry * k); d.rotation.set(0, a * 3, 0); d.scale.set(s, s, s); d.updateMatrix(); im.setMatrixAt(i, d.matrix); } im.frustumCulled = false; im.receiveShadow = true; parent.add(im);
+}
 function makeSchool() {
   const g = new THREE.Group(), fm = new THREE.MeshBasicMaterial({ color: '#16406c', transparent: true, opacity: .55, depthWrite: false }), rm = () => new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .5, depthWrite: false }), fish = [], rings = [], Q = lowGeo();
-  for (let i = 0; i < 6; i++) { const f = new THREE.Group(); M(Q.sph, fm, 9, 1, 3.6, 0, 0, 0, f); const t = M(Q.cone, fm, 1, 7, 5, -11, 0, 0, f); t.rotation.z = -PI / 2; f.scale.setScalar(.8 + (i % 3) * .2); g.add(f); fish.push(f); }
+  const kg = propGeo('koi'), km = kg && (matCache.koi || (matCache.koi = (m => { m.transparent = true; m.opacity = .72; m.depthWrite = false; m.color.set('#9fc8e8'); return m; })(packMat().clone())));
+  for (let i = 0; i < 6; i++) { const f = new THREE.Group(); if (kg) { const b = kg.boundingBox, lx = b.max.x - b.min.x, lz = b.max.z - b.min.z, k = new THREE.Mesh(kg, km); k.scale.setScalar(24 / Math.max(lx, lz)); k.rotation.y = lz > lx ? PI / 2 : 0; k.position.y = -3; f.add(k); } else { M(Q.sph, fm, 9, 1, 3.6, 0, 0, 0, f); const t = M(Q.cone, fm, 1, 7, 5, -11, 0, 0, f); t.rotation.z = -PI / 2; } f.scale.setScalar(.8 + (i % 3) * .2); g.add(f); fish.push(f); }
   for (let i = 0; i < 2; i++) { const r = M(G.ring, rm(), 1, 1, 1, 0, 2.6, 0, g); r.rotation.x = -PI / 2; rings.push(r); } return { g, fish, rings };
 }
 function syncSchool(m, q, i) { m.g.position.set(q.x, 0, q.y);
   m.fish.forEach((f, j) => { const d = j % 2 ? 1 : -1, a = gt * (1.1 + j * .17) * d + j * 1.9 + q.seed, rx = 18 + j * 5, rz = 13 + j * 4; f.position.set(Math.cos(a) * rx, 2.3, Math.sin(a) * rz); f.rotation.y = faceTo(-Math.sin(a) * d, Math.cos(a) * d) + Math.sin(gt * 9 + j) * .2; });
   m.rings.forEach((r, j) => { const t = (gt * .45 + j * .5 + q.seed) % 1, s = 14 + t * 44; r.scale.set(s, s * .8, 1); r.material.opacity = (1 - t) * .5; }); }
 const VISIT_LOOK = [{ '#ff6b5e': '#4f8fd9', '#e2493f': '#3a6fb0', '#5a3a22': '#2a2420' }, { '#ff6b5e': '#f2c94c', '#e2493f': '#d9a020', '#3d5a80': '#8a4f6a', '#5a3a22': '#b5683a' }, { '#ff6b5e': '#6fbf73', '#e2493f': '#3f8f4a', '#3d5a80': '#4a4a52' }, { '#ff6b5e': '#c98ae8', '#e2493f': '#9a5ac0', '#5a3a22': '#d8d8d8' }, { '#ff6b5e': '#ff9a4a', '#e2493f': '#e0701c', '#3d5a80': '#2f6f6a', '#5a3a22': '#3a2a22' }];
+function makeWorker(w) {                  // 묶음의 일꾼 모형. 팔다리는 동작으로 움직이므로 빈 자리만 채워 둔다
+  const m = rigClone(w.job.length % 2 ? 'worker_a' : 'worker_b', 112); if (!m) return null; const d = () => new THREE.Group(); m.inner = d(); m.head = d(); m.legs = [d(), d()]; m.arms = [d(), d()]; m.shadow = d(); return m;
+}
 function makeVisitor(i) {                 // 묶음의 사람 모형. 없으면 주인공 모형을 옷 색만 바꿔 한 덩어리로 굽는다
-  const rg = rigClone('person_' + 'abcde'[i % 5], [96, 84, 100, 90, 78][i % 5]); if (rg) { rg.g.userData.m = rg; rg.g.userData.yaw = PI / 2; return rg.g; }
+  const rg = rigClone('person_' + 'abcde'[i % 5], [104, 98, 108, 100, 96][i % 5]); if (rg) { rg.g.userData.m = rg; rg.g.userData.yaw = PI / 2; return rg.g; }
   const look = VISIT_LOOK[i % VISIT_LOOK.length], m = baked('visit' + i, g => { const k = makeKid(), mm = {}; for (const c in look) mm[mat(c).uuid] = mat(look[c]); k.g.traverse(o => { if (o.isMesh && mm[o.material.uuid]) o.material = mm[o.material.uuid]; }); g.add(k.g); });
   m.scale.setScalar([.95, .8, 1.05, .9, .75][i % 5]); m.userData.yaw = PI; return m;
 }
@@ -708,17 +722,17 @@ const KINDS = {
     sp: { r: 56, v: 'trumpet', sp: 55, col: '#9ba3ad', col2: '#b9c0c8', dark: '#7c848e', ear: 'floppy', earS: 2, tail: 'hair', leg: .5, head: .56, cry: '뿌우', p: .45 } },
   /* 공룡: 실험실에서 복원한다. 철 울타리가 있어야 하고 새끼를 낳지 않는다. 육식 공룡은 고기만 먹는다 */
   proto: { dino: 1, n: '프로토케라톱스', e: '🦕', diet: ['hay', 'clover'], fav: 'clover', buy: 6000, sell: 16000, grow: 140, preg: 0,
-    sp: { r: 26, v: 'groan', sp: 70, col: '#cdb26e', col2: '#eedfae', dark: '#8a6f3a', ear: 'none', tail: 'none', leg: .35, head: .55, cry: '끄르', p: 1, frill: 1 } },
+    sp: { model: 'proto', r: 26, v: 'groan', sp: 70, col: '#cdb26e', col2: '#eedfae', dark: '#8a6f3a', ear: 'none', tail: 'none', leg: .35, head: .55, cry: '끄르', p: 1, frill: 1 } },
   compy: { dino: 1, meat: 1, n: '콤프소그나투스', e: '🦖', diet: ['meat'], fav: 'meat', buy: 3000, sell: 36000, grow: 120, preg: 0,
-    sp: { r: 15, v: 'screech', sp: 130, col: '#9ccc5a', col2: '#e6f2b8', dark: '#4f7a2a', ear: 'none', tail: 'none', legs: 2, legW: .12, neck: .35, leg: .8, head: .5, cry: '끼익', p: 1.6, jaw: 1 } },
+    sp: { model: 'compy', r: 15, v: 'screech', sp: 130, col: '#9ccc5a', col2: '#e6f2b8', dark: '#4f7a2a', ear: 'none', tail: 'none', legs: 2, legW: .12, neck: .35, leg: .8, head: .5, cry: '끼익', p: 1.6, jaw: 1 } },
   trike: { dino: 1, n: '트리케라톱스', e: '🦕', diet: ['hay', 'clover', 'pumpkin'], fav: 'pumpkin', buy: 14000, sell: 36000, grow: 190, preg: 0,
-    sp: { r: 50, v: 'groan', sp: 60, col: '#7fa66a', col2: '#cfe0b0', dark: '#4d6e3e', ear: 'none', tail: 'none', leg: .4, head: .6, cry: '쿠오', p: .5, frill: 1, horn3: 1 } },
+    sp: { model: 'trike', r: 50, v: 'groan', sp: 60, col: '#7fa66a', col2: '#cfe0b0', dark: '#4d6e3e', ear: 'none', tail: 'none', leg: .4, head: .6, cry: '쿠오', p: .5, frill: 1, horn3: 1 } },
   raptor: { dino: 1, meat: 1, n: '벨로키랍토르', e: '🦖', diet: ['meat'], fav: 'meat', buy: 7000, sell: 84000, grow: 170, preg: 0,
-    sp: { r: 28, v: 'screech', sp: 140, col: '#c8743a', col2: '#f0d6a8', dark: '#6a3414', ear: 'none', tail: 'none', legs: 2, legW: .13, neck: .4, leg: .85, head: .5, cry: '캬악', p: 1.2, jaw: 1, stripes: 1 } },
+    sp: { model: 'raptor', r: 28, v: 'screech', sp: 140, col: '#c8743a', col2: '#f0d6a8', dark: '#6a3414', ear: 'none', tail: 'none', legs: 2, legW: .13, neck: .4, leg: .85, head: .5, cry: '캬악', p: 1.2, jaw: 1, stripes: 1 } },
   brachio: { dino: 1, n: '브라키오사우루스', e: '🦕', diet: ['hay', 'clover', 'bamboo'], fav: 'bamboo', buy: 28000, sell: 72000, grow: 230, preg: 0,
-    sp: { r: 66, v: 'moo', sp: 45, col: '#6f9fb8', col2: '#c4dde8', dark: '#3f6a82', ear: 'none', tail: 'none', neck: 2.3, leg: .8, head: .26, cry: '우오오', p: .35 } },
+    sp: { model: 'brachio', r: 66, v: 'moo', sp: 45, col: '#6f9fb8', col2: '#c4dde8', dark: '#3f6a82', ear: 'none', tail: 'none', neck: 2.3, leg: .8, head: .26, cry: '우오오', p: .35 } },
   trex: { dino: 1, meat: 1, n: '티라노사우루스', e: '🦖', diet: ['meat'], fav: 'meat', buy: 15000, sell: 180000, grow: 250, preg: 0,
-    sp: { r: 60, v: 'roar', sp: 80, col: '#5f7f4a', col2: '#d8cf9a', dark: '#34502a', ear: 'none', tail: 'none', legs: 2, legW: .17, neck: .3, leg: .75, head: .6, cry: '크아앙', p: .4, jaw: 1, stripes: 1 } }
+    sp: { model: 'trex', r: 60, v: 'roar', sp: 80, col: '#5f7f4a', col2: '#d8cf9a', dark: '#34502a', ear: 'none', tail: 'none', legs: 2, legW: .17, neck: .3, leg: .75, head: .6, cry: '크아앙', p: .4, jaw: 1, stripes: 1 } }
 };
 /* 희귀 가축: 황금빛(소는 춤추는 소). 파는 값이 RARE_MULT배이고, 어미의 만족도가 높을수록 태어날 확률이 오른다 */
 const LEG_SP = { col: '#b98bff', col2: '#f0e0ff', dark: '#6a3fb8', earCol: '#8f5fe0' };   // 전설 가축: 보랏빛. 희귀한 어미에게서만 아주 드물게 태어나고 값이 20배
@@ -2866,7 +2880,11 @@ function buildWorld2(S) {   // 3D: 지역 바닥색 · 숲 · 산 · 덤불 · �
   fitGround(); const r = srand(2024), dm = new THREE.Object3D();
   const tint = (col, x0, y0, x1, y1, op) => { const m = M(new THREE.PlaneGeometry(1, 1), mkMat({ color: col, transparent: true, opacity: op, depthWrite: false }), x1 - x0, y1 - y0, 1, (x0 + x1) / 2, .15, (y0 + y1) / 2, S); m.rotation.x = -PI / 2; m.receiveShadow = true; };
   tint('#3f7f3a', MAP.x0 - 1300, MAP.y0 - 1300, 2600, -150, .45); tint('#8a9478', 2600, MAP.y0 - 1300, MAP.x1 + 1300, -150, .55); tint('#d6d77a', MAP.x0 - 1300, -150, -150, MAP.y1 + 1300, .35);
-  const inst = (geo, col, list) => { const im = new THREE.InstancedMesh(geo, col && col.isMaterial ? col : geo === G.leaf || geo === G.pine ? leafMat(col) : mat(col), list.length); list.forEach((q, i) => { dm.position.set(q[0], q[1], q[2]); dm.scale.set(q[3], q[4], q[5]); dm.rotation.set(0, q[6] || 0, 0); dm.updateMatrix(); im.setMatrixAt(i, dm.matrix); }); im.frustumCulled = false; im.castShadow = true; im.receiveShadow = true; S.add(im); return im; };
+  const inst = (geo, col, list) => {   // 구역(900칸)마다 따로 묶어, 화면에 보이는 구역만 그린다
+    const mt = col && col.isMaterial ? col : geo === G.leaf || geo === G.pine ? leafMat(col) : mat(col), cells = {}; for (const q of list) { const k = Math.floor(q[0] / 900) + ',' + Math.floor(q[2] / 900); (cells[k] = cells[k] || []).push(q); }
+    for (const k in cells) { const L = cells[k], c = k.split(','), cx = (+c[0] + .5) * 900, cz = (+c[1] + .5) * 900, g2 = new THREE.BufferGeometry(); g2.attributes = geo.attributes; g2.index = geo.index; let ext = 0, top = 0; for (const q of L) { ext = Math.max(ext, q[3], q[4], q[5]); top = Math.max(top, q[1] + q[4]); }
+      g2.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, top / 2, 0), 640 + ext + top / 2); const im = new THREE.InstancedMesh(g2, mt, L.length); im.position.set(cx, 0, cz);
+      L.forEach((q, i) => { dm.position.set(q[0] - cx, q[1], q[2] - cz); dm.scale.set(q[3], q[4], q[5]); dm.rotation.set(0, q[6] || 0, 0); dm.updateMatrix(); im.setMatrixAt(i, dm.matrix); }); im.frustumCulled = true; im.castShadow = true; im.receiveShadow = true; S.add(im); } };
   const okDeco = (x, y, m) => !nearFarm(x, y, 120) && !inWater(x, y) && lakeRho(x, y) > 1.15 && resvRho(x, y) > 1.3 && !solidAt(x, y, m) && !STATIONS.some(s => Math.hypot(s.x - x, s.y - y) < 160) && !(x > -330 && x < -60 && y > 420 && y < 780);
   const trunks = [], tops = [], tops2 = [], pk = propGeo('tree_oak') && propGeo('tree_pine') ? {} : null; let pn = 0;
   const tree = (x, y, s, pine) => { if (pk) { const id = pine ? TREE_PINE[pn % 3] : TREE_ROUND[pn % 5], h = (pine ? (id === 'tree_pine_tall' ? 200 : 170) : 145) * s; pn++; (pk[id] = pk[id] || []).push([x, 0, y, h, h, h, pn * 1.9]); return; } trunks.push([x, 30 * s, y, 9 * s, 60 * s, 9 * s]); if (pine) { tops2.push([x, 110 * s, y, 46 * s, 120 * s, 46 * s]); } else tops.push([x, 92 * s, y, 44 * s, 46 * s, 44 * s]); };
@@ -2880,12 +2898,12 @@ function buildWorld2(S) {   // 3D: 지역 바닥색 · 숲 · 산 · 덤불 · �
   const mt = [], snow = []; for (const q of SOLIDS) { mt.push([q.x, q.r * .75, q.y, q.r, q.r * 1.5, q.r, r() * 3]); snow.push([q.x, q.r * 1.32, q.y, q.r * .34, q.r * .42, q.r * .34]); } if (mt.length) { inst(G.cone, '#8f949c', mt); inst(G.cone, '#f4f6f8', snow); }
   // 저수지 낚시터
   const flat = (geo, col, sx, sy, x, y, z) => { const m = M(geo, mat(col), sx, sy, 1, x, y, z, S); m.rotation.x = -PI / 2; m.receiveShadow = true; return m; };
-  flat(G.circ, '#ecd9a0', RESV.rx + 40, RESV.ry + 40, RESV.x, .5, RESV.y); flat(G.circ, '#5ab4e8', RESV.rx, RESV.ry, RESV.x, .9, RESV.y); flat(G.circ, '#3f9ad6', RESV.rx * .7, RESV.ry * .7, RESV.x, 1.2, RESV.y); flat(G.circ, '#2c78b8', RESV.rx * .4, RESV.ry * .4, RESV.x, 1.5, RESV.y); addWaterFx(S, RESV.x, RESV.y, RESV.rx, RESV.ry);
+  flat(G.circ, '#ecd9a0', RESV.rx + 40, RESV.ry + 40, RESV.x, .5, RESV.y); flat(G.circ, '#5ab4e8', RESV.rx, RESV.ry, RESV.x, .9, RESV.y); flat(G.circ, '#3f9ad6', RESV.rx * .7, RESV.ry * .7, RESV.x, 1.2, RESV.y); flat(G.circ, '#2c78b8', RESV.rx * .4, RESV.ry * .4, RESV.x, 1.5, RESV.y); addWaterFx(S, RESV.x, RESV.y, RESV.rx, RESV.ry); lilypads(S, RESV, 18, 3);
   const reeds = []; for (let i = 0; i < 70; i++) { const an = r() * TAU; if (Math.cos(an) > .8) continue; const k = .97 + r() * .1, x = RESV.x + Math.cos(an) * RESV.rx * k, y = RESV.y + Math.sin(an) * RESV.ry * k; reeds.push([x, 18, y, 3, 36 + r() * 20, 3]); } inst(G.cone, '#6f9a3a', reeds);
-  B('#a9744f', RPIER.x1 - RPIER.x0 + 20, 8, 46, (RPIER.x0 + RPIER.x1) / 2, 9, RPIER.y, S, 2); for (let x = RPIER.x0 + 10; x < RPIER.x1; x += 50) for (const z of [-20, 20]) M(G.cyl, '#7a4f2c', 5, 30, 5, x, 6, RPIER.y + z, S);
+  if (!propBox('dock_long', RPIER.x1 - RPIER.x0 + 26, 62, 56, S, (RPIER.x0 + RPIER.x1) / 2, 50, RPIER.y)) { B('#a9744f', RPIER.x1 - RPIER.x0 + 20, 8, 46, (RPIER.x0 + RPIER.x1) / 2, 9, RPIER.y, S, 2); for (let x = RPIER.x0 + 10; x < RPIER.x1; x += 50) for (const z of [-20, 20]) M(G.cyl, '#7a4f2c', 5, 30, 5, x, 6, RPIER.y + z, S); }
   flat(new THREE.PlaneGeometry(1, 1), '#c9a77a', 180, 260, -190, .7, 600); for (const [x, z] of [[-200, 500], [-200, 690]]) { B('#8a5a34', 70, 8, 22, x, 22, z, S, 2); B('#8a5a34', 70, 22, 6, x, 36, z - 11, S, 2); for (const dx of [-28, 28]) B('#6b4a2a', 6, 20, 18, x + dx, 10, z, S, 1); }
   M(G.cyl, '#8a5a3a', 4, 90, 4, -120, 45, 470, S); const rs = canvasTex(512, 96, c => { rr(c, 0, 0, 512, 96, 24, 'rgba(42,110,160,.9)'); txt(c, '🎣 저수지 낚시터', 256, 50, 40, '#fff'); }); const rsp = new THREE.Sprite(new THREE.SpriteMaterial({ map: rs, transparent: true, depthWrite: false })); rsp.scale.set(260, 49, 1); rsp.position.set(-120, 118, 470); S.add(rsp);
-  { const g = world3.rboatM = new THREE.Group(); B('#a9744f', 60, 14, 26, 0, 7, 0, g, 6); B('#8a5a34', 58, 4, 27, 0, 14, 0, g, 2); B('#6b4a2a', 6, 3, 30, 10, 16, 0, g, 1); sh(g); g.visible = false; scene.add(g); }
+  { const g = world3.rboatM = new THREE.Group(); if (!propLen('boat_small', 72, g, .08)) { B('#a9744f', 60, 14, 26, 0, 7, 0, g, 6); B('#8a5a34', 58, 4, 27, 0, 14, 0, g, 2); B('#6b4a2a', 6, 3, 30, 10, 16, 0, g, 1); sh(g); } g.visible = false; scene.add(g); }
   // 정류장과 지역 표지판
   for (const s of STATIONS) { const g = new THREE.Group(); g.position.set(s.x, 0, s.y); M(G.cyl, '#5a6470', 3, 110, 3, 0, 55, 0, g); B('#2f7fd9', 46, 30, 4, 0, 104, 0, g, 3); const sp = sprite('🚏', g, 40); sp.position.set(0, 150, 0); B('#c9a77a', 90, 4, 60, 0, 1, 20, g, 2); sh(g); S.add(g); }
   for (const [rk, x, y] of [['north', 900, -420], ['mount', 3300, -330], ['west', -560, 1250], ['east', 2700, 260]]) { const G2 = REGIONS[rk], tx2 = canvasTex(512, 96, c => { rr(c, 0, 0, 512, 96, 24, 'rgba(74,50,38,.85)'); txt(c, G2.e + ' ' + G2.n, 256, 50, 40, '#fff'); }); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx2, transparent: true, depthWrite: false })); sp.scale.set(260, 49, 1); sp.position.set(x, 90, y); S.add(sp); M(G.cyl, '#8a5a3a', 4, 70, 4, x, 35, y, S); }
@@ -3166,14 +3184,14 @@ function init3D() {
   { const L = world3.lakeG = new THREE.Group(); scene.add(L); const flat = (geo, col, sx, sy, x, y, z) => { const m = M(geo, mat(col), sx, sy, 1, x, y, z, L); m.rotation.x = -PI / 2; m.receiveShadow = true; return m; };
     flat(new THREE.PlaneGeometry(1, 1), '#f2cc7a', DOCKPOS.x - WORLD.w + 260, 64, (DOCKPOS.x + WORLD.w) / 2 - 110, .3, LAKE.y);
     flat(G.circ, '#ecd9a0', LAKE.rx + 46, LAKE.ry + 46, LAKE.x, .5, LAKE.y); flat(G.circ, '#4aa3df', LAKE.rx, LAKE.ry, LAKE.x, .9, LAKE.y); flat(G.circ, '#3a8fd0', LAKE.rx * .66, LAKE.ry * .66, LAKE.x, 1.2, LAKE.y); flat(G.circ, '#2c75b8', LAKE.rx * .33, LAKE.ry * .33, LAKE.x, 1.5, LAKE.y);
-    for (let i = 0; i < 14; i++) { const an = i / 14 * TAU + .2, r = 1.13 + (i % 3) * .05, x = LAKE.x + Math.cos(an) * LAKE.rx * r, z = LAKE.y + Math.sin(an) * LAKE.ry * r; if (Math.abs(z - LAKE.y) < 260 && x < LAKE.x) continue; const pt = prop(TREE_ROUND[i % TREE_ROUND.length], 128, L, x, 0, z, true); if (pt) { pt.rotation.y = i * 2.3; continue; } M(G.cyl, '#8a5a34', 8, 60, 8, x, 30, z, L); M(G.leaf, i % 2 ? '#4fae5a' : '#43a050', 40, 36, 40, x, 82, z, L).castShadow = true; }
-    addWaterFx(L, LAKE.x, LAKE.y, LAKE.rx, LAKE.ry);
+    for (let i = 0; i < 14; i++) { const an = i / 14 * TAU + .2, r = 1.13 + (i % 3) * .05, x = LAKE.x + Math.cos(an) * LAKE.rx * r, z = LAKE.y + Math.sin(an) * LAKE.ry * r; if (Math.abs(z - LAKE.y) < 260 && x < LAKE.x) continue; const pt = prop(['willow', 'tree_oak', 'birch', 'willow'][i % 4], 140, L, x, 0, z, true); if (pt) { pt.rotation.y = i * 2.3; continue; } M(G.cyl, '#8a5a34', 8, 60, 8, x, 30, z, L); M(G.leaf, i % 2 ? '#4fae5a' : '#43a050', 40, 36, 40, x, 82, z, L).castShadow = true; }
+    addWaterFx(L, LAKE.x, LAKE.y, LAKE.rx, LAKE.ry); lilypads(L, LAKE, 26, 7);
     const sgn = sprite('🌊', L, 44); sgn.position.set(LAKE.x, 60, LAKE.y - LAKE.ry - 80);
-    world3.dockM = [new THREE.Group(), new THREE.Group()]; { const g = world3.dockM[0]; B('#a9744f', 170, 8, 46, DOCKPOS.x + 50, 9, DOCKPOS.y, g, 2); for (const x of [-20, 50, 120]) for (const z of [-20, 20]) M(G.cyl, '#7a4f2c', 5, 30, 5, DOCKPOS.x + x, 6, DOCKPOS.y + z, g); }
+    world3.dockM = [new THREE.Group(), new THREE.Group()]; { const g = world3.dockM[0]; if (!propBox('dock_long', 176, 62, 56, g, DOCKPOS.x + 50, 50, DOCKPOS.y)) { B('#a9744f', 170, 8, 46, DOCKPOS.x + 50, 9, DOCKPOS.y, g, 2); for (const x of [-20, 50, 120]) for (const z of [-20, 20]) M(G.cyl, '#7a4f2c', 5, 30, 5, DOCKPOS.x + x, 6, DOCKPOS.y + z, g); } }
     { const g = world3.dockM[1]; B('#b9bec6', 260, 12, 80, DOCKPOS.x + 90, 10, DOCKPOS.y, g, 3); B('#8a8f98', 30, 40, 30, DOCKPOS.x + 190, 36, DOCKPOS.y - 20, g, 3); B('#d94f3a', 90, 8, 8, DOCKPOS.x + 220, 60, DOCKPOS.y - 20, g, 2); for (const x of [0, 90, 180]) for (const z of [-34, 34]) M(G.cyl, '#6b6f78', 7, 34, 7, DOCKPOS.x + x, 4, DOCKPOS.y + z, g); }
     world3.dockM.forEach(g => { sh(g); g.visible = false; scene.add(g); });
     { const g = world3.marketM = new THREE.Group(); B('#fff3e0', 120, 56, 80, DOCKPOS.x - 150, 28, DOCKPOS.y - 130, g, 6); B('#3f8fd9', 132, 12, 92, DOCKPOS.x - 150, 62, DOCKPOS.y - 130, g, 4); B('#6b4a2a', 24, 36, 4, DOCKPOS.x - 150, 18, DOCKPOS.y - 89, g, 2); const ms = sprite('🐟', g, 34); ms.position.set(DOCKPOS.x - 150, 110, DOCKPOS.y - 130); sh(g); g.visible = false; scene.add(g); }
-    world3.boatM = [[60, 14, 26, '#a9744f', 0], [84, 18, 34, '#f4f4f0', 1], [130, 26, 46, '#3f6fa8', 2], [180, 32, 60, '#f4f4f0', 3]].map(q => { const g = new THREE.Group(); B(q[3], q[0], q[1], q[2], 0, q[1] / 2, 0, g, 6); B(q[4] === 2 ? '#d94f3a' : '#8a5a34', q[0] * .96, 4, q[2] * 1.04, 0, q[1], 0, g, 2);
+    world3.boatM = [[60, 14, 26, '#a9744f', 0], [84, 18, 34, '#f4f4f0', 1], [130, 26, 46, '#3f6fa8', 2], [180, 32, 60, '#f4f4f0', 3]].map(q => { const g = new THREE.Group(); if (propLen('boat' + (q[4] + 1), q[0] * 1.25, g, q[4] === 3 ? .12 : .1)) { g.visible = false; scene.add(g); return g; } B(q[3], q[0], q[1], q[2], 0, q[1] / 2, 0, g, 6); B(q[4] === 2 ? '#d94f3a' : '#8a5a34', q[0] * .96, 4, q[2] * 1.04, 0, q[1], 0, g, 2);
       if (q[4] >= 1) B('#e8eef4', q[0] * .34, q[1] * 1.1, q[2] * .7, -q[0] * .12, q[1] * 1.6, 0, g, 4); if (q[4] >= 2) { M(G.cyl, '#6b6f78', 3, 70, 3, q[0] * .2, q[1] + 36, 0, g); B('#ffd54a', 30, 6, 6, q[0] * .2 + 14, q[1] + 66, 0, g, 1); } if (q[4] === 3) { M(G.sph, '#d8f4ff', 14, 14, 14, -q[0] * .12, q[1] * 2.6, 0, g); B('#d94f3a', q[0], 5, q[2] * 1.06, 0, 5, 0, g, 2); } sh(g); g.visible = false; scene.add(g); return g; });
     world3.schoolS = []; for (let i = 0; i < 3; i++) { const sm = makeSchool(); sm.g.visible = false; scene.add(sm.g); world3.schoolS.push(sm); } }
   world3.wildS = []; world3.trapS = []; world3.pondS = []; for (let i = 0; i < 6; i++) { for (const [l, ch] of [[world3.trapS, '🪤'], [world3.pondS, '🚰']]) { const sp = sprite(ch, scene, 34); sp.visible = false; sp.userData.ch = ch; l.push(sp); } }
@@ -3262,6 +3280,12 @@ function buildFences() {   // 가진 울타리(와 다음에 살 수 있는 자�
 const MODELS = {
   sheep: { pack: 'sheep', hk: 2.3, yaw: 0, clips: { idle: 'Armature|Idle', walk: 'Armature|Jump' } },   // pack: 모형 묶음(pack_models.js)의 CC0 모형
   pig: { pack: 'pig', hk: 1.9, yaw: 0, clips: { idle: 'Armature|Idle', walk: 'Armature|Jump' } },
+  trex: { pack: 'dino_trex', hk: 1.5, yaw: 0, clips: { idle: 'Armature|TRex_Idle', walk: 'Armature|TRex_Walk', run: 'Armature|TRex_Run' } },
+  raptor: { pack: 'dino_raptor', hk: 1.7, yaw: 0, clips: { idle: 'Armature|Velociraptor_Idle', walk: 'Armature|Velociraptor_Walk', run: 'Armature|Velociraptor_Run' } },
+  compy: { pack: 'dino_raptor', tint: [.72, 1.25, .62], hk: 1.8, yaw: 0, clips: { idle: 'Armature|Velociraptor_Idle', walk: 'Armature|Velociraptor_Run', run: 'Armature|Velociraptor_Run' } },
+  trike: { pack: 'dino_trike', hk: 1.5, yaw: 0, clips: { idle: 'Armature|Triceratops_Idle', walk: 'Armature|Triceratops_Walk', run: 'Armature|Triceratops_Run' } },
+  proto: { pack: 'dino_trike', tint: [1.5, 1.05, .78], hk: 1.5, yaw: 0, clips: { idle: 'Armature|Triceratops_Idle', walk: 'Armature|Triceratops_Walk', run: 'Armature|Triceratops_Run' } },
+  brachio: { pack: 'dino_apato', hk: 1.1, yaw: 0, clips: { idle: 'Armature|Apatosaurus_Idle', walk: 'Armature|Apatosaurus_Walk', run: 'Armature|Apatosaurus_Run' } },
   cow: { pack: 'cow', hk: 1.95, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } },
   horse: { pack: 'horse', hk: 2.2, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } },
   cowdance: { data: 'COWDANCE_GLTF', hk: 2.3, yaw: 0, clips: { idle: 'CowRig|PolishDance' } },
@@ -3274,7 +3298,7 @@ function loadModels() {
     const cfg = MODELS[key], data = cfg.pack ? PACK[cfg.pack] : window[cfg.data]; if (!data) continue;
     try {
       const use = g => {
-        const skinned = []; g.scene.traverse(o => { if (o.isSkinnedMesh) skinned.push(o); if (o.isMesh) o.material = cfg.pack ? mkMat({ vertexColors: true }) : mkMat({ map: o.material.map || null, color: o.material.color }); });
+        const skinned = []; g.scene.traverse(o => { if (o.isSkinnedMesh) skinned.push(o); if (o.isMesh) { o.material = cfg.pack ? mkMat({ vertexColors: true }) : mkMat({ map: o.material.map || null, color: o.material.color }); if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); } });
         if (!skinned.length) return;
         g.scene.updateMatrixWorld(true); const box = new THREE.Box3(), v = new THREE.Vector3();   // 뼈대를 적용한 실제 크기
         for (const mesh of skinned) { mesh.skeleton.update(); const pos = mesh.geometry.attributes.position; for (let i = 0; i < pos.count; i += 2) { v.fromBufferAttribute(pos, i); mesh.boneTransform(i, v); v.applyMatrix4(mesh.matrixWorld); box.expandByPoint(v); } }
@@ -3289,7 +3313,7 @@ function attachModel(a, md) {
   const cfg = MODELS[a.model], pr = cfg.proto, k = a.sp.r * cfg.hk / pr.h, gold = GOLD.c || (GOLD.c = new THREE.Color('#ffc21a'));
   const root = THREE.SkeletonUtils.clone(pr.root), holder = new THREE.Group(), fit = new THREE.Group(), off = new THREE.Group(), mats = [];
   fit.rotation.y = PI / 2 + cfg.yaw; fit.scale.setScalar(k); off.position.set(pr.off[0], pr.off[1], pr.off[2]); off.add(root); fit.add(off); holder.add(fit); md.g.add(holder);
-  root.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); if (a.legend) o.material.color.multiply(new THREE.Color('#c79bff')).multiplyScalar(1.35); else if (a.rare && !a.K.rareModel) o.material.color.multiply(gold).multiplyScalar(1.25); mats.push({ m: o.material, base: o.material.color.clone() }); o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; });
+  root.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); if (cfg.tint) o.material.color.setRGB(cfg.tint[0], cfg.tint[1], cfg.tint[2]); if (a.legend) o.material.color.multiply(new THREE.Color('#c79bff')).multiplyScalar(1.35); else if (a.rare && !a.K.rareModel) o.material.color.multiply(gold).multiplyScalar(1.25); mats.push({ m: o.material, base: o.material.color.clone() }); o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; });
   const mixer = new THREE.AnimationMixer(root), acts = {};
   for (const n in cfg.clips) { const c = pr.anims.find(x => x.name === cfg.clips[n]); if (c) acts[n] = mixer.clipAction(c); }
   md.inner.visible = false; md.top = pr.h * k; md.ext = { cfg, holder, mats, mixer, acts, act: null };
@@ -3400,14 +3424,14 @@ function render3D(dt) {
   world3.pileM.forEach((m, i) => { const q = piles[i]; m.g.visible = !!q && state !== 'title'; if (!q) return; m.g.position.set(q.x, 0, q.y); const k = clamp(.7 + q.n / 24, .7, 1.6); m.g.scale.set(k, k, k); m.top.visible = q.n >= 6; const ch = feedInfo(q.type).e; if (m.ch !== ch) { m.ch = ch; m.sp.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; m.sp.material.needsUpdate = true; } m.sp.position.set(0, 36, 0); m.sp.scale.set(26, 26, 1); });
   world3.dairyM.visible = dairy && state !== 'title'; world3.factM.visible = factory;
   { const pp = exhibit && state !== 'title' ? PENS.find(q => q.own && inPen(q).some(a => a.kind === 'panda' && !a.loose)) : null, dayk = nightK() < .5; world3.boothM.visible = !!pp; if (pp) world3.boothM.position.set(pp.x + pp.w + 46, 0, pp.y + pp.h + 40);   // 전시관: 판다 울타리 앞의 매표소와 손님들
-    world3.visitS.forEach((sp, i) => { sp.visible = !!pp && dayk; if (sp.visible) { const vm = sp.userData.m; sp.position.set(pp.x + 60 + i * (pp.w - 120) / 4, vm ? 0 : Math.abs(Math.sin(gt * 3 + i * 1.7)) * 6, pp.y + pp.h + 44); sp.rotation.y = sp.userData.yaw + Math.sin(gt * .7 + i * 2.1) * .35; if (vm) rigPlay(vm, Math.floor(gt / 2.5 + i * 1.3) % 4 === 0 ? 'emote-yes' : 'idle', dt); } }); }
+    world3.visitS.forEach((sp, i) => { sp.visible = !!pp && dayk; if (sp.visible) { const vm = sp.userData.m; sp.position.set(pp.x + 60 + i * (pp.w - 120) / 4, vm ? 0 : Math.abs(Math.sin(gt * 3 + i * 1.7)) * 6, pp.y + pp.h + 44); sp.rotation.y = sp.userData.yaw + Math.sin(gt * .7 + i * 2.1) * .35; if (vm) rigPlay(vm, Math.floor(gt / 2.5 + i * 1.3) % 4 === 0 ? 'Victory' : 'Idle', dt); } }); }
   world3.labM.visible = lab && state !== 'title'; syncTrees(); syncBarns(); syncLand(); syncLake(); syncWorld2(); for (const k in world3.facM) world3.facM[k].visible = !!(own[k] || FAC2[k] && FAC2[k]()) && state !== 'title';
   world3.fireS.forEach((sp, i) => { const f = fires[i]; sp.visible = !!f && state !== 'title'; if (f) { const k = (f.k === 'hay' || f.k === 'tree' ? 70 : f.k === 'fence' ? 56 : 42) * (1 + Math.sin(gt * 19 + f.seed) * .14); sp.position.set(f.x + Math.sin(gt * 11 + f.seed) * 3, (f.k === 'tree' ? 70 : f.k === 'fence' ? 40 : 24) + k * .3, f.y); sp.scale.set(k * (1 + Math.sin(gt * 13 + f.seed) * .08), k * (1 + Math.cos(gt * 17 + f.seed) * .1), 1); sp.material.rotation = Math.sin(gt * 9 + f.seed) * .1; } });
   world3.gemS.forEach((sp, i) => { const q = gems[i]; sp.visible = !!q && state !== 'title' && (q.life > 6 || Math.sin(gt * 14) > 0); if (q) { sp.position.set(q.x, 22 + Math.abs(Math.sin(gt * 3 + i * 2)) * 14, q.y); const k = 30 + Math.sin(gt * 6 + i) * 6; sp.scale.set(k, k, 1); } });
   world3.birdM.forEach((s, i) => { const b = birds[i], m = slotUse(world3.birdM, i, b && state !== 'title' ? 'bird' : null); if (!m) return; const fl = b.st !== 'peck'; animWild(b, m, dt, fl); m.g.position.set(b.x, fl ? b.h : 0, b.y); m.inner.rotation.z = fl ? .15 : -.35 * Math.max(0, Math.sin(gt * 11 + i)); });
   for (const w of workers) {   // 일꾼
-    if (!w.md) { const k = w.md = makeKid(), col = JOBS[w.job].col; M(G.cyl, col, 23, 3, 23, 0, 13, 0, k.head); M(G.cone, col, 13, 13, 13, 0, 21, 0, k.head); M(G.cyl, col, 14.6, 15, 14.1, 0, 46, 0, k.inner); k.shadow.visible = false; sh(k.inner); k.g.scale.setScalar(.92); scene.add(k.g); w.spr = sprite('🌾', k.g, 26); w.spr.position.set(0, 150, 0); w.sprCh = '🌾'; }
-    const k = w.md, working = w.st === 'work', sw = w.moving ? Math.sin(w.phase) * .7 : 0; k.g.visible = state !== 'title'; k.g.position.set(w.x, 0, w.y); turn(k.g, faceTo(w.fx, w.fy), Math.min(1, dt * 12)); k.legs[0].rotation.z = sw; k.legs[1].rotation.z = -sw;
+    if (!w.md) { const k = w.md = makeWorker(w) || makeKid(), col = JOBS[w.job].col; M(G.cyl, col, 23, 3, 23, 0, 13, 0, k.head); M(G.cone, col, 13, 13, 13, 0, 21, 0, k.head); M(G.cyl, col, 14.6, 15, 14.1, 0, 46, 0, k.inner); k.shadow.visible = false; sh(k.inner); k.g.scale.setScalar(.92); scene.add(k.g); w.spr = sprite('🌾', k.g, 26); w.spr.position.set(0, 150, 0); w.sprCh = '🌾'; }
+    const k = w.md, working = w.st === 'work', sw = w.moving ? Math.sin(w.phase) * .7 : 0; if (k.rig) rigPlay(k, working ? 'PickUp' : w.moving ? 'Walk' : 'Idle', dt); k.g.visible = state !== 'title'; k.g.position.set(w.x, 0, w.y); turn(k.g, faceTo(w.fx, w.fy), Math.min(1, dt * 12)); k.legs[0].rotation.z = sw; k.legs[1].rotation.z = -sw;
     k.arms[0].rotation.z = k.arms[1].rotation.z = working ? 1.2 + Math.sin(gt * 18) * .4 : 0; if (!working) { k.arms[0].rotation.z = -sw; k.arms[1].rotation.z = sw; } k.inner.position.y = working ? -8 + Math.sin(gt * 12) * 1.5 : w.moving ? Math.abs(Math.sin(w.phase)) * 2 : 0;
     const ch = w.tgt ? w.tgt.e : w.st === 'rest' ? '💤' : ''; w.spr.visible = !!ch; if (ch && w.sprCh !== ch) { w.sprCh = ch; w.spr.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; w.spr.material.needsUpdate = true; } }
   world3.crowM.forEach((g, i) => { const c2 = scarecrows[i]; g.visible = !!c2 && state !== 'title'; if (c2) { g.position.set(c2.x, 0, c2.y); g.rotation.z = Math.sin(gt * 1.5 + i) * .04; } });

@@ -4,8 +4,8 @@
 //          조각 합치기 · 양자화 · meshopt 압축 풀기(게임에서 디코더 없이 읽도록) · base64로 pack_models.js에 쓰기
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { dedup, prune, join, flatten, resample, weld, quantize } from '@gltf-transform/functions';
-import { MeshoptDecoder } from 'meshoptimizer';
+import { dedup, prune, join, flatten, resample, weld, quantize, simplify } from '@gltf-transform/functions';
+import { MeshoptDecoder, MeshoptSimplifier } from 'meshoptimizer';
 import { PNG } from 'pngjs';
 import { createRequire } from 'node:module';
 import { dirname, join as pjoin } from 'node:path';
@@ -17,24 +17,32 @@ const SRC = pjoin(dirname(require.resolve('@netforge/asset-library-files/package
 const OUT = pjoin(dirname(fileURLToPath(import.meta.url)), '..', '..', 'app', 'src', 'main', 'assets', 'pack_models.js');
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ANIMAL = ['Idle', 'Walk', 'Gallop', 'Eating'], PERSON = ['idle', 'walk', 'emote-yes'], OLD = ['Armature|Idle', 'Armature|Jump'];
-const MODELS = {   // 게임에서 쓰는 이름: [원본, 남길 동작]. 'src/'로 시작하면 이 폴더의 파일, 아니면 npm 꾸러미의 모형
-  tree_oak: ['tree_oak'], tree_fat: ['tree_fat'], tree_autumn: ['tree_autumn'], tree_pine: ['tree_pine'], tree_pine_tall: ['tree_pine_tall'], tree_dark: ['tree_dark'],
-  bush: ['bush'], bush_large: ['bush_large'], rock_small: ['rock_small'], rock_large: ['rock_large'], rock_tall: ['rock_tall'], stump: ['stump'], log: ['log'],
-  flower_red: ['flower_red'], mushroom_red: ['mushroom_red'], tractor: ['tractor'],
-  cow: ['src/Cow.gltf', ANIMAL], horse: ['src/Horse.gltf', ANIMAL], sheep: ['src/Sheep.glb', OLD], pig: ['src/Pig.glb', OLD],
+const DINO = n => ['Armature|' + n + '_Idle', 'Armature|' + n + '_Walk', 'Armature|' + n + '_Run'], WHO = ['Idle', 'Walk', 'PickUp', 'Victory'], HALF = { simplify: .5, lift: 1.4, pal: { Skin: '#eebf98', Face: '#f6d2b0' } };
+// Quaternius 자연물: 재질 이름 → 게임의 색
+const NAT = { Wood: '#8a5a3a', Green: '#4f9d5d', DarkGreen: '#3a8048', Rock: '#8f949c', Berry: '#d94f3a', White: '#e8e0d0', Black: '#4a4038', Orange: '#d98a3a', LightWood: '#d9b98a', Cyan: '#6fc3e8', Yellow: '#ffd54a', Pink: '#f29ac0', Mushroom_Top: '#c8402f', Mushroom_Bottom: '#f3e6cf' };
+const tree = (f, k) => ['src/' + f + '.glb', null, { pal: NAT, simplify: k || .35 }], nat = (f, pal) => ['src/' + f + '.glb', null, { pal: Object.assign({}, NAT, pal) }];
+const MODELS = {   // 게임에서 쓰는 이름: [원본, 남길 동작, 옵션]. 'src/'로 시작하면 이 폴더의 파일, 아니면 npm 꾸러미의 모형
+  // 옵션 — pal: 재질 이름별 색 바꾸기, lift: 어둡게 저장된 색 밝히기(클수록 더 밝게), simplify: 삼각형을 이 비율로 줄이기
+  tree_oak: tree('CommonTree_1', .28), tree_fat: tree('CommonTree_3'), tree_autumn: tree('CommonTree_Autumn_1', .28), tree_pine: tree('PineTree_1'), tree_pine_tall: tree('PineTree_2'), tree_dark: tree('PineTree_3', .3),
+  birch: tree('BirchTree_1'), willow: tree('Willow_1'),
+  bush: nat('Bush_1', { Green: '#7fb24a' }), bush_large: nat('BushBerries_1', { Green: '#6fa844' }), rock_small: nat('Rock_2'), rock_large: nat('Rock_3'), rock_tall: nat('Rock_1'),
+  stump: nat('TreeStump_Moss', { Green: '#6fa844' }), log: nat('WoodLog_Moss', { Green: '#6fa844', DarkGreen: '#5a9a3a' }), flower_red: nat('Flowers', { Green: '#5fae4a' }), mushroom_red: nat('Plant_1', { Green: '#5fae4a' }), lilypad: nat('Lilypad', { Green: '#4fae5a' }),
+  tractor: ['tractor'],
+  cow: ['src/Cow.glb', ANIMAL], horse: ['src/Horse.glb', ANIMAL], sheep: ['src/Sheep.glb', OLD], pig: ['src/Pig.glb', OLD, { pal: { 'Material.003': '#f2a6b4', Material: '#8a4a52' } }],
   stag: ['stag', ANIMAL], deer: ['deer', ANIMAL], fox: ['fox', ANIMAL], wolf: ['wolf', ANIMAL],
-  person_a: ['mini_male_a', PERSON], person_b: ['mini_female_a', PERSON], person_c: ['mini_male_b', PERSON], person_d: ['mini_female_b', PERSON], person_e: ['mini_female_c', PERSON]
+  dino_trex: ['src/Dino_Trex.glb', DINO('TRex'), { simplify: .6, pal: { Green: '#5f7f4a', Black: '#2a2a2a', LightGreen: '#d8cf9a', Red: '#b8323a', LightYellow: '#e8c070' } }], dino_trike: ['src/Dino_Triceratops.glb', DINO('Triceratops'), { simplify: .6, pal: { Purple: '#7fa66a', LightBrown: '#cfe0b0', Brown: '#5a7a4a' } }], dino_raptor: ['src/Dino_Velociraptor.glb', DINO('Velociraptor'), { simplify: .6, pal: { Brown: '#c8743a', Black: '#2a2a2a', LightBrown: '#f0d6a8' } }], dino_apato: ['src/Dino_Apatosaurus.glb', DINO('Apatosaurus'), { simplify: .6, pal: { Brown: '#6f9fb8', Black: '#2a2a2a', Material: '#c4dde8', LightBrown: '#8fb8cc' } }],
+  person_a: ['src/Casual_Male.glb', WHO, HALF], person_b: ['src/Casual_Female.glb', WHO, HALF], person_c: ['src/Casual2_Male.glb', WHO, HALF], person_d: ['src/Casual2_Female.glb', WHO, HALF], person_e: ['src/OldClassy_Female.glb', WHO, HALF],
+  worker_a: ['src/Worker_Male.glb', WHO, HALF], worker_b: ['src/Worker_Female.glb', WHO, HALF],
+  koi: ['src/Koi.glb', null, { simplify: .4, pal: { Koi_Main: '#f0602a', Koi_Fins: '#f8d8a0', Koi_Light: '#ffffff', Koi_Dark: '#3a3a3a', Eyes: '#101010' } }], dock_long: ['src/Dock_Long.glb', null, { simplify: .5, pal: { Wood: '#a9744f', LightWood: '#c79a63', String: '#d9c08a', DarkWood: '#7a4f2c' } }], dock_wide: ['src/Dock_Wide.glb', null, { simplify: .5, pal: { Wood: '#a9744f', LightWood: '#c79a63', String: '#d9c08a', DarkWood: '#7a4f2c' } }],
+  boat_small: ['src/Boat_Small.glb', null, { pal: { DarkWood: '#7a4f2c', Wood: '#a9744f' } }], boat1: ['src/Ship_Boat.glb', null, { pal: { DarkWood: '#7a4f2c', Wood: '#a9744f' } }], boat2: ['src/Ship_Lifeboat.glb'], boat3: ['src/Ship_BoatWSail.glb', null, { pal: { DarkWood: '#7a4f2c', LightWood: '#c79a63', Sail: '#f4ecd8', Steel: '#8a8f98' } }], boat4: ['src/Ship_CruiseShip.glb']
 };
-// Kenney 자연물은 원래 색이 밝은 민트빛이라 게임의 색으로 바꿔 칠한다(재질 이름 기준, 모형별로 덮어쓸 수 있다)
-const PAL = { leafsGreen: '#4f9d5d', leafsDark: '#2f7a45', leafsFall: '#d98a3a', woodBark: '#8a5a3a', woodBarkDark: '#6b4a2e', woodBirch: '#e8e0d0', woodInner: '#d9b98a', grass: '#5fae6a', dirt: '#8f949c', colorRed: '#d94f3a', _defaultMat: '#f3e6cf' };
-const PAL_BY = { pig: { 'Material.003': '#f2a6b4', Material: '#8a4a52' }, tree_fat: { leafsGreen: '#3f8a4f' }, bush: { grass: '#7fb24a' }, bush_large: { grass: '#6fa844' }, rock_small: { grass: '#a7acb3' }, rock_large: { grass: '#a7acb3' }, rock_tall: { grass: '#a7acb3', _defaultMat: '#7b8088' } };
 const lin = v => { v /= 255; return v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); };
 const hex = h => [1, 3, 5].map(i => lin(parseInt(h.slice(i, i + 2), 16)));
 
-await MeshoptDecoder.ready;
+await MeshoptDecoder.ready; await MeshoptSimplifier.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
 const out = {}; let total = 0;
-for (const [id, [src, keep]] of Object.entries(MODELS)) {
+for (const [id, [src, keep, opt = {}]] of Object.entries(MODELS)) {
   const seenS = new Set(), doc = await io.read(src.startsWith('src/') ? pjoin(HERE, src) : pjoin(SRC, src + '.glb')), root = doc.getRoot(), seen = {};
   for (const a of root.listAnimations()) { const n = a.getName(); if (!keep || !keep.includes(n) || seen[n]) { for (const c of a.listChannels()) c.dispose(); for (const q of a.listSamplers()) q.dispose(); a.dispose(); } else seen[n] = 1; }
   for (const a of root.listAnimations()) {   // 동작 줄이기: 크기 변화 트랙은 버리고, 키프레임은 초당 12개쯤만 남긴다
@@ -45,14 +53,14 @@ for (const [id, [src, keep]] of Object.entries(MODELS)) {
       sm.setInput(doc.createAccessor().setType('SCALAR').setArray(t2).setBuffer(ti.getBuffer())).setOutput(doc.createAccessor().setType(to.getType()).setArray(o2).setBuffer(to.getBuffer())); } }
   const one = doc.createMaterial('v').setRoughnessFactor(1).setMetallicFactor(0), pngs = new Map(), buf = root.listBuffers()[0];
   for (const mesh of root.listMeshes()) for (const prim of mesh.listPrimitives()) {
-    const mat = prim.getMaterial(), pc = mat && ((PAL_BY[id] || {})[mat.getName()] || (!keep && PAL[mat.getName()])), f = pc ? hex(pc) : mat ? mat.getBaseColorFactor() : [1, 1, 1, 1], tex = mat && mat.getBaseColorTexture(), uv = prim.getAttribute('TEXCOORD_0'), old = prim.getAttribute('COLOR_0'), n = prim.getAttribute('POSITION').getCount(), col = new Uint16Array(n * 3);
+    const mat = prim.getMaterial(), pc = mat && opt.pal && opt.pal[mat.getName()], f0 = mat ? mat.getBaseColorFactor() : [1, 1, 1, 1], f = pc ? hex(pc) : opt.lift ? f0.map((v, i) => i < 3 ? Math.pow(v, 1 / (2.2 * opt.lift)) : v) : f0, tex = mat && mat.getBaseColorTexture(), uv = prim.getAttribute('TEXCOORD_0'), old = prim.getAttribute('COLOR_0'), n = prim.getAttribute('POSITION').getCount(), col = new Uint16Array(n * 3);
     let img = null, off = [0, 0], sc = [1, 1];
     if (tex && uv) { img = pngs.get(tex) || PNG.sync.read(Buffer.from(tex.getImage())); pngs.set(tex, img); const tt = mat.getBaseColorTextureInfo().getExtension('KHR_texture_transform'); if (tt) { off = tt.getOffset(); sc = tt.getScale(); } }
     for (let i = 0; i < n; i++) { let c = [f[0], f[1], f[2]];
       if (img) { const q = uv.getElement(i, []), u = q[0] * sc[0] + off[0], v = q[1] * sc[1] + off[1], x = Math.min(img.width - 1, Math.max(0, Math.floor((u - Math.floor(u)) * img.width))), y = Math.min(img.height - 1, Math.max(0, Math.floor((v - Math.floor(v)) * img.height))), p = (y * img.width + x) * 4; c = [c[0] * lin(img.data[p]), c[1] * lin(img.data[p + 1]), c[2] * lin(img.data[p + 2])]; }
       if (old) { const q = old.getElement(i, []); c = [c[0] * q[0], c[1] * q[1], c[2] * q[2]]; }
       for (let k = 0; k < 3; k++) col[i * 3 + k] = Math.round(Math.min(1, Math.max(0, c[k])) * 65535); }
-    prim.setAttribute('COLOR_0', doc.createAccessor().setType('VEC3').setArray(col).setNormalized(true).setBuffer(buf)).setAttribute('TEXCOORD_0', null).setMaterial(one);
+    prim.setAttribute('COLOR_0', doc.createAccessor().setType('VEC3').setArray(col).setNormalized(true).setBuffer(buf)).setAttribute('TEXCOORD_0', null).setMaterial(one); if (opt.simplify) prim.setAttribute('NORMAL', null);   // 줄일 모형은 법선을 버린다(게임에서 다시 계산). 그래야 꼭짓점이 합쳐져 줄어든다
   }
   for (const mesh of root.listMeshes()) {   // 한 모형의 조각을 하나로 합친다(그리는 횟수 줄이기)
     const ps = mesh.listPrimitives(), sem = ps[0].listSemantics(); if (ps.length < 2 || !ps.every(p => p.getIndices() && p.getMode() === ps[0].getMode() && p.listSemantics().join() === sem.join() && sem.every(k => p.getAttribute(k).getArray().constructor === ps[0].getAttribute(k).getArray().constructor))) continue;
@@ -62,9 +70,10 @@ for (const [id, [src, keep]] of Object.entries(MODELS)) {
     np.setIndices(doc.createAccessor().setType('SCALAR').setArray(tot > 65535 ? new Uint32Array(idx) : new Uint16Array(idx)).setBuffer(buf)); for (const p of ps) { mesh.removePrimitive(p); p.dispose(); } mesh.addPrimitive(np);
   }
   for (const e of root.listExtensionsUsed()) if (['EXT_meshopt_compression', 'KHR_materials_unlit', 'KHR_texture_transform'].includes(e.extensionName)) e.dispose();
-  await doc.transform(dedup(), ...(keep ? [resample()] : [flatten()]), join(), weld(), prune(), quantize({ quantizePosition: 14, quantizeNormal: 8, quantizeColor: 8, quantizeWeight: 8 }));
+  await doc.transform(dedup(), ...(keep ? [resample()] : [flatten()]), join(), weld(), ...(opt.simplify ? [simplify({ simplifier: MeshoptSimplifier, ratio: opt.simplify, error: .05 })] : []), prune(), quantize({ quantizePosition: 14, quantizeNormal: 8, quantizeColor: 8, quantizeWeight: 8 }));
+  const tris = root.listMeshes().reduce((n, m) => n + m.listPrimitives().reduce((k, p) => k + (p.getIndices() ? p.getIndices().getCount() : p.getAttribute('POSITION').getCount()) / 3, 0), 0);
   const glb = await io.writeBinary(doc); out[id] = Buffer.from(glb).toString('base64'); total += glb.byteLength;
-  console.log(id.padEnd(16), String(glb.byteLength).padStart(8), 'bytes', root.listAnimations().map(a => a.getName()).join(' '));
+  console.log(id.padEnd(16), String(glb.byteLength).padStart(8), 'bytes', String(Math.round(tris)).padStart(6), 'tris', root.listAnimations().map(a => a.getName()).join(' '));
 }
-writeFileSync(OUT, '/* CC0 1.0 모형 묶음. Kenney (kenney.nl): Nature Kit · Car Kit · Mini Characters / Quaternius (quaternius.com): 동물(Ultimate Animated Animals · Farm Animals).\n   tools/models/build.mjs로 만든다. 직접 고치지 않는다. */\nwindow.PACK_GLB = ' + JSON.stringify(out) + ';\n');
+writeFileSync(OUT, '/* CC0 1.0 모형 묶음. Quaternius (quaternius.com): 자연물 · 가축과 야생 동물 · 공룡 · 사람 · 물고기와 선착장 · 배 / Kenney (kenney.nl): 트랙터(Car Kit).\n   tools/models/build.mjs로 만든다. 직접 고치지 않는다. */\nwindow.PACK_GLB = ' + JSON.stringify(out) + ';\n');
 console.log('total', total, 'bytes ->', OUT);
