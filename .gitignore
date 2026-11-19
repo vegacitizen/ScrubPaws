@@ -8,3 +8,6 @@ captures/
 *.apk
 *.aab
 out/
+
+# 모형 변환 도구
+tools/models/node_modules/

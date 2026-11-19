@@ -847,3 +847,7 @@ v5.0.0의 공룡 값과 먹이 규칙은 이 절의 내용으로 바뀌었어요
 - 야생 동물·새·작물·물고기 떼·손님이 이모지 그림 대신 3D 모형으로 보여요.
 - 위 막대의 돈·레벨·날씨와 버튼 아이콘을 새로 그렸어요. 왼쪽 위 목표 패널은 누르면 펴고 접혀요.
 - 돈을 벌면 동전이 날아와 쌓이고 숫자가 굴러가요.
+
+# v7.8.0 — CC0 모형 묶음
+- 나무·덤불·바위·트랙터와 사슴·여우·늑대, 전시관 손님이 새 3D 모형으로 보여요. 숲과 들판에는 꽃과 버섯이 피어요.
+- 모형 출처(모두 CC0 1.0): Kenney(kenney.nl)의 Nature Kit · Car Kit · Mini Characters, Quaternius(quaternius.com)의 동물. npm의 `@netforge/asset-library-files` 0.2.0에서 가져와 `tools/models`에서 `npm install && npm run build`로 다시 만들 수 있어요.
