@@ -32,6 +32,7 @@ FBX → GLB는 three.js(0.160)의 FBXLoader로 읽어 GLTFExporter로 내보냈�
 | `Extra_Giraffe.glb` | "Giraffe Low Poly" (https://sketchfab.com/3d-models/giraffe-low-poly-cc56a519d6654580b5939154e4719531) by millermeln (https://sketchfab.com/millermeln), CC-BY-4.0 |
 | `Extra_Goat.glb` | "Low-poly Goat" (https://sketchfab.com/3d-models/low-poly-goat-e08bb2e734004870b1ed4c21f111a854) by Zafflex (https://sketchfab.com/Zafflex), CC-BY-4.0 |
 | `Extra_Hippo.glb` | "Low poly angry looking hippo" (https://sketchfab.com/3d-models/low-poly-angry-looking-hippo-451daef26695425ab1b751f503f182e6) by Tiberiu Uncu (https://sketchfab.com/pangolinbc), CC-BY-4.0 |
+| `Extra_Sheep.glb` | "animated low poly sheep game ready model" (https://sketchfab.com/3d-models/animated-low-poly-sheep-game-ready-model-66f3851d8827411c91d208d172305666) by creosine (https://sketchfab.com/creosine), CC-BY-4.0. 뼈대와 풀 뜯는 동작이 있음 |
 | `Extra_Llama.glb` | "Low Poly Llama 3d Model Free" (https://sketchfab.com/3d-models/low-poly-llama-3d-model-free-fe23d7daf59940ffb7f982701d7de7f4) by iRahulRajput (https://sketchfab.com/rt699448), CC-BY-4.0 |
 
 "Giraffe" by Nevermoredmb는 CC-BY-NC(비상업)라서 넣지 않았다.

@@ -3425,7 +3425,7 @@ function buildFences() {   // 가진 울타리(와 다음에 살 수 있는 자�
 }
 /* 뼈대와 동작이 있는 glTF 모델. 불러오지 못하면 도형으로 만든 가축이 그대로 보인다 */
 const MODELS = {
-  sheep: { pack: 'sheep', hk: 2.3, yaw: 0, clips: { idle: 'Armature|Idle', walk: 'Armature|Jump' } },   // pack: 모형 묶음(pack_models.js)의 CC0 모형
+  sheep: { pack: 'sheep', hk: 2.2, yaw: 0, bob: 1, clips: { idle: 'Idle', eat: 'Idle' } },   // 풀 뜯는 동작만 있는 모형: 걸을 때는 몸 전체가 까딱거린다(bob)   // pack: 모형 묶음(pack_models.js)의 CC0 모형
   pig: { pack: 'pig', hk: 1.9, yaw: 0, clips: { idle: 'Armature|Idle', walk: 'Armature|Jump' } },
   trex: { pack: 'dino_trex', hk: 1.5, yaw: 0, clips: { idle: 'Armature|TRex_Idle', walk: 'Armature|TRex_Walk', run: 'Armature|TRex_Run' } },
   raptor: { pack: 'dino_raptor', hk: 1.7, yaw: 0, clips: { idle: 'Armature|Velociraptor_Idle', walk: 'Armature|Velociraptor_Walk', run: 'Armature|Velociraptor_Run' } },
@@ -3550,8 +3550,8 @@ function syncCreature(a, dt, pred) {
   if (!md.ext && a.model && MODELS[a.model].proto) attachModel(a, md);
   if (md.ext) { const x = md.ext, eat = a.state === 'eat', want = sleeping && x.acts.sleep ? 'sleep' : eat && x.acts.eat ? 'eat' : moving && x.acts.walk ? (a.attackedT > 0 && x.acts.run ? 'run' : 'walk') : 'idle', n = x.acts[want] || x.acts.idle;
     if (n && x.act !== n) { if (x.act) x.act.fadeOut(.25); n.reset().fadeIn(.25).play(); x.act = n; }
-    x.mixer.update(sleeping && !x.acts.sleep ? 0 : dt * (want === 'walk' ? 1.3 : 1));
-    if (x.cfg.still) { const mv = moving && !sleeping ? 1 : 0, ph = t * 11 + a.seed; x.holder.position.y = mv * Math.abs(Math.sin(ph)) * r * .1; x.holder.rotation.z = mv * Math.sin(ph) * .05 + (a.state === 'eat' ? -.16 : 0); x.holder.rotation.x = mv * Math.sin(ph * .5) * .04; }
+    x.mixer.update((sleeping && !x.acts.sleep) || (!x.acts.idle && !moving) ? 0 : dt * (want === 'walk' ? 1.3 : 1));
+    if (x.cfg.still || x.cfg.bob) { const mv = moving && !sleeping ? 1 : 0, ph = t * 11 + a.seed; x.holder.position.y = mv * Math.abs(Math.sin(ph)) * r * .1; x.holder.rotation.z = mv * Math.sin(ph) * .05 + (a.state === 'eat' && x.cfg.still ? -.16 : 0); x.holder.rotation.x = mv * Math.sin(ph * .5) * .04; }
     if (a.rare && a.kind === 'cow') { const dz = sleeping ? 0 : 1; x.holder.position.y = Math.abs(Math.sin(t * 7)) * r * .22 * dz; x.holder.rotation.y = Math.sin(t * 3.5) * .6 * dz; x.holder.rotation.z = Math.sin(t * 7) * .08 * dz; }   // 춤추는 소
     for (const q of x.mats) q.m.color.copy(q.base).lerp(grime, dg * .6);
     const shorn = a.kind === 'sheep' ? .8 + .2 * Math.min(1, a.prod) : 1; x.holder.scale.set(1, shorn, pg * shorn); x.holder.position.x = scared && !carried ? Math.sin(t * 40) : 0; }
