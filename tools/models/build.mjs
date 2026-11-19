@@ -17,23 +17,32 @@ const SRC = pjoin(dirname(require.resolve('@netforge/asset-library-files/package
 const OUT = pjoin(dirname(fileURLToPath(import.meta.url)), '..', '..', 'app', 'src', 'main', 'assets', 'pack_models.js');
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ANIMAL = ['Idle', 'Walk', 'Gallop', 'Eating'], PERSON = ['idle', 'walk', 'emote-yes'], OLD = ['Armature|Idle', 'Armature|Jump'];
-const DINO = n => ['Armature|' + n + '_Idle', 'Armature|' + n + '_Walk', 'Armature|' + n + '_Run'], WHO = ['Idle', 'Walk', 'PickUp', 'Victory'], HALF = { simplify: .5, lift: 1.4, pal: { Skin: '#eebf98', Face: '#f6d2b0' } };
+const DINO = n => ['Armature|' + n + '_Idle', 'Armature|' + n + '_Walk', 'Armature|' + n + '_Run'], WHO = ['Idle', 'Walk', 'Run', 'Walk_Carry', 'Run_Carry', 'PickUp', 'Punch', 'SwordSlash', 'SitDown', 'Shoot_OneHanded', 'RecieveHit', 'Victory'], HALF = { simplify: .5, lift: 1.4, pal: { Skin: '#eebf98', Face: '#f6d2b0' } };
 // Quaternius 자연물: 재질 이름 → 게임의 색
 const NAT = { Wood: '#8a5a3a', Green: '#4f9d5d', DarkGreen: '#3a8048', Rock: '#8f949c', Berry: '#d94f3a', White: '#e8e0d0', Black: '#4a4038', Orange: '#d98a3a', LightWood: '#d9b98a', Cyan: '#6fc3e8', Yellow: '#ffd54a', Pink: '#f29ac0', Mushroom_Top: '#c8402f', Mushroom_Bottom: '#f3e6cf' };
 const tree = (f, k) => ['src/' + f + '.glb', null, { pal: NAT, simplify: k || .35 }], nat = (f, pal) => ['src/' + f + '.glb', null, { pal: Object.assign({}, NAT, pal) }];
+// 건물과 소품: 재질 이름 → 게임의 색
+const FARM = { DarkRed: '#8a2f27', LightRed: '#b5463a', White: '#fff3e0', RoofBlack: '#5a4a44', Brown: '#8a5a34', Grey: '#9aa0a8', DarkGrey: '#5a6068' };
+const TOWN = { Plaster: '#eadfc0', Beige: '#eadfc0', Wood: '#8a5a34', Wood_Light: '#a9744f', Wood_Side: '#c79a63', DarkWood: '#6b4a2a', Stone: '#7b8088', Stone_Light: '#a7acb3', Stone_Dark: '#8f949c', Windows: '#3a4a5a', RoofTiles: '#3f7f8f', RoofTiles_Red: '#b5463a', Green: '#5fae4a', Metal: '#6b6f78', Red: '#c2523f', Bag: '#d9b98a', Hay: '#e9cf8c' };
+const farm = (f, k) => ['src/Farm_' + f + '.glb', null, { pal: FARM, simplify: k || .5 }], town = (f, k) => ['src/Village_' + f + '.glb', null, { pal: TOWN, simplify: k || .5 }], rts = (f, pal) => ['src/RTS_' + f + '.glb', null, { pal: pal || {}, simplify: .6 }];
 const MODELS = {   // 게임에서 쓰는 이름: [원본, 남길 동작, 옵션]. 'src/'로 시작하면 이 폴더의 파일, 아니면 npm 꾸러미의 모형
   // 옵션 — pal: 재질 이름별 색 바꾸기, lift: 어둡게 저장된 색 밝히기(클수록 더 밝게), simplify: 삼각형을 이 비율로 줄이기
   tree_oak: tree('CommonTree_1', .28), tree_fat: tree('CommonTree_3'), tree_autumn: tree('CommonTree_Autumn_1', .28), tree_pine: tree('PineTree_1'), tree_pine_tall: tree('PineTree_2'), tree_dark: tree('PineTree_3', .3),
   birch: tree('BirchTree_1'), willow: tree('Willow_1'),
   bush: nat('Bush_1', { Green: '#7fb24a' }), bush_large: nat('BushBerries_1', { Green: '#6fa844' }), rock_small: nat('Rock_2'), rock_large: nat('Rock_3'), rock_tall: nat('Rock_1'),
   stump: nat('TreeStump_Moss', { Green: '#6fa844' }), log: nat('WoodLog_Moss', { Green: '#6fa844', DarkGreen: '#5a9a3a' }), flower_red: nat('Flowers', { Green: '#5fae4a' }), mushroom_red: nat('Plant_1', { Green: '#5fae4a' }), lilypad: nat('Lilypad', { Green: '#4fae5a' }),
+  barn1: farm('SmallBarn'), barn2: farm('BigBarn'), silo: farm('Silo'), watertower: farm('WaterTower'), well: farm('Well'), windmill: farm('Windmill', .7), fence_wood: farm('Fence', 1),
+  house1: town('House_1'), house3: town('House_3'), house4: town('House_4'), blacksmith: town('Blacksmith'), inn: town('Inn'), mill: town('Mill'), sawmill: town('Sawmill'),
+  stand1: town('MarketStand_1'), stand2: town('MarketStand_2'), gazebo: town('Gazebo'), bench: town('Bench_1', 1), hay: town('Hay', 1), barrel: town('Barrel', .5), crate: town('Crate', .6), bags: town('Bags', .6),
+  watchtower: rts('WatchTower_FirstAge_Level3'), gate: rts('WallTowers_Door_FirstAge'), market: rts('Market_FirstAge_Level1'), mountain1: rts('Mountain_Single', { Stone: '#8f949c', Dirt: '#7d828a' }), mountain2: rts('MountainLarge_Single', { Stone: '#8f949c', Dirt: '#7d828a', Snow: '#f4f6f8' }),
   tractor: ['tractor'],
   cow: ['src/Cow.glb', ANIMAL], horse: ['src/Horse.glb', ANIMAL], sheep: ['src/Sheep.glb', OLD], pig: ['src/Pig.glb', OLD, { pal: { 'Material.003': '#f2a6b4', Material: '#8a4a52' } }],
   bull: ['src/Bull.glb', ANIMAL], horse_white: ['src/Horse_White.glb', ANIMAL], alpaca: ['src/Alpaca.glb', ANIMAL], donkey: ['src/Donkey.glb', ANIMAL],
   stag: ['stag', ANIMAL], deer: ['deer', ANIMAL], fox: ['fox', ANIMAL], wolf: ['wolf', ANIMAL],
   dino_trex: ['src/Dino_Trex.glb', DINO('TRex'), { simplify: .6, pal: { Green: '#5f7f4a', Black: '#2a2a2a', LightGreen: '#d8cf9a', Red: '#b8323a', LightYellow: '#e8c070' } }], dino_trike: ['src/Dino_Triceratops.glb', DINO('Triceratops'), { simplify: .6, pal: { Purple: '#7fa66a', LightBrown: '#cfe0b0', Brown: '#5a7a4a' } }], dino_raptor: ['src/Dino_Velociraptor.glb', DINO('Velociraptor'), { simplify: .6, pal: { Brown: '#c8743a', Black: '#2a2a2a', LightBrown: '#f0d6a8' } }], dino_apato: ['src/Dino_Apatosaurus.glb', DINO('Apatosaurus'), { simplify: .6, pal: { Brown: '#6f9fb8', Black: '#2a2a2a', Material: '#c4dde8', LightBrown: '#8fb8cc' } }],
-  person_a: ['src/Casual_Male.glb', WHO, HALF], person_b: ['src/Casual_Female.glb', WHO, HALF], person_c: ['src/Casual2_Male.glb', WHO, HALF], person_d: ['src/Casual2_Female.glb', WHO, HALF], person_e: ['src/OldClassy_Female.glb', WHO, HALF],
-  worker_a: ['src/Worker_Male.glb', WHO, HALF], worker_b: ['src/Worker_Female.glb', WHO, HALF],
+  // 사람은 뼈대가 모두 같아서 동작은 person_a 하나에만 두고 나머지는 그 동작을 빌려 쓴다
+  person_a: ['src/Casual_Male.glb', WHO, HALF], person_b: ['src/Casual_Female.glb', [], HALF], person_c: ['src/Casual2_Male.glb', [], HALF], person_d: ['src/Casual2_Female.glb', [], HALF], person_e: ['src/OldClassy_Female.glb', [], HALF],
+  worker_a: ['src/Worker_Male.glb', [], HALF], worker_b: ['src/Worker_Female.glb', [], HALF], cowboy_a: ['src/Cowboy_Male.glb', [], HALF], cowboy_b: ['src/Cowboy_Female.glb', [], HALF],
   koi: ['src/Koi.glb', null, { simplify: .4, pal: { Koi_Main: '#f0602a', Koi_Fins: '#f8d8a0', Koi_Light: '#ffffff', Koi_Dark: '#3a3a3a', Eyes: '#101010' } }], dock_long: ['src/Dock_Long.glb', null, { simplify: .5, pal: { Wood: '#a9744f', LightWood: '#c79a63', String: '#d9c08a', DarkWood: '#7a4f2c' } }], dock_wide: ['src/Dock_Wide.glb', null, { simplify: .5, pal: { Wood: '#a9744f', LightWood: '#c79a63', String: '#d9c08a', DarkWood: '#7a4f2c' } }],
   boat_small: ['src/Boat_Small.glb', null, { pal: { DarkWood: '#7a4f2c', Wood: '#a9744f' } }], boat1: ['src/Ship_Boat.glb', null, { pal: { DarkWood: '#7a4f2c', Wood: '#a9744f' } }], boat2: ['src/Ship_Lifeboat.glb'], boat3: ['src/Ship_BoatWSail.glb', null, { pal: { DarkWood: '#7a4f2c', LightWood: '#c79a63', Sail: '#f4ecd8', Steel: '#8a8f98' } }], boat4: ['src/Ship_CruiseShip.glb']
 };

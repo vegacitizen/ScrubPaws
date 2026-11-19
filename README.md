@@ -482,7 +482,7 @@ GitHub Actions 실행 결과의 `ScrubPaws-debug-apk` 아티팩트에서도 내�
 ## 크레딧
 
 - 3D 렌더링: three.js r149 (MIT 라이선스)
-- 3D 모형(모두 CC0 1.0): Quaternius (https://quaternius.com) 의 Ultimate Nature Pack · Ultimate Animated Animals · Farm Animals · Dinosaur Animated Pack · Ultimate Animated Character Pack · Cute Fish Pack · Ships, Kenney (https://kenney.nl) 의 Car Kit(트랙터)
+- 3D 모형(모두 CC0 1.0): Quaternius (https://quaternius.com) 의 Ultimate Nature Pack · Ultimate Animated Animals · Farm Animals · Dinosaur Animated Pack · Ultimate Animated Character Pack · Cute Fish Pack · Ships · Farm Buildings · Medieval Village Pack · Ultimate Fantasy RTS, Kenney (https://kenney.nl) 의 Car Kit(트랙터)
 - 모형은 `tools/models`의 도구로 줄이고 색을 맞춰 `pack_models.js` 한 파일로 묶습니다. 원본과 출처는 `tools/models/src/README.md`에 있습니다.
 - v7.12.0부터 예전의 Sketchfab 모델(양·소·판다·춤추는 소)은 쓰지 않습니다.
 
@@ -866,3 +866,7 @@ v5.0.0의 공룡 값과 먹이 규칙은 이 절의 내용으로 바뀌었어요
 # v7.12.0 — 남은 도형을 각진 로우폴리로
 - 주인공과 건물, 울타리, 모형이 없던 동물들이 모두 각진 로우폴리 모양으로 바뀌어 새 모형들과 어울려요.
 - 손에 든 도구와 덫, 반짝이가 이모지 그림 대신 3D 모형으로 보여요.
+
+# v7.13.0 — 주인공 고르기와 건물 모형
+- 게임을 시작할 때 주인공을 일곱 가지 중에서 골라요.
+- 헛간·급수탑·울타리와 시설 건물이 새 모형으로 바뀌었어요.
