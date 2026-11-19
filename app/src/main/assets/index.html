@@ -850,6 +850,7 @@ function pressShoot() {
   if (!b) {   // 빗나감: 근처 맹수는 총소리에 놀라 달아난다 (보상 없음)
     shotFx = { x0: pl.x, y0: pl.y, x1: pl.x + pl.ax * G0.range, y1: pl.y + pl.ay * G0.range, t: .12 }; let n = 0;
     for (const q of preds) if (!q.flee && !q.dead && Math.hypot(q.x - pl.x, q.y - pl.y) < G0.range * 1.1) { scarePred(q, '탕! 깨갱'); n++; }
+    for (const w of wilds) if (Math.hypot(w.x - pl.x, w.y - pl.y) < G0.range) { if (!WILD[w.k].dang) w.fleeT = 3; else if (Math.hypot(w.x - pl.x, w.y - pl.y) < 400) w.rage = 5; }
     if (n) showToast('빗나갔어요! 맹수가 총소리에 놀라 달아났어요 (보상 없음)', 3); return; }
   shotFx = { x0: pl.x, y0: pl.y, x1: b.x, y1: b.y, t: .12 }; b.life -= G0.dmg; burst(b.x, b.y, 'dust', 6);
   if (b.life <= 0) { killPred(b); return; }
@@ -1042,7 +1043,7 @@ function updateHose(dt) {
   for (const q of plots) { const dx = q.x - pl.x, dy = q.y - pl.y, d = Math.hypot(dx, dy); if (d > 240 || (d > 40 && (dx * pl.ax + dy * pl.ay) / d < .8)) continue; if (q.wet < WET_TIME - 1 && q.g < 1 && Math.random() < .3) burst(q.x, q.y, 'bubble', 1); q.wet = WET_TIME; }   // 작물에 물 주기
   for (const p of PENS) { if (!p.own || p.water >= WATER_CAP) continue; const dx = p.wx - pl.x, dy = p.wy - pl.y, d = Math.hypot(dx, dy); if (d > 240 || (d > 40 && (dx * pl.ax + dy * pl.ay) / d < .8)) continue; p.water = Math.min(WATER_CAP, p.water + 4 * dt); if (Math.random() < dt * 6) burst(p.wx, p.wy, 'bubble', 1); if (p.water >= WATER_CAP) stats.watered++; if (p.water >= WATER_CAP) say({ x: p.wx, y: p.wy }, '물통이 가득 찼어요', '#2a9fb8', 1); }
   { const front = (x, y, r) => { const dx = x - pl.x, dy = y - pl.y, d = Math.hypot(dx, dy); return d < r && (d < 40 || (dx * pl.ax + dy * pl.ay) / d > .8); };
-    for (const t of trees) if (front(t.x, t.y, 220)) t.wetT = 30; for (const w of wilds) if (front(w.x, w.y, 200)) w.fleeT = 2.5; for (const q of preds) if (q.kind === 'fox' && !q.flee && !q.dead && front(q.x, q.y, 170)) scarePred(q, '물벼락! 깨갱'); }
+    for (const t of trees) if (front(t.x, t.y, 220)) t.wetT = 30; for (const w of wilds) if (front(w.x, w.y, 200)) { w.fleeT = 2.5; if (WILD[w.k].dang) { w.coolT = 4; w.rage = 0; w.chase = false; } } for (const q of preds) if (q.kind === 'fox' && !q.flee && !q.dead && front(q.x, q.y, 170)) scarePred(q, '물벼락! 깨갱'); }
   if (Math.random() < dt * 60) drops.push({ x: pl.x + pl.ax * 24, y: pl.y + pl.ay * 24, h: 58, vx: pl.ax * 430 + R(-70, 70), vy: pl.ay * 430 + R(-70, 70), vh: R(40, 120), life: .55 });
   if (Math.random() < dt * 14) noise(.1, 4200, .8, .12, 0, 'highpass');
   for (const a of animals) { const dx = a.x - pl.x, dy = a.y - pl.y, d = Math.hypot(dx, dy); if (d > 250 || d < 1) continue; if ((dx * pl.ax + dy * pl.ay) / d < .86) continue;
@@ -1728,7 +1729,7 @@ let own = {}, fly = false, barns2 = [], sprayMode = 'water';
 /* ---------- 창고 더 짓기: 한 채마다 일꾼 +2명, 동시에 켜는 자동화 장치 +2대, 탈것 +1대, 보관 +20칸 ---------- */
 const BARN2_MAX = 3, BARN2_LV = 6, barn2Price = () => 15000 * (barns2.length + 1), barnList = () => [BARN].concat(barns2), autoMax = () => 3 + 2 * barns2.length, autoCnt = () => Object.keys(auto).filter(k => auto[k].own && auto[k].on).length;
 const nearBarn = () => barnList().some(q => Math.hypot(q.x - pl.x, q.y - pl.y) < 85);
-const SPRAY = { water: { n: '물 뿌리기', e: '💧' }, fert: { n: '비료 뿌리기', e: '💩' }, feed: { n: '먹이 뿌리기', e: '🌾' } };
+const SPRAY = { water: { n: '물 뿌리기', e: '💧' }, fert: { n: '비료 뿌리기', e: '💩' }, feed: { n: '먹이 뿌리기', e: '🌾' }, net: { n: '그물 던지기 (야생 동물 산 채로 잡기)', e: '🕸️' } };
 function buildBarn2() {
   const x = clamp(pl.x + pl.ax * 50, MAP.x0 + 90, MAP.x1 - 90), y = clamp(pl.y + pl.ay * 50, MAP.y0 + 90, MAP.y1 - 90), price = barn2Price();
   if (money < price) { showToast('돈이 모자라요 (' + price.toLocaleString() + '원)'); return; }
@@ -1741,7 +1742,8 @@ function buildBarn2() {
 const PLANE_PRICE = 40000, PLANE_LV = 8, PLANE_R = 240, PLANE_SPEED = 3, plane = { x: 300, y: 560 };
 const planePick = p => { for (const a of inPen(p).filter(a => !a.loose).sort((a, b) => b.hunger - a.hunger)) { const have = t => t === 'hay' ? hayStock > 0 : store[t] > 0, d = dietOf(a), t = have(a.K.fav) && d.includes(a.K.fav) ? a.K.fav : d.find(have); if (t && (p.feed[t] || 0) < TROUGH_CAP) return t; } return null; };
 function spray() {
-  if (pl.sprayCd > 0) return; pl.sprayCd = 1.2; let nw = 0, nf = 0, nt = 0, nd = 0, np = 0, hint = ''; const mW = sprayMode === 'water', mF = sprayMode === 'fert', mT = sprayMode === 'feed';
+  if (pl.sprayCd > 0) return; if (sprayMode === 'net') { planeNet(); return; } pl.sprayCd = 1.2; let nw = 0, nf = 0, nt = 0, nd = 0, np = 0, hint = ''; const mW = sprayMode === 'water', mF = sprayMode === 'fert', mT = sprayMode === 'feed';
+  if (mW) for (const w of wilds) if (Math.hypot(w.x - pl.x, w.y - pl.y) < PLANE_R) { w.fleeT = 3; if (WILD[w.k].dang) { w.coolT = 4; w.chase = false; } }
   if (mW) for (const f of fires.slice()) if (Math.hypot(f.x - pl.x, f.y - pl.y) < PLANE_R) { putOut(f, '치익'); nw++; }
   for (const q of plots) { if (Math.hypot(q.x - pl.x, q.y - pl.y) > PLANE_R || q.g >= 1) continue; if (mW && q.wet < WET_TIME * .5 && water >= .5) { q.wet = WET_TIME; water -= .5; nw++; } if (mF && !q.fert && fert > 0) { q.fert = true; fert--; nf++; } }
   for (const P of PENS) { if (!P.own) continue; const inside = penAt(pl.x, pl.y) === P; if (!inside && Math.hypot(P.tx - pl.x, P.ty - pl.y) > PLANE_R) continue;
@@ -2095,7 +2097,7 @@ function torchHit() {   // 횃불을 휘둘렀다: 앞쪽 가까이에 있는 �
   const fx = pl.x + pl.ax * 40, fy = pl.y + pl.ay * 40;
   for (const a of animals.slice()) { if (a.state === 'carried' || Math.hypot(a.x - fx, a.y - fy) > 46 + a.sp.r * .6) continue; const dmg = a.K.dino && a.adult ? 15 : 30; a.health -= dmg; a.attackedT = 3; a.happy = Math.max(0, a.happy - 30); a.bond = Math.max(0, (a.bond || 0) - 10); burst(a.x, a.y, 'spark', 8);
     if (a.health <= 0) { showToast('🔥 ' + a.K.n + '이(가) 횃불에 데어 죽었어요…', 5); removeAnimal(a); lostTonight++; } else { say(a, '앗 뜨거! (건강 ' + Math.round(a.health) + ')', '#e2493f', 1); if (!(fireWarnT > gt)) { fireWarnT = gt + 3; showToast('⚠️ 횃불에 가축이 데었어요! 가축 가까이에서는 휘두르지 마세요', 4); } } }
-  for (const w of wilds) if (Math.hypot(w.x - fx, w.y - fy) < 150) w.fleeT = 3;
+  for (const w of wilds) if (Math.hypot(w.x - fx, w.y - fy) < 200) { w.fleeT = 3; if (WILD[w.k].dang) { w.coolT = 5; w.rage = 0; w.chase = false; say(w, '불이다!', '#ffb347'); } }
   for (const b of burnablesNear(fx, fy, 62)) ignite(b[0], b[1], b[2], b[3]);
 }
 function putOut(f, why) { const i = fires.indexOf(f); if (i >= 0) fires.splice(i, 1); burst(f.x, f.y, 'bubble', 6); if (why) say(f, why, '#2a7fb8'); }
@@ -2259,14 +2261,7 @@ function openTrap(t) {
 }
 function runZooDaily() { let sum = 0; for (const k in zoo) if (WILD[k]) sum += Math.round(WILD[k].live / 20) * zoo[k]; if (sum) money += sum; return sum ? ' · 🏕️ 보호소 관람료 +' + sum.toLocaleString() + '원' : ''; }
 function wildRay(G0) { let b = null, bd = G0.range; for (const w of wilds) { const dx = w.x - pl.x, dy = w.y - pl.y, along = dx * pl.ax + dy * pl.ay; if (along < 10 || along > bd) continue; if (Math.abs(dx * pl.ay - dy * pl.ax) <= WILD[w.k].r * .7 + G0.tol) { bd = along; b = w; } } return b; }
-function shootWild(w) {   // 큰 동물은 여러 발을 맞혀야 잡힌다. 맹수는 맞으면 사납게 달려든다
-  const W = WILD[w.k], G0 = GUNS[gunLv || 1]; w.hp = (w.hp == null ? (W.hp || 1) : w.hp) - G0.dmg;
-  if (w.hp > 0) { const v = Math.round(W.shot * HIT_PAY / 10) * 10; money += v; burst(w.x, w.y, 'dust', 5); say(w, '💥 ' + Math.ceil(w.hp / G0.dmg) + '발 더', '#e2493f', 1); SFX.take(); if (W.dang) { w.rage = 8; w.coolT = 0; } else w.fleeT = 4; return; }
-  wilds.splice(wilds.indexOf(w), 1); money += W.shot; addXp(4 + (W.dang ? 10 : 0)); burst(w.x, w.y, 'dust', 8); SFX.take(); dexAdd('w:' + w.k); stats.hunt = (stats.hunt || 0) + 1;
-  let meat = ''; if (W.meat) { const n = Math.min(W.meat, Math.max(0, storeCap() - storeUsed())); if (n) { store.meat = (store.meat || 0) + n; meat = ' · 🥩 고기 ' + n + '개 창고로'; } }
-  showToast('🎯 ' + W.e + ' ' + W.n + '을(를) 잡았어요 +' + W.shot.toLocaleString() + '원' + meat + (W.rare ? ' · 덫으로 산 채 잡으면 ' + W.live.toLocaleString() + '원이에요!' : ''), 4);
-  for (const q of wilds) { if (!WILD[q.k].dang) q.fleeT = 3; else if (Math.hypot(q.x - w.x, q.y - w.y) < 500) q.rage = 6; }
-}
+function shootWild(w) { hurtWild(w, GUNS[gunLv || 1].dmg, 'gun'); }
 function updateLand(dt) {
   if (pl.digCd > 0) pl.digCd -= dt; if (pondTanks > 0) water = Math.min(tankCap(), water + .5 * pondTanks * dt);
   // 물고기: 수질이 좋을수록 빨리 자라고 빨리 는다
@@ -2506,7 +2501,9 @@ function spawnWild(far) {
     return true; }
   return false;
 }
+const EATER = { rabbit: 1, deer: 1, roe: 1, boar: 1 };
 function wanderTo(w, W, back) {
+  if (!back && EATER[w.k] && plots.length && Math.random() < .4) { const q = plots.find(q => q.g > .2 && Math.hypot(q.x - w.x, q.y - w.y) < 500 && !scarecrows.some(c => Math.hypot(c.x - q.x, c.y - q.y) < 170)); if (q) { w.tx = q.x; w.ty = q.y; return; } }
   for (let i = 0; i < 8; i++) { let tx, ty; if (back) { tx = w.x + back[0] * 220 + R(-120, 120); ty = w.y + back[1] * 220 + R(-120, 120); } else { const tr0 = !W.dang && Math.random() < .55 ? traps.find(t => !t.caught && Math.hypot(t.x - w.x, t.y - w.y) < 320) : null; if (tr0) { w.tx = tr0.x; w.ty = tr0.y; return; } tx = w.x + R(-300, 300); ty = w.y + R(-300, 300); }
     tx = clamp(tx, MAP.x0 + 60, MAP.x1 - 60); ty = clamp(ty, MAP.y0 + 60, MAP.y1 - 60); if (inWater(tx, ty) || (W.dang && !dangOK(tx, ty))) continue; w.tx = tx; w.ty = ty; return; }
   w.tx = w.x; w.ty = w.y;
@@ -2523,17 +2520,20 @@ function updateWilds2(dt) {
   for (const w of wilds.slice()) {
     const W = WILD[w.k], dp = Math.hypot(w.x - pl.x, w.y - pl.y); w.acc = (w.acc || 0) + dt; if (dp > 1400 && w.acc < .35) continue; const d2 = Math.min(.5, w.acc); w.acc = 0;
     w.life -= d2; if (w.life <= 0 && dp > 900) { wilds.splice(wilds.indexOf(w), 1); continue; }
-    let vx = 0, vy = 0, v = 0;
-    if (W.dang) {
+    let vx = 0, vy = 0, v = 0; const fz = fires.length ? fires.find(f => Math.hypot(f.x - w.x, f.y - w.y) < 200) : null;
+    if (fz) { const fd = Math.hypot(w.x - fz.x, w.y - fz.y) || 1; vx = (w.x - fz.x) / fd; vy = (w.y - fz.y) / fd; v = W.sp * 1.2; if (W.dang) { w.chase = false; w.coolT = Math.max(w.coolT || 0, 2); } }
+    else if (W.dang) {
       if (w.coolT > 0) w.coolT -= d2; if (w.rage > 0) w.rage -= d2; const aggro = w.rage > 0 ? 560 : w.k === 'bear' ? 230 : 290;
       if (!safe && !(w.coolT > 0) && dp < aggro && dp > 1) { if (!w.chase) { w.chase = true; say(w, '‼️', '#e2493f', 1); noise(.5, 260, .7, .6, 0, 'lowpass'); if (dp > 200) showToast('⚠️ ' + W.e + ' ' + W.n + '이(가) 달려와요! 총으로 쏘거나 농장·정류장 쪽으로 피하세요', 3); }
-        vx = (pl.x - w.x) / dp; vy = (pl.y - w.y) / dp; v = W.sp * .82; if (dp < W.r + 24) { wildAttack(w, W); continue; } }
+        vx = (pl.x - w.x) / dp; vy = (pl.y - w.y) / dp; v = W.sp * .82; if (dp < W.r + 24) { if (tr.riding) { say(pl, '🚜 끄떡없어요', '#ffd27a'); hurtWild(w, 1, 'tractor'); w.coolT = 4; w.rage = 0; w.chase = false; } else wildAttack(w, W); continue; } }
       else { w.chase = false; if (w.coolT > 0 && dp < 520 && dp > 1) { vx = (w.x - pl.x) / dp; vy = (w.y - pl.y) / dp; v = W.sp * .7; } }
     } else { if (dp < 150 && !fly) w.fleeT = 1.5; if (w.fleeT > 0) w.fleeT -= d2; if (w.fleeT > 0 && dp > 1) { vx = (w.x - pl.x) / dp; vy = (w.y - pl.y) / dp; v = W.sp * 1.25; } }
-    if (!v) { let dx = w.tx - w.x, dy = w.ty - w.y, d = Math.hypot(dx, dy); if (d < 12) { wanderTo(w, W); dx = w.tx - w.x; dy = w.ty - w.y; d = Math.hypot(dx, dy) || 1; } vx = dx / d; vy = dy / d; v = W.sp * .45; }
+    if (!v && w.eatT > 0) w.eatT -= d2;
+    else if (!v) { let dx = w.tx - w.x, dy = w.ty - w.y, d = Math.hypot(dx, dy); if (d < 12) { wanderTo(w, W); dx = w.tx - w.x; dy = w.ty - w.y; d = Math.hypot(dx, dy) || 1; } vx = dx / d; vy = dy / d; v = W.sp * .45; }
     const nx = clamp(w.x + vx * v * d2, MAP.x0 + 30, MAP.x1 - 30), ny = clamp(w.y + vy * v * d2, MAP.y0 + 30, MAP.y1 - 30);
     if (pitBlocks(nx, ny, W.r, false) || inWater(nx, ny) || solidAt(nx, ny) || (W.dang && !w.chase && !dangOK(nx, ny)) || (W.dang && nearFarm(nx, ny, 120)) || PENS.some(q => q.own && nx > q.x - 14 && nx < q.x + q.w + 14 && ny > q.y - 14 && ny < q.y + q.h + 14)) { wanderTo(w, W, [-vx, -vy]); w.fleeT = 0; if (W.dang) w.chase = false; continue; }
     w.x = nx; w.y = ny;
+    if (EATER[w.k] && plots.length && !(w.fleeT > 0)) { const q = plots.find(q => q.g > .15 && Math.hypot(q.x - w.x, q.y - w.y) < 30); if (q) { if (w.ateQ !== q) { w.ateQ = q; w.eatT = R(5, 9); } q.g = Math.max(0, q.g - .06 * d2); if (Math.random() < d2) say(w, '냠냠 🌱', '#3fae6a'); if (!(cropWarnT > gt)) { cropWarnT = gt + 30; showToast(W.e + ' ' + W.n + '이(가) 밭의 작물을 먹고 있어요! 다가가 쫓거나 덫·허수아비를 놓으세요', 5); } } }
     const tp = traps.find(t => !t.caught && Math.hypot(t.x - w.x, t.y - w.y) < 30); if (!tp) continue;
     if (tp.t >= W.trap) { tp.caught = w.k; wilds.splice(wilds.indexOf(w), 1); SFX.praise(); showToast('🪤 ' + W.e + ' ' + W.n + '이(가) 덫에 걸렸어요! 덫으로 가서 꺼내세요', 5); }
     else { traps.splice(traps.indexOf(tp), 1); w.fleeT = 3; burst(tp.x, tp.y, 'dust', 8); showToast('💥 ' + W.n + '이(가) ' + TRAPS[tp.t].n + '을(를) 부수고 달아났어요. ' + TRAPS[W.trap].n + ' 이상이 필요해요', 5); }
@@ -2575,18 +2575,58 @@ function drawMap(cv, big) {
 function drawMini() { const cv = $('mini'); if (!cv || cv.hidden) return; drawMap(cv, false); }
 function openMap() {
   if (state !== 'play') return; state = 'menu'; const ratio = (MAP.y1 - MAP.y0) / (MAP.x1 - MAP.x0);
-  showOv('<h2>🗺️ 지도</h2><canvas id="bigmap" width="1344" height="' + Math.round(1344 * ratio) + '"></canvas><p class="sub">지금 있는 곳: ' + REGIONS[regionAt(pl.x, pl.y)].e + ' ' + REGIONS[regionAt(pl.x, pl.y)].n + ' · 🟠 나 · 🔴 맹수 · 🟡 희귀 동물 · 🟤 야생 동물<br>정류장(🚏)을 누르면 바로 가요. 새 정류장은 한 번 걸어가 보면 열려요.</p>' +
+  showOv('<h2>🗺️ 지도</h2><canvas id="bigmap" width="1344" height="' + Math.round(1344 * ratio) + '"></canvas><p class="sub">지금 있는 곳: ' + REGIONS[regionAt(pl.x, pl.y)].e + ' ' + REGIONS[regionAt(pl.x, pl.y)].n + ' · 🟠 나 · 🔴 맹수 · 🟡 희귀 동물 · 🟤 야생 동물<br>정류장(🚏)을 누르면 타고 있는 것과 함께 바로 가요. 새 정류장은 한 번 가 보면 열려요.</p>' +
     '<div class="tiles">' + STATIONS.map(s => { const on = s.open || seenSt[s.k]; return '<button class="buy tile" data-st="' + s.k + '" type="button"' + (on ? '' : ' disabled') + '><span>' + (on ? s.e : '❓') + '</span>' + (on ? s.n : '아직 못 가 봤어요') + '</button>'; }).join('') + '</div><button class="btn" id="go">닫기</button>');
   const cv = $('bigmap'); drawMap(cv, true);
   cv.onclick = e => { const b = cv.getBoundingClientRect(), x = MAP.x0 + (e.clientX - b.left) / b.width * (MAP.x1 - MAP.x0), y = MAP.y0 + (e.clientY - b.top) / b.height * (MAP.y1 - MAP.y0); let s = null, sd = 360; for (const q of STATIONS) { const d = Math.hypot(q.x - x, q.y - y); if ((q.open || seenSt[q.k]) && d < sd) { sd = d; s = q; } } if (s) travelTo(s); };
   document.querySelectorAll('#card [data-st]').forEach(b => { b.onclick = () => travelTo(STATIONS.find(q => q.k === b.dataset.st)); });
   $('go').onclick = () => { state = 'play'; hideOv(); };
 }
-function travelTo(s) {
-  if (!s) return; const back = () => { state = 'play'; hideOv(); };
-  if (boat.riding || fly || tr.riding || ride) { back(); showToast('배·비행기·트랙터·말에서 내린 뒤에 빠른 이동을 할 수 있어요', 4); return; }
-  if (pl.carry && typeof pl.carry === 'object') { back(); showToast('가축을 내려놓고 이동하세요', 3); return; }
-  back(); pl.fishing = null; pl.x = s.x; pl.y = s.y + 40; pl.stunT = 0; flashT = .3; SFX.grab(); tone(500, 900, .25, 'sine', .2); showToast('🚏 ' + s.e + ' ' + s.n + '(으)로 왔어요', 3); curRegion = regionAt(pl.x, pl.y); saveGame();
+function travelTo(s) {   // 무엇을 타고 있든 함께 간다. 배는 물을 떠날 수 없어 제자리(선착장·낚시터 다리)에 묶어 두고 간다
+  if (!s) return; state = 'play'; hideOv(); let note = '';
+  if (boat.riding) { const rv = boat.at === 'resv'; if (!rv) { boat.x = DOCKPOS.x + 70; boat.y = DOCKPOS.y; } boat.riding = false; boat.at = ''; note = ' · 🛶 배는 ' + (rv ? '낚시터 다리' : '선착장') + '에 묶어 두었어요'; }
+  pl.fishing = null; pl.stunT = 0; pl.x = s.x; pl.y = s.y + 40;
+  if (tr.riding) { tr.x = pl.x; tr.y = pl.y; note += ' · 🚜 트랙터를 타고'; } else if (fly) note += ' · ✈️ 비행기로 날아서'; else if (ride) note += ' · 🐴 ' + ride.K.n + '을(를) 타고';
+  if (pl.carry && typeof pl.carry === 'object') note += ' · ' + pl.carry.K.e + ' ' + pl.carry.K.n + '도 함께';
+  flashT = .3; SFX.grab(); tone(500, 900, .25, 'sine', .2); showToast('🚏 ' + s.e + ' ' + s.n + '(으)로 왔어요' + note, 4); curRegion = regionAt(pl.x, pl.y); saveGame();
+}
+/* 다치게 하기 · 잡기: 총 · 트랙터 · 말이 모두 같은 규칙을 따른다 */
+const HOW = { gun: '🎯 잡았어요', tractor: '🚜 트랙터로 치었어요', horse: '🐴 말로 들이받아 잡았어요' };
+function hurtWild(w, dmg, how) {
+  const W = WILD[w.k]; if (wilds.indexOf(w) < 0) return; w.hp = (w.hp == null ? (W.hp || 1) : w.hp) - dmg;
+  if (w.hp > 0) { if (how === 'gun') money += Math.round(W.shot * HIT_PAY / 10) * 10; burst(w.x, w.y, 'dust', 5); say(w, '💥 ' + (how === 'gun' ? Math.ceil(w.hp / dmg) + '발 더' : '쿵! 한 번 더'), '#e2493f', 1); SFX.take();
+    if (how !== 'gun') { const d = Math.hypot(w.x - pl.x, w.y - pl.y) || 1; w.x = clamp(w.x + (w.x - pl.x) / d * 70, MAP.x0 + 30, MAP.x1 - 30); w.y = clamp(w.y + (w.y - pl.y) / d * 70, MAP.y0 + 30, MAP.y1 - 30); }
+    if (W.dang) { w.rage = 8; w.coolT = 0; } else w.fleeT = 4; return; }
+  wilds.splice(wilds.indexOf(w), 1); money += W.shot; addXp(4 + (W.dang ? 10 : 0)); burst(w.x, w.y, 'dust', 8); SFX.take(); dexAdd('w:' + w.k); stats.hunt = (stats.hunt || 0) + 1;
+  let meat = ''; if (W.meat) { const n = Math.min(W.meat, Math.max(0, storeCap() - storeUsed())); if (n) { store.meat = (store.meat || 0) + n; meat = ' · 🥩 고기 ' + n + '개 창고로'; } }
+  showToast(W.e + ' ' + W.n + ' · ' + HOW[how] + ' +' + W.shot.toLocaleString() + '원' + meat + (W.rare ? ' · 덫이나 비행기 그물로 산 채 잡으면 ' + W.live.toLocaleString() + '원이에요!' : ''), 4);
+  for (const q of wilds) { if (!WILD[q.k].dang) { if (Math.hypot(q.x - w.x, q.y - w.y) < 600) q.fleeT = 3; } else if (Math.hypot(q.x - w.x, q.y - w.y) < 500) q.rage = 6; }
+}
+let bumpWarnT = 0, cropWarnT = 0;
+function vehicleHits() {   // 트랙터·말로 달리다 부딪치면: 야생 동물과 맹수는 다치거나 죽고, 가축은 놀라 비켜난다
+  const veh = tr.riding ? 'tractor' : ride ? 'horse' : ''; if (!veh || !pl.moving || boat.riding || fly) return; const VR = veh === 'tractor' ? 34 : 26, dmg = veh === 'tractor' ? 3 : 2;
+  for (const w of wilds.slice()) { if (w.bumpT > gt) continue; const W = WILD[w.k]; if (Math.hypot(w.x - pl.x, w.y - pl.y) < W.r * .8 + VR) { w.bumpT = gt + .8; shake = Math.max(shake, .25); noise(.25, 220, .8, .6, 0, 'lowpass'); hurtWild(w, dmg, veh); } }
+  for (const q of preds) { if (q.dead || q.flee || q.gone) continue; if (Math.hypot(q.x - pl.x, q.y - pl.y) < q.sp.r * .8 + VR) { shake = Math.max(shake, .3); noise(.25, 220, .8, .6, 0, 'lowpass'); killPred(q); } }
+  for (const a of animals) { if (a.state === 'carried' || a.state === 'ridden' || a.bumpT > gt || a === ride) continue; const d = Math.hypot(a.x - pl.x, a.y - pl.y); if (d > a.sp.r * .6 + VR || d < 1) continue;
+    a.bumpT = gt + 1.5; a.x += (a.x - pl.x) / d * 40; a.y += (a.y - pl.y) / d * 40; const P = PENS[a.pen]; if (P && !a.loose) { a.x = clamp(a.x, P.x + 20, P.x + P.w - 20); a.y = clamp(a.y, P.y + 30, P.y + P.h - 20); }
+    a.happy = Math.max(0, a.happy - 8); a.attackedT = Math.max(a.attackedT || 0, 1); say(a, '깜짝!', '#e2493f'); if (!(bumpWarnT > gt)) { bumpWarnT = gt + 20; showToast((veh === 'tractor' ? '🚜' : '🐴') + ' 가축이 놀랐어요(기분 -8). 가축 사이에서는 천천히 다니세요', 3); } }
+}
+/* 비행기 그물: 위에서 그물을 던져 야생 동물을 산 채로 잡는다 */
+function planeNet() {
+  pl.sprayCd = 2; let w = null, wd = 150; for (const q of wilds) { const d = Math.hypot(q.x - pl.x, q.y - pl.y); if (d < wd) { wd = d; w = q; } }
+  noise(.3, 900, 1, .3); burst(pl.x, pl.y, 'dust', 6);
+  if (!w) { showToast('🕸️ 아래에 야생 동물이 없어요. 미니맵의 점을 찾아 바로 위에서 던지세요', 3); return; }
+  const W = WILD[w.k], ch = (W.r < 20 ? .95 : W.r < 30 ? .8 : W.r < 36 ? .65 : .5) - (W.dang ? .1 : 0) - (W.rare ? .15 : 0);
+  if (Math.random() > ch) { w.fleeT = 4; if (W.dang) { w.coolT = 4; w.chase = false; } say(w, '휙! 빠져나갔어요', '#e2493f', 1); showToast('🕸️ ' + W.e + ' ' + W.n + '이(가) 그물을 빠져나갔어요 (성공률 ' + Math.round(ch * 100) + '%). 다시 던져 보세요', 3); return; }
+  wilds.splice(wilds.indexOf(w), 1); SFX.praise(); openCatch(w.k, '✈️ 비행기 그물로');
+}
+function openCatch(k, how) {   // 산 채로 잡은 야생 동물: 팔기 · 보호소 · 놓아주기
+  const W = WILD[k]; state = 'menu'; dexAdd('w:' + k);
+  showOv('<h2>' + W.e + ' ' + W.n + '을(를) 잡았어요!</h2><p class="sub">' + how + ' 산 채로 잡았어요. ' + (W.rare ? '✨ 희귀한 야생 동물이에요. ' : '') + '총으로 잡을 때(' + W.shot.toLocaleString() + '원)보다 훨씬 값져요.</p><button class="btn" id="go">팔기 +' + W.live.toLocaleString() + '원</button> ' + (shelter ? '<button class="btn alt" id="keep">보호소에서 키우기 (아침마다 +' + Math.round(W.live / 20).toLocaleString() + '원)</button> ' : '') + '<button class="btn alt" id="back">놓아주기</button>' + (shelter ? '' : '<p class="sub">🏕️ 야생 동물 보호소를 지으면 키우면서 관람료를 받을 수 있어요</p>'));
+  const done = () => { state = 'play'; hideOv(); saveGame(); };
+  $('go').onclick = () => { money += W.live; addXp(W.rare ? 40 : 8); SFX.praise(); done(); showToast(W.e + ' ' + W.n + ' +' + W.live.toLocaleString() + '원', 3); };
+  if ($('keep')) $('keep').onclick = () => { zoo[k] = (zoo[k] || 0) + 1; addXp(W.rare ? 60 : 12); SFX.praise(); done(); showToast('🏕️ ' + W.n + '을(를) 보호소에 들였어요', 3); };
+  $('back').onclick = () => { done(); addXp(3); showToast('🌿 ' + W.n + '을(를) 놓아주었어요', 2); };
 }
 function updateWorld2(dt) {
   if (pl.stunT > 0) pl.stunT -= dt; resvStock = Math.min(100, resvStock + .4 * dt);
@@ -2598,7 +2638,7 @@ function updateWorld2(dt) {
   if (!worldGen) { genRegionLand(); saveGame(); }
   const rg = regionAt(pl.x, pl.y); if (rg !== curRegion) { curRegion = rg; const G2 = REGIONS[rg]; if (!regionSeen[rg]) { regionSeen[rg] = 1; if (rg !== 'farm') { addXp(20); SFX.praise(); showToast(G2.e + ' ' + G2.n + '에 처음 왔어요! ' + G2.d, 6); } saveGame(); } else say(pl, G2.e + ' ' + G2.n, '#fff3e0'); }
   for (const s of STATIONS) if (!s.open && !seenSt[s.k] && Math.hypot(s.x - pl.x, s.y - pl.y) < 240) { seenSt[s.k] = 1; SFX.praise(); showToast('🚏 정류장 발견: ' + s.e + ' ' + s.n + ' · 이제 지도(🗺️)에서 언제든 바로 올 수 있어요', 5); saveGame(); }
-  updateWilds2(dt); miniT -= dt; if (miniT <= 0) { miniT = .25; drawMini(); }
+  vehicleHits(); updateWilds2(dt); miniT -= dt; if (miniT <= 0) { miniT = .25; drawMini(); }
 }
 function fitGround() { const g = world3.ground; if (!g) return; const w = MAP.x1 - MAP.x0 + 2600, h = MAP.y1 - MAP.y0 + 2600; g.scale.set(w, h, 1); g.position.set((MAP.x0 + MAP.x1) / 2, 0, (MAP.y0 + MAP.y1) / 2); if (g.material.map) g.material.map.repeat.set(w / 735, h / 730); }
 function buildWorld2(S) {   // 3D: 지역 바닥색 · 숲 · 산 · 덤불 · 저수지 낚시터 · 정류장 · 지역 표지판
@@ -3319,7 +3359,7 @@ function frame(now) {
 }
 window.addEventListener('resize', fit3D);
 window.__game = { get state() { return state; }, get animals() { return animals; }, get preds() { return preds; }, pl, PENS, KINDS, get money() { return money; }, set money(v) { money = v; }, get day() { return day; }, get clock() { return clock; }, set clock(v) { clock = v; }, get pensOwned() { return pensOwned; }, get gun() { return gun; },
-  lic, get licv() { return lic; }, get wood() { return wood; }, set wood(v) { wood = v; }, get exam() { return exam; }, get build() { return build; }, gunOn(v) { gun = true; gunLv = v || 1; }, gunRay, get gunLv() { return gunLv; }, seeds, get fert() { return fert; }, set fert(v) { fert = v; }, get plots() { return plots; }, CROPS, get hayQ() { return hayQ; }, get work() { return work; }, WORK, stats, QUESTS, get questI() { return questI; }, set questI(v) { questI = v; }, get order() { return order; }, get dex() { return dex; }, isOpen, swapTool, openDex, applyAway, newOrder, checkQuest, get store() { return store; }, addFeed, pickFeed, dietOf, feedInfo, get title() { return myTitle(); }, get badges() { return badges; }, TITLES, BADGES, get level() { return level; }, set level(v) { level = v; }, get xp() { return xp; }, set xp(v) { xp = v; }, xpFor, totalXp, areaXp, unlocksAt, get barnLv() { return barnLv; }, get caps() { return [TROUGH_CAP, WATER_CAP, HAY_CAP, TR_CAP]; }, get tractorLv() { return tractorLv; }, makeHole, escape, NEED, FENCE, penFor, buildFences, AUTO, get auto() { return auto; }, autoCnt, runAutoDaily, get birds() { return birds; }, spawnFlock, scareBirds, get scarecrows() { return scarecrows; }, get crowInv() { return crowInv; }, set crowInv(v) { crowInv = v; }, set birdT(v) { birdT = v; }, get workers() { return workers; }, hire, fire, JOBS, runWagesDaily, get market() { return market; }, showFair, fairScore, get landLv() { return landLv; }, landPrice, WORLD, get trophies() { return trophies; }, get stars() { return stars; }, checkStars, rollMarket, get piles() { return piles; }, dropFeed, updatePiles, get saddles() { return saddles; }, set saddles(v) { saddles = v; }, get ride() { return ride; }, rareChance, mount, dismount, horseJob, canRide, horseMul, rideSpeed, showRace, raceHorse, buildStable, career: { set(k, v) { if (k === 'brush') brush = v; else if (k === 'dairy') dairy = v; else if (k === 'toy') toy = v; else if (k === 'exhibit') exhibit = v; } }, get cheese() { return cheese; }, cheeseValue, henJob, pigJob, goldChance, runTrufflesDaily, truffleOf, sheepJob, goatJob, climbGoat, showClimb, openLoom, craftValue, get wool() { return wool; }, cowJob, pandaJob, careerMul, milkMul, prodValue, runVisitorsDaily, showFestival, festReady, cheeseQ, batchValue, openCheese, set factoryOn(v) { factory = v; }, get factoryOn() { return factory; }, get lab() { return lab; }, get suit() { return suit; }, get own() { return own; }, get fly() { return fly; }, get missions() { return missions; }, MAP, RESV, RPIER, RBOAT, STATIONS, SOLIDS, LAKE2: LAKE, travelTo, openMap, regionAt, spawnWild, resvFish, resvDepth, get seenSt() { return seenSt; }, get rboatGot() { return rboatGot; }, get regionSeen() { return regionSeen; }, get worldGen() { return worldGen; }, get lvm() { return lvm; }, LVM, lvmP, lvmAssign, lvmRefresh, lvmTitle, lvmPay, MISSION, missionP, get bundles() { return bundles; }, farmScore, get farmRank() { return farmRank; }, rankNeed, get pots() { return pots; }, askName, stats2: stats, checkRank, get fires() { return fires; }, torchHit, ignite, get hayStockv() { return hayStock; }, hoseOn(v) { hoseHeld = v; }, toolGroups, get toolOff() { return toolOff; }, LAKE, DOCKPOS, boat, get schools() { return schools; }, lakeSet(o) { if (o.dock != null) dockLv = o.dock; if (o.boat != null) boatLv = o.boat; if (o.net != null) netLv = o.net; if (o.stock != null) lakeStock = o.stock; }, lakeRho, get lakeStock() { return lakeStock; }, get gravel() { return gravel; }, get rocks() { return rocks; }, get pits() { return pits; }, get wilds() { return wilds; }, get traps() { return traps; }, get trapInv() { return trapInv; }, waterBodies, bodyFish, plantSpot, pitBlocks, genLand, landSet(o) { bodiesC = null; if (o.shovel != null) hasShovel = o.shovel; if (o.pick != null) pickLv = o.pick; if (o.rod != null) rodLv = o.rod; if (o.purify != null) purify = o.purify; if (o.shelter != null) shelter = o.shelter; }, get zoo() { return zoo; }, WILD, addWild(k, x, y) { wilds.push({ k, x, y, tx: x, ty: y, life: 99, fleeT: 0, seed: 0 }); }, get treats() { return treats; }, set treats(v) { treats = v; }, set fluteOn(v) { flute = v; }, growMul2: a => growMul(a), toolList, get gems() { return gems; }, get xpv() { return xp; }, get seedsv() { return seeds; }, get curActLabel() { const x = findAction(); return x ? x.label : ''; }, setWx(v) { wx = v; }, TUNES, MOODS, musicMood, get bgmKey() { return BGM.key; }, get buildv() { return build; }, buildRect, nBought, penLimit, askVoice, get vq() { return vq; }, tr, set tractorOn(v) { tractor = true; tractorLv = v; applyCaps(); }, get piles() { return piles; }, get inf() { return inf; }, get gunLvv() { return gunLv; }, GUNS, get preds() { return preds; }, tick: update, set flyOn(v) { fly = v; }, hire2: hire, spawnPred, get barns2() { return barns2; }, get sprayMode() { return sprayMode; }, autoMax, autoCnt, maxWorkers, storeCap, get auto() { return auto; }, plane, spray, PATH, runBigDaily, careerMul, set suit(v) { suit = v; }, get preyPen() { return preyPen; }, set preyPen(v) { preyPen = v; }, hire, feedPick, get trees() { return trees; }, TREES, treeFed, growMul, get hospT() { return hospT; }, set hospT(v) { hospT = v; }, set lab(v) { lab = v; }, get store() { return store; }, get hayStock() { return hayStock; }, set hayStock(v) { hayStock = v; }, get water() { return water; }, set water(v) { water = v; }, grass, TANK, HAY, hitPred, prodValue, grow, startDay, pressTool, openBarn, nightLevel, updatePred, startExam, exDown, exUp, exMove, pressWood, pressWork, findWork, buildRect, penSafe, get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, get dayv() { return day; }, set dayv(v) { day = v; }, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
+  lic, get licv() { return lic; }, get wood() { return wood; }, set wood(v) { wood = v; }, get exam() { return exam; }, get build() { return build; }, gunOn(v) { gun = true; gunLv = v || 1; }, gunRay, get gunLv() { return gunLv; }, seeds, get fert() { return fert; }, set fert(v) { fert = v; }, get plots() { return plots; }, CROPS, get hayQ() { return hayQ; }, get work() { return work; }, WORK, stats, QUESTS, get questI() { return questI; }, set questI(v) { questI = v; }, get order() { return order; }, get dex() { return dex; }, isOpen, swapTool, openDex, applyAway, newOrder, checkQuest, get store() { return store; }, addFeed, pickFeed, dietOf, feedInfo, get title() { return myTitle(); }, get badges() { return badges; }, TITLES, BADGES, get level() { return level; }, set level(v) { level = v; }, get xp() { return xp; }, set xp(v) { xp = v; }, xpFor, totalXp, areaXp, unlocksAt, get barnLv() { return barnLv; }, get caps() { return [TROUGH_CAP, WATER_CAP, HAY_CAP, TR_CAP]; }, get tractorLv() { return tractorLv; }, makeHole, escape, NEED, FENCE, penFor, buildFences, AUTO, get auto() { return auto; }, autoCnt, runAutoDaily, get birds() { return birds; }, spawnFlock, scareBirds, get scarecrows() { return scarecrows; }, get crowInv() { return crowInv; }, set crowInv(v) { crowInv = v; }, set birdT(v) { birdT = v; }, get workers() { return workers; }, hire, fire, JOBS, runWagesDaily, get market() { return market; }, showFair, fairScore, get landLv() { return landLv; }, landPrice, WORLD, get trophies() { return trophies; }, get stars() { return stars; }, checkStars, rollMarket, get piles() { return piles; }, dropFeed, updatePiles, get saddles() { return saddles; }, set saddles(v) { saddles = v; }, get ride() { return ride; }, rareChance, mount, dismount, horseJob, canRide, horseMul, rideSpeed, showRace, raceHorse, buildStable, career: { set(k, v) { if (k === 'brush') brush = v; else if (k === 'dairy') dairy = v; else if (k === 'toy') toy = v; else if (k === 'exhibit') exhibit = v; } }, get cheese() { return cheese; }, cheeseValue, henJob, pigJob, goldChance, runTrufflesDaily, truffleOf, sheepJob, goatJob, climbGoat, showClimb, openLoom, craftValue, get wool() { return wool; }, cowJob, pandaJob, careerMul, milkMul, prodValue, runVisitorsDaily, showFestival, festReady, cheeseQ, batchValue, openCheese, set factoryOn(v) { factory = v; }, get factoryOn() { return factory; }, get lab() { return lab; }, get suit() { return suit; }, get own() { return own; }, get fly() { return fly; }, get missions() { return missions; }, planeNet, hurtWild, get sprayMode() { return sprayMode; }, set sprayMode(v) { sprayMode = v; }, setFly(v) { fly = v; }, setRide(a) { ride = a; }, MAP, RESV, RPIER, RBOAT, STATIONS, SOLIDS, LAKE2: LAKE, travelTo, openMap, regionAt, spawnWild, resvFish, resvDepth, get seenSt() { return seenSt; }, get rboatGot() { return rboatGot; }, get regionSeen() { return regionSeen; }, get worldGen() { return worldGen; }, get lvm() { return lvm; }, LVM, lvmP, lvmAssign, lvmRefresh, lvmTitle, lvmPay, MISSION, missionP, get bundles() { return bundles; }, farmScore, get farmRank() { return farmRank; }, rankNeed, get pots() { return pots; }, askName, stats2: stats, checkRank, get fires() { return fires; }, torchHit, ignite, get hayStockv() { return hayStock; }, hoseOn(v) { hoseHeld = v; }, toolGroups, get toolOff() { return toolOff; }, LAKE, DOCKPOS, boat, get schools() { return schools; }, lakeSet(o) { if (o.dock != null) dockLv = o.dock; if (o.boat != null) boatLv = o.boat; if (o.net != null) netLv = o.net; if (o.stock != null) lakeStock = o.stock; }, lakeRho, get lakeStock() { return lakeStock; }, get gravel() { return gravel; }, get rocks() { return rocks; }, get pits() { return pits; }, get wilds() { return wilds; }, get traps() { return traps; }, get trapInv() { return trapInv; }, waterBodies, bodyFish, plantSpot, pitBlocks, genLand, landSet(o) { bodiesC = null; if (o.shovel != null) hasShovel = o.shovel; if (o.pick != null) pickLv = o.pick; if (o.rod != null) rodLv = o.rod; if (o.purify != null) purify = o.purify; if (o.shelter != null) shelter = o.shelter; }, get zoo() { return zoo; }, WILD, addWild(k, x, y) { wilds.push({ k, x, y, tx: x, ty: y, life: 99, fleeT: 0, seed: 0 }); }, get treats() { return treats; }, set treats(v) { treats = v; }, set fluteOn(v) { flute = v; }, growMul2: a => growMul(a), toolList, get gems() { return gems; }, get xpv() { return xp; }, get seedsv() { return seeds; }, get curActLabel() { const x = findAction(); return x ? x.label : ''; }, setWx(v) { wx = v; }, TUNES, MOODS, musicMood, get bgmKey() { return BGM.key; }, get buildv() { return build; }, buildRect, nBought, penLimit, askVoice, get vq() { return vq; }, tr, set tractorOn(v) { tractor = true; tractorLv = v; applyCaps(); }, get piles() { return piles; }, get inf() { return inf; }, get gunLvv() { return gunLv; }, GUNS, get preds() { return preds; }, tick: update, set flyOn(v) { fly = v; }, hire2: hire, spawnPred, get barns2() { return barns2; }, get sprayMode() { return sprayMode; }, autoMax, autoCnt, maxWorkers, storeCap, get auto() { return auto; }, plane, spray, PATH, runBigDaily, careerMul, set suit(v) { suit = v; }, get preyPen() { return preyPen; }, set preyPen(v) { preyPen = v; }, hire, feedPick, get trees() { return trees; }, TREES, treeFed, growMul, get hospT() { return hospT; }, set hospT(v) { hospT = v; }, set lab(v) { lab = v; }, get store() { return store; }, get hayStock() { return hayStock; }, set hayStock(v) { hayStock = v; }, get water() { return water; }, set water(v) { water = v; }, grass, TANK, HAY, hitPred, prodValue, grow, startDay, pressTool, openBarn, nightLevel, updatePred, startExam, exDown, exUp, exMove, pressWood, pressWork, findWork, buildRect, penSafe, get wx() { return wx; }, set wx(v) { wx = v; PENS.forEach(p => { p.gear = null; buildGear(p); }); }, wxGear, tr, get tractor() { return tractor; }, installGear, wxExposure, rollWeather, get dayv() { return day; }, set dayv(v) { day = v; }, addAnimal, removeAnimal, sellPrice, rareChance, pressAct, pressShoot, openShop, spawnPred, newGame, saveGame, loadGame, setHQ, setHose(v) { hoseHeld = v; }, get cam() { return cam3; }, DAY_LEN, CYCLE };
 (function boot() { const ok = typeof THREE !== 'undefined' && init3D(); if (ok) showTitle(); else showOv('<h2>3D를 시작할 수 없어요</h2><p>이 기기나 브라우저에서 WebGL을 사용할 수 없습니다.</p>'); requestAnimationFrame(frame); })();
 </script>
 </body>
