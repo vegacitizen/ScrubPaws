@@ -128,8 +128,6 @@
 <script src="three.min.js"></script>
 <script src="GLTFLoader.js"></script>
 <script src="SkeletonUtils.js"></script>
-<script src="cowdance_model.js"></script>
-<script src="panda_model.js"></script>
 <script src="pack_models.js"></script>
 <div id="pad" hidden>
  <div class="prow">
@@ -307,13 +305,13 @@ const HUDH = 62, CX = 560, CZ = 335, PI = Math.PI;
 let renderer = null, scene, cam3, cam2, sun, hemi, room = {}, plM, momM, ring, ring2, dustPool = [], pxu = 1, hq = true, hqLock = false, perf = { t: 0, n: 0 };
 const G = {}, matCache = {}, sprCache = {};
 function mat(col) { return matCache[col] || (matCache[col] = mkMat({ color: col })); }
-function glossy(col) { const k = 'g' + col; return matCache[k] || (matCache[k] = new THREE.MeshPhongMaterial({ color: col, shininess: 90, specular: '#888888' })); }
+function glossy(col) { const k = 'g' + col; return matCache[k] || (matCache[k] = new THREE.MeshPhongMaterial({ color: col, shininess: 90, specular: '#888888', flatShading: true })); }
 const rbCache = {};
 function RB(w, h, d, r) {      // 모서리가 둥근 상자
   r = Math.max(.01, Math.min(r, w / 2 - .01, h / 2 - .01, d / 2 - .01)); const k = [w, h, d, r].join(','); if (rbCache[k]) return rbCache[k];
   const b = r * .6, c = r - b, x = w / 2 - b, z = d / 2 - b, sp = new THREE.Shape();
   sp.moveTo(-x + c, -z); sp.lineTo(x - c, -z); sp.quadraticCurveTo(x, -z, x, -z + c); sp.lineTo(x, z - c); sp.quadraticCurveTo(x, z, x - c, z); sp.lineTo(-x + c, z); sp.quadraticCurveTo(-x, z, -x, z - c); sp.lineTo(-x, -z + c); sp.quadraticCurveTo(-x, -z, -x + c, -z);
-  const g = new THREE.ExtrudeGeometry(sp, { depth: h - 2 * b, bevelEnabled: true, bevelSize: b, bevelThickness: b, bevelSegments: 3, curveSegments: 5 });
+  const g = new THREE.ExtrudeGeometry(sp, { depth: h - 2 * b, bevelEnabled: true, bevelSize: b, bevelThickness: b, bevelSegments: 1, curveSegments: 2 });
   g.translate(0, 0, -(h - 2 * b) / 2); g.rotateX(-Math.PI / 2); return rbCache[k] = g;
 }
 function B(col, w, h, d, x, y, z, parent, rad) { return M(RB(w, h, d, rad == null ? 3 : rad), col, 1, 1, 1, x, y, z, parent); }
@@ -336,7 +334,7 @@ function sprite(ch, parent, size) {
    그리고 이모지 그림 대신 쓰는 3D 모형(야생 동물 · 새 · 작물 · 물고기 떼 · 손님 · 불꽃)
    ============================================================ */
 const uT = { value: 0 };
-function mkMat(o) { return new THREE.MeshLambertMaterial(o); }
+function mkMat(o) { o.flatShading = true; return new THREE.MeshLambertMaterial(o); }   // 모든 도형과 모형을 면마다 각지게 칠한다(로우폴리 풍)
 function leafMat(col) {        // 나뭇잎: 아래는 어둡고 위는 밝으며 바람에 흔들린다
   const k = 'l' + col; if (matCache[k]) return matCache[k]; const m = mkMat({ color: col, vertexColors: true });
   m.onBeforeCompile = s => { s.uniforms.uT = uT; s.vertexShader = 'uniform float uT;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n#ifdef USE_INSTANCING\nfloat lph = instanceMatrix[3].x * .013 + instanceMatrix[3].z * .017;\n#else\nfloat lph = modelMatrix[3].x * .013 + modelMatrix[3].z * .017;\n#endif\nfloat lsw = (sin(uT * 1.5 + lph) * .045 + sin(uT * 2.9 + lph * 1.7) * .018) * max(0., position.y + .6);\ntransformed.x += lsw; transformed.z += lsw * .5;'); };
@@ -353,7 +351,7 @@ function groundGeo() {                    // 넓은 땅에 큰 얼룩을 넣어 
   for (let i = 0; i < p.count; i++) { const x = p.getX(i) * 31, y = p.getY(i) * 27, a = Math.sin(x * 1.3 + Math.sin(y * 1.7) * 1.4) * Math.cos(y * 1.1 - Math.sin(x * .9) * 1.2), b = Math.sin(x * 3.7 + y * 2.9) * .5, v = 1 + .1 * a + .04 * b; c[i * 3] = v * (1 + .07 * a); c[i * 3 + 1] = v; c[i * 3 + 2] = v * (1 - .1 * a); }
   g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g;
 }
-function pineGeo() { const P = [[0, .5], [.34, .2], [.2, .2], [.62, -.12], [.4, -.12], [1, -.5], [0, -.5]].map(q => new THREE.Vector2(q[0], q[1])); return shadeGeo(new THREE.LatheGeometry(P, 10), .62, 1.12, 0); }
+function pineGeo() { const P = [[0, .5], [.34, .2], [.2, .2], [.62, -.12], [.4, -.12], [1, -.5], [0, -.5]].map(q => new THREE.Vector2(q[0], q[1])); return shadeGeo(new THREE.LatheGeometry(P, 7), .62, 1.12, 0); }
 function pathTex() { return canvasTex(128, 512, c => { const g = c.createLinearGradient(0, 0, 128, 0); g.addColorStop(0, 'rgba(217,184,119,0)'); g.addColorStop(.16, 'rgba(217,184,119,1)'); g.addColorStop(.84, 'rgba(217,184,119,1)'); g.addColorStop(1, 'rgba(217,184,119,0)'); c.fillStyle = g; c.fillRect(0, 0, 128, 512);
   c.globalCompositeOperation = 'source-atop'; for (let i = 0; i < 520; i++) { const x = Math.random() * 128, y = Math.random() * 512, r = R(.8, 2.6); ell(c, x, y, r * 1.4, r, i % 3 ? 'rgba(160,122,70,.35)' : 'rgba(255,236,190,.4)'); } for (const x of [44, 84]) { c.fillStyle = 'rgba(150,112,64,.18)'; c.fillRect(x - 7, 0, 14, 512); } }); }
 function flameTex() { return canvasTex(128, 128, c => {
@@ -392,7 +390,7 @@ function lightScene(n, L, tx, tz) {       // 낮 · 노을 · 밤의 빛 색과 
 }
 /* ---------- 여러 도형을 한 덩어리로 굽기: 모형 하나를 한 번에 그린다 ---------- */
 const GL = {}, bakeCache = {};
-function lowGeo() { if (!GL.sph) { GL.sph = new THREE.SphereGeometry(1, 10, 7); GL.cyl = new THREE.CylinderGeometry(1, 1, 1, 8); GL.cone = new THREE.ConeGeometry(1, 1, 8); GL.tor = new THREE.TorusGeometry(1, .1, 5, 14); GL.mat = mkMat({ vertexColors: true }); } return GL; }
+function lowGeo() { if (!GL.sph) { GL.sph = new THREE.IcosahedronGeometry(1, 1); GL.cyl = new THREE.CylinderGeometry(1, 1, 1, 7); GL.cone = new THREE.ConeGeometry(1, 1, 6); GL.tor = new THREE.TorusGeometry(1, .1, 5, 14); GL.mat = mkMat({ vertexColors: true }); } return GL; }
 function bake(g) {
   g.updateMatrixWorld(true); const P = [], N = [], C = [], I = [], v = new THREE.Vector3(), nm = new THREE.Matrix3(); let base = 0, flat = false;
   g.traverse(m => { if (!m.isMesh || !m.visible || m.material.isMeshBasicMaterial || m.material.transparent) return; const ge = m.geometry, p = ge.attributes.position, nr = ge.attributes.normal, col = m.material.color, vc = ge.attributes.color, ix = ge.index; nm.getNormalMatrix(m.matrixWorld);
@@ -445,6 +443,34 @@ function propBox(id, len, hgt, wid, parent, x, top, z) {   // 상자 크기에 �
 }
 const WILD_RIG = { wildhorse: ['horse', 2.1, [.62, .56, .52]], bison: ['bull', 1.75, [.62, .5, .42]], unicorn: ['horse_white', 2.15, [1.12, 1.05, 1.2]], alpaca: ['alpaca', 2.5], donkey: ['donkey', 2.1], deer: ['stag', 2.6], roe: ['deer', 2.3], whitedeer: ['stag', 2.6, [2.4, 2.4, 2.6]], fox2: ['fox', 1.9], wolf: ['wolf', 2] };
 const TREE_ROUND = ['tree_oak', 'tree_fat', 'tree_oak', 'tree_fat', 'tree_autumn'], TREE_PINE = ['tree_pine', 'tree_pine_tall', 'tree_dark'];
+/* ---------- 손에 든 도구 · 덫 · 반짝이 · 경고 표시: 이모지 그림 대신 쓰는 작은 3D 모형 ---------- */
+function shapeP(g) { const Q = lowGeo(); return { s: (c, sx, sy, sz, x, y, z) => M(Q.sph, c, sx, sy, sz, x, y, z, g), cy: (c, sx, sy, sz, x, y, z) => M(Q.cyl, c, sx, sy, sz, x, y, z, g), co: (c, sx, sy, sz, x, y, z) => M(Q.cone, c, sx, sy, sz, x, y, z, g), bx: (c, sx, sy, sz, x, y, z) => M(G.box, c, sx, sy, sz, x, y, z, g), tor: (c, sx, sy, sz, x, y, z) => M(Q.tor, c, sx, sy, sz, x, y, z, g) }; }
+const WOODC = '#8a5a34', STEEL = '#9aa0a8';
+const TOOL_MODEL = {       // 손잡이가 아래, 앞은 +x. 키는 40쯤
+  torch: P => { P.cy(WOODC, 2.2, 30, 2.2, 0, 15, 0); P.cy('#3a2a22', 3.8, 7, 3.8, 0, 32, 0); },
+  seed: P => { P.s('#d9b98a', 11, 12, 9, 0, 12, 0); P.cy('#b98f52', 6, 3, 6, 0, 24, 0); P.cy('#5fae4a', 1, 9, 1, 0, 30, 0); for (const s of [1, -1]) P.s('#6cc85a', 5, 1.4, 3, s * 4, 35, 0).rotation.z = s * .5; },
+  fert: P => { P.s('#8a6a48', 12, 13, 9, 0, 13, 0); P.cy('#6b4a2a', 6, 3, 6, 0, 26, 0); P.bx('#6cc85a', 14, 5, 2, 0, 13, 8); },
+  hose: P => { P.cy('#3f8f4a', 2.2, 20, 2.2, -7, 9, 0).rotation.z = .6; P.cy(STEEL, 3, 16, 3, 4, 22, 0).rotation.z = PI / 2; P.co('#ffd54a', 4.6, 8, 4.6, 15, 22, 0).rotation.z = PI / 2; P.bx('#3a3a40', 3, 8, 3, 0, 16, 0); },
+  fork: P => { P.cy(WOODC, 1.6, 40, 1.6, 0, 20, 0); P.bx(STEEL, 2, 2, 17, 0, 40, 0); for (const z of [-7.5, 0, 7.5]) P.cy(STEEL, .9, 12, .9, 0, 46, z); },
+  net: P => { P.cy(WOODC, 1.5, 32, 1.5, 0, 16, 0); P.tor('#6b4a2a', 11, 11, 11, 0, 43, 0); P.s('#e8f4ff', 10, 10, 1, 0, 43, 0); },
+  shovel: P => { P.cy(WOODC, 1.6, 34, 1.6, 0, 17, 0); P.s(STEEL, 7, 9, 1.8, 0, 41, 0); P.bx(WOODC, 7, 2.4, 2.4, 0, 1, 0); },
+  pick: P => { P.cy(WOODC, 1.8, 40, 1.8, 0, 20, 0); P.bx(STEEL, 6, 4.5, 4.5, 0, 40, 0); P.co(STEEL, 2.4, 14, 2.4, 9, 39, 0).rotation.z = -PI / 2 - .2; P.co(STEEL, 2.4, 14, 2.4, -9, 39, 0).rotation.z = PI / 2 + .2; },
+  rod: P => { const p = P.cy('#b98a4a', 1.1, 58, 1.1, 12, 27, 0); p.rotation.z = -.45; P.s('#3a3a40', 3, 3, 2, 3, 10, 2); P.cy('#ffffff', .3, 30, .3, 25, 38, 0); P.s('#e2493f', 2, 2, 2, 25, 23, 0); },
+  trap1: P => { P.cy(WOODC, 1.6, 18, 1.6, -8, 9, 0); P.tor('#d9c08a', 10, 10, 10, 4, 3, 0).rotation.x = PI / 2; P.cy('#d9c08a', .6, 14, .6, -3, 9, 0).rotation.z = -.9; },
+  trap2: P => { P.bx('#b98a4a', 24, 16, 18, 0, 8, 0); for (const x of [-8, 0, 8]) P.bx('#8a5a34', 2, 16.6, 18.6, x, 8, 0); P.bx('#8a5a34', 25, 2, 19, 0, 16.5, 0); P.bx('#3a2a22', 1, 12, 14, 12.2, 7, 0); },
+  trap3: P => { for (const x of [-15, 15]) for (const z of [-11, 11]) P.cy(STEEL, 1.4, 26, 1.4, x, 13, z); P.bx(STEEL, 33, 2, 2, 0, 26, -11); P.bx(STEEL, 33, 2, 2, 0, 26, 11); P.bx(STEEL, 2, 2, 24, -15, 26, 0); P.bx(STEEL, 2, 2, 24, 15, 26, 0); for (const x of [-7.5, 0, 7.5]) P.cy('#c9ced6', .7, 26, .7, x, 13, -11); P.bx('#6b6f78', 33, 1.5, 24, 0, .8, 0); },
+  scratch: P => { P.cy(WOODC, 1.6, 26, 1.6, 0, 13, 0); P.bx('#6b4a2a', 13, 5, 5, 0, 29, 0); P.bx('#e9cf8c', 12, 5, 4, 0, 34, 0); },
+  treat: P => { P.cy('#d9a05a', 10, 3, 10, 0, 22, 0).rotation.x = PI / 2; for (const [x, y] of [[-4, 25], [3, 26], [5, 19], [-2, 18], [0, 22]]) P.s('#5a3a22', 1.6, 1.6, 1.2, x, y, 2); },
+  flute: P => { P.cy('#e8d2a0', 1.9, 36, 1.9, 0, 22, 0).rotation.z = -.9; for (const k of [-.6, -.2, .2, .6]) P.s('#5a3a22', .9, .9, .9, k * 14, 22 + k * 11 + 1.6, 1); },
+  clap: P => { for (const s of [1, -1]) P.bx('#b98a4a', 3.5, 26, 9, s * 3.4, 22, 0).rotation.z = -s * .16; P.cy('#e2493f', 1, 3, 1, 0, 9, 0); },
+  gong: P => { for (const x of [-13, 13]) P.cy(WOODC, 1.4, 34, 1.4, x, 17, 0); P.bx(WOODC, 29, 2.4, 2.4, 0, 34, 0); P.cy('#e8b830', 10, 1.8, 10, 0, 19, 0).rotation.x = PI / 2; P.cy('#b98424', 3.4, 2.4, 3.4, 0, 19, 0).rotation.x = PI / 2; },
+  crow: P => { P.cy('#e9cf8c', 13, 1.6, 13, 0, 18, 0); P.co('#d9b877', 7.5, 9, 7.5, 0, 23, 0); P.cy('#c2523f', 7.8, 2, 7.8, 0, 20, 0); },
+  gun: P => { P.bx('#6b4a2a', 14, 6, 4, -9, 21, 0); P.bx('#6b4a2a', 5, 9, 3.6, -13, 16, 0); P.cy('#4a5058', 1.8, 30, 1.8, 11, 24, 0).rotation.z = PI / 2; P.bx('#4a5058', 10, 4, 4, 0, 23, 0); }
+};
+function toolModel(k) { return TOOL_MODEL[k] ? baked('tool:' + k, g => TOOL_MODEL[k](shapeP(g))) : null; }
+function gemModel() { return baked('gem', g => { const P = shapeP(g); P.co('#ffd24a', 8, 12, 8, 0, 6, 0); P.co('#f0a81c', 8, 12, 8, 0, -6, 0).rotation.z = PI; P.s('#fff6c8', 2.4, 2.4, 2.4, 0, 14, 0); }); }
+function warnModel() { return baked('warn', g => { const P = shapeP(g); P.cy(WOODC, 1.6, 22, 1.6, 0, 11, 0); const t = M(new THREE.CylinderGeometry(1, 1, 1, 3), '#ffd24a', 15, 3, 15, 0, 32, 0, g); t.rotation.x = -PI / 2; P.bx('#3a2a22', 2.6, 9, 4, 0, 33.5, 0); P.bx('#3a2a22', 2.6, 2.6, 4, 0, 26.5, 0); }); }
+function boltModel() { return baked('bolt', g => { const P = shapeP(g); P.bx('#ffd24a', 5, 14, 3, 3, 26, 0).rotation.z = -.5; P.bx('#ffd24a', 12, 4, 3, 0, 19, 0); P.bx('#ffd24a', 5, 14, 3, -3, 12, 0).rotation.z = -.5; P.co('#ffd24a', 3.4, 7, 2, -7.5, 3, 0).rotation.z = PI - .5; }); }
 /* ---------- 작물 ---------- */
 const CROP_RIPE = {
   clover: (g, S, Cy) => { for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + .3, k = i % 2 ? .55 : 1, x = Math.cos(a) * 12 * k, z = Math.sin(a) * 12 * k, y = 9 + (i % 3) * 4; Cy('#5fae4a', .8, y, .8, x, y / 2, z); for (let j = 0; j < 3; j++) { const b = j / 3 * TAU + i; S(i % 2 ? '#3fa64a' : '#57c060', 4.2, 1.2, 4.2, x + Math.cos(b) * 3.6, y, z + Math.sin(b) * 3.6); } } Cy('#5fae4a', .8, 20, .8, 0, 10, 0); S('#f6b6d2', 3.6, 3.6, 3.6, 0, 22, 0); S('#ffffff', 2.6, 2.6, 2.6, 7, 16, 5); },
@@ -709,13 +735,13 @@ const KINDS = {
   pig: { n: '돼지', e: '🐷', litter: 3, diet: ['carrot', 'corn', 'pumpkin'], fav: 'pumpkin', buy: 2500, sell: 2200, grow: 105, preg: 60,
     sp: { model: 'pig', r: 27, v: 'oink', sp: 85, col: '#f7b3c0', col2: '#ffd6dd', dark: '#e08a9c', ear: 'pointy', tail: 'curl', snout: 1, leg: .3, cry: '꿀꿀', p: .8 } },
   cow: { n: '소', e: '🐮', diet: ['hay', 'clover'], fav: 'clover', buy: 5000, sell: 4500, grow: 130, preg: 75,
-    rareModel: 'cowdance', rareName: '춤추는 소', sp: { model: 'cow', r: 36, v: 'moo', sp: 70, col: '#fbfbf7', col2: '#ffd9d2', dark: '#2c2c30', ear: 'floppy', tail: 'hair', horns: 1, muzzle: 1, leg: .5, head: .52, cry: '음메', p: .6, spots: 1 } },
+    rareName: '춤추는 소', sp: { model: 'cow', r: 36, v: 'moo', sp: 70, col: '#fbfbf7', col2: '#ffd9d2', dark: '#2c2c30', ear: 'floppy', tail: 'hair', horns: 1, muzzle: 1, leg: .5, head: .52, cry: '음메', p: .6, spots: 1 } },
   horse: { n: '말', e: '🐴', rareName: '경주마', diet: ['hay', 'clover', 'carrot'], fav: 'carrot', buy: 9000, sell: 8200, grow: 150, preg: 90,
     sp: { model: 'horse', r: 40, v: 'neigh', sp: 120, col: '#a8683a', col2: '#d9a878', dark: '#4a2c14', ear: 'pointy', tail: 'hair', mane: 1, neck: .55, muzzle: 1, leg: .75, head: .5, cry: '히힝', p: .7 } },
   goat: { n: '염소', e: '🐐', diet: ['hay', 'clover', 'carrot'], fav: 'carrot', buy: 2000, sell: 1750, grow: 100, preg: 55,
     sp: { r: 22, v: 'bleat', sp: 95, col: '#e8dcc8', col2: '#fff6e6', dark: '#6b5a48', ear: 'floppy', tail: 'short', horns: 1, beard: 1, leg: .5, head: .5, cry: '매애', p: 1.3 } },
   panda: { n: '판다', e: '🐼', diet: ['bamboo'], fav: 'bamboo', buy: 20000, sell: 18000, grow: 170, preg: 100,
-    sp: { model: 'panda', r: 34, v: 'grunt', sp: 60, col: '#ffffff', col2: '#ffffff', dark: '#2a2a2e', ear: 'round', tail: 'short', panda: 1, muzzle: 1, leg: .35, head: .6, cry: '뀨', p: 1 } },
+    sp: { r: 34, v: 'grunt', sp: 60, col: '#ffffff', col2: '#ffffff', dark: '#2a2a2e', ear: 'round', tail: 'short', panda: 1, muzzle: 1, leg: .35, head: .6, cry: '뀨', p: 1 } },
   /* 덩치 큰 희귀 동물: 높은 울타리가 있어야 하고 늦게 열린다 */
   camel: { n: '낙타', e: '🐫', rareName: '흰 낙타', diet: ['hay', 'clover', 'carrot'], fav: 'carrot', buy: 14000, sell: 12500, grow: 150, preg: 90,
     sp: { r: 44, v: 'groan', sp: 75, col: '#d2a86a', col2: '#ead2a4', dark: '#8a6238', ear: 'round', earS: .7, tail: 'hair', neck: .8, muzzle: 1, leg: .85, head: .4, cry: '끄어', p: .6 } },
@@ -2508,12 +2534,13 @@ function updateLand(dt) {
 }
 function syncLand() {   // 3D: 자갈 · 바위 · 구덩이와 물 · 야생 동물 · 덫
   const G0 = world3.petG, show = state !== 'title';
-  for (const q of gravel) { if (!q.md) { const g = q.md = new THREE.Group(); for (const p of [[0, 0, 9], [11, 5, 7], [-9, 7, 6], [3, -10, 6]]) M(G.sph, p[2] > 7 ? '#9a9aa0' : '#b3b0aa', p[2] * 1.3, p[2] * .8, p[2] * 1.1, p[0], p[2] * .5, p[1], g); g.position.set(q.x, 0, q.y); G0.add(g); } q.md.visible = show; }
+  for (const q of gravel) { if (!q.md) { const g = q.md = new THREE.Group(); for (const p of [[0, 0, 9], [11, 5, 7], [-9, 7, 6], [3, -10, 6]]) M(lowGeo().sph, p[2] > 7 ? '#9a9aa0' : '#b3b0aa', p[2] * 1.3, p[2] * .8, p[2] * 1.1, p[0], p[2] * .5, p[1], g); g.position.set(q.x, 0, q.y); G0.add(g); } q.md.visible = show; }
   for (const q of rocks) { if (!q.md) { const g = q.md = new THREE.Group(), r = [0, 24, 38, 58][q.s], pr = prop(['', 'rock_small', 'rock_large', 'rock_tall'][q.s], 1, g); if (pr) { pr.scale.setScalar(Math.min(r * 2.3 / pr.geometry.userData.w, r * 1.9)); pr.rotation.y = q.x * .7 + q.y; } else { M(G.sph, '#8f949c', r, r * .8, r * .9, 0, r * .6, 0, g).castShadow = true; M(G.sph, '#a7acb3', r * .55, r * .5, r * .5, r * .5, r * .9, r * .2, g); M(G.sph, '#7b8088', r * .5, r * .4, r * .55, -r * .55, r * .35, r * .3, g); } g.position.set(q.x, 0, q.y); G0.add(g); } q.md.visible = show; const k = .75 + .25 * q.hp / ROCK_HP[q.s]; q.md.scale.setScalar(k); }
   for (const k in pits) { const c = pits[k]; if (!c.md) { c.md = M(new THREE.PlaneGeometry(CELL - 2, CELL - 2), new THREE.MeshBasicMaterial({ color: '#8a6a48' }), 1, 1, 1, c.cx * CELL + CELL / 2, 1.2, c.cy * CELL + CELL / 2, G0); c.md.rotation.x = -PI / 2; c.mdD = -1; } if (c.mdD !== c.d) { c.mdD = c.d; c.md.material.color.set(c.d >= 5 ? '#3f9fd8' : ['#a8865e', '#8a6a48', '#6f5236', '#573f29', '#3f2d1c'][c.d]); } c.md.visible = show; }
   const setSp = (sp, ch) => { if (sp.userData.ch !== ch) { sp.userData.ch = ch; sp.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; sp.material.needsUpdate = true; } };
   world3.wildM.forEach((s, i) => { const w = wilds[i], m = slotUse(world3.wildM, i, w && show && Math.abs(w.x - pl.x) < 1100 && Math.abs(w.y - pl.y) < 850 ? w.k : null); if (!m) return; animWild(w, m, world3.dt || .016, false); m.g.position.set(w.x, 0, w.y); });
-  world3.trapS.forEach((sp, i) => { const t = traps[i]; sp.visible = !!t && show; if (t) { setSp(sp, t.caught ? WILD[t.caught].e : TRAPS[t.t].e); sp.position.set(t.x, 20 + (t.caught ? Math.abs(Math.sin(gt * 9)) * 6 : 0), t.y); sp.scale.set(36, 36, 1); } });
+  world3.trapS.forEach((sp, i) => { const t = traps[i], tm = world3.trapM[i], ok = !!t && show; sp.visible = false; tm.g.visible = ok; const wm = slotUse(world3.trapW, i, ok && t.caught ? t.caught : null); if (!ok) return;   // 덫과, 덫에 잡혀 버둥거리는 동물
+    tm.by.forEach((m, k) => { if (m) m.visible = k === t.t; }); tm.g.position.set(t.x, 0, t.y); tm.g.scale.setScalar(t.t === 3 ? 1.9 : t.t === 2 ? 1.5 : 1.3); if (wm) { animWild(t, wm, world3.dt || .016, false); wm.g.position.set(t.x, Math.abs(Math.sin(gt * 9)) * 4, t.y); wm.g.rotation.y = Math.sin(gt * 5) * .5; wm.g.scale.setScalar(t.t === 3 ? .7 : .8); } });
   const bs = waterBodies(); world3.pondS.forEach((sp, i) => { const B = i < pondTanks ? bs[i] : null; sp.visible = !!B && show; if (B) { const c = B.cells[0]; sp.position.set(c.cx * CELL + CELL / 2, 30, c.cy * CELL + CELL / 2); } });
 }
 /* ---------- 초반의 재미: 할아버지의 소포(2~6일째 아침) · 들판의 반짝이(주우면 돈·씨앗·건초) ---------- */
@@ -3155,9 +3182,9 @@ function init3D() {
   sun = new THREE.DirectionalLight(0xfff0d8, .7); sun.castShadow = true; scene.add(sun); scene.add(sun.target);
   sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0006; sun.shadow.normalBias = 1.6; const sc = sun.shadow.camera; sc.left = -900; sc.right = 900; sc.top = 700; sc.bottom = -700; sc.near = 200; sc.far = 2600; sc.updateProjectionMatrix();
   torch = new THREE.PointLight(0xffa040, 0, 520, 1.6); scene.add(torch);
-  G.sph = new THREE.SphereGeometry(1, 28, 20); G.box = new THREE.BoxGeometry(1, 1, 1); G.cyl = new THREE.CylinderGeometry(1, 1, 1, 20);
-  G.cone = new THREE.ConeGeometry(1, 1, 18); G.tor = new THREE.TorusGeometry(1, .1, 10, 36); G.circ = new THREE.CircleGeometry(1, 32); G.arc = new THREE.TorusGeometry(1, .2, 8, 18, Math.PI);
-  G.leaf = shadeGeo(new THREE.SphereGeometry(1, 14, 10), .6, 1.16, .1); G.pine = pineGeo(); G.ring = new THREE.RingGeometry(.955, 1, 72); sprCache['🔥'] = flameTex();
+  G.sph = new THREE.IcosahedronGeometry(1, 2); G.box = new THREE.BoxGeometry(1, 1, 1); G.cyl = new THREE.CylinderGeometry(1, 1, 1, 9);   // 각진 로우폴리 도형
+  G.cone = new THREE.ConeGeometry(1, 1, 8); G.tor = new THREE.TorusGeometry(1, .1, 10, 36); G.circ = new THREE.CircleGeometry(1, 32); G.arc = new THREE.TorusGeometry(1, .2, 5, 8, Math.PI);
+  G.leaf = shadeGeo(new THREE.SphereGeometry(1, 8, 6), .6, 1.16, .13); G.pine = pineGeo(); G.ring = new THREE.RingGeometry(.955, 1, 72); sprCache['🔥'] = flameTex();
   buildWorld(); loadModels(); plM = makeKid(); scene.add(plM.g);
   hayM = new THREE.Group(); B('#e9cf8c', 34, 22, 24, 0, 0, 0, hayM, 5); B('#b98f52', 3, 23, 25, -8, 0, 0, hayM, 1); B('#b98f52', 3, 23, 25, 8, 0, 0, hayM, 1); scene.add(hayM); sh(hayM);
   flame = sprite('🔥', scene, 46);
@@ -3198,10 +3225,11 @@ function init3D() {
     world3.boatM = [[60, 14, 26, '#a9744f', 0], [84, 18, 34, '#f4f4f0', 1], [130, 26, 46, '#3f6fa8', 2], [180, 32, 60, '#f4f4f0', 3]].map(q => { const g = new THREE.Group(); if (propLen('boat' + (q[4] + 1), q[0] * 1.25, g, q[4] === 3 ? .12 : .1)) { g.visible = false; scene.add(g); return g; } B(q[3], q[0], q[1], q[2], 0, q[1] / 2, 0, g, 6); B(q[4] === 2 ? '#d94f3a' : '#8a5a34', q[0] * .96, 4, q[2] * 1.04, 0, q[1], 0, g, 2);
       if (q[4] >= 1) B('#e8eef4', q[0] * .34, q[1] * 1.1, q[2] * .7, -q[0] * .12, q[1] * 1.6, 0, g, 4); if (q[4] >= 2) { M(G.cyl, '#6b6f78', 3, 70, 3, q[0] * .2, q[1] + 36, 0, g); B('#ffd54a', 30, 6, 6, q[0] * .2 + 14, q[1] + 66, 0, g, 1); } if (q[4] === 3) { M(G.sph, '#d8f4ff', 14, 14, 14, -q[0] * .12, q[1] * 2.6, 0, g); B('#d94f3a', q[0], 5, q[2] * 1.06, 0, 5, 0, g, 2); } sh(g); g.visible = false; scene.add(g); return g; });
     world3.schoolS = []; for (let i = 0; i < 3; i++) { const sm = makeSchool(); sm.g.visible = false; scene.add(sm.g); world3.schoolS.push(sm); } }
-  world3.wildS = []; world3.trapS = []; world3.pondS = []; for (let i = 0; i < 6; i++) { for (const [l, ch] of [[world3.trapS, '🪤'], [world3.pondS, '🚰']]) { const sp = sprite(ch, scene, 34); sp.visible = false; sp.userData.ch = ch; l.push(sp); } }
+  world3.wildS = []; world3.trapM = []; for (let i = 0; i < 6; i++) { const g = new THREE.Group(), by = [null, 1, 2, 3].map(t => t && toolModel('trap' + t)); by.forEach(m => m && g.add(m)); g.visible = false; scene.add(g); world3.trapM.push({ g, by }); } world3.trapW = modelSlot(scene, 6);
+  world3.trapS = []; world3.pondS = []; for (let i = 0; i < 6; i++) { for (const [l, ch] of [[world3.trapS, '🪤'], [world3.pondS, '🚰']]) { const sp = sprite(ch, scene, 34); sp.visible = false; sp.userData.ch = ch; l.push(sp); } }
   world3.wildM = modelSlot(scene, WILD_MAX);
   world3.fireS = []; for (let i = 0; i < 14; i++) { const sp = sprite('🔥', scene, 40); sp.visible = false; world3.fireS.push(sp); }
-  world3.gemS = []; for (let i = 0; i < 3; i++) { const sp = sprite('✨', scene, 34); sp.visible = false; world3.gemS.push(sp); }
+  world3.gemS = []; for (let i = 0; i < 3; i++) { const sp = gemModel(); sp.visible = false; scene.add(sp); world3.gemS.push(sp); }
   world3.birdM = modelSlot(scene, 8);
   world3.crowM = []; for (let i = 0; i < CROW_MAX; i++) { const g = new THREE.Group(); M(G.cyl, '#8a5a3a', 3, 90, 3, 0, 45, 0, g); B('#c2523f', 58, 26, 10, 0, 62, 0, g, 4); M(G.sph, '#f2d6a0', 13, 13, 13, 0, 90, 0, g); M(G.cone, '#b98424', 22, 14, 22, 0, 106, 0, g); M(G.cyl, '#b98424', 26, 2, 26, 0, 99, 0, g); sh(g); g.visible = false; scene.add(g); world3.crowM.push(g); }
   world3.grassM = grass.map(() => { const g = new THREE.Group(); for (const q of [[0, 0, 1], [-9, 4, .8], [8, -5, .9], [3, 9, .7], [-6, -8, .75]]) M(G.cone, q[2] > .85 ? '#3f9a3a' : '#57b84a', 6, 30 * q[2], 6, q[0], 15 * q[2], q[1], g); scene.add(g); return g; });
@@ -3268,8 +3296,8 @@ function buildFences() {   // 가진 울타리(와 다음에 살 수 있는 자�
       const rf = M(new THREE.PlaneGeometry(p.w + 30, p.h + 30), new THREE.MeshBasicMaterial({ color: '#8a3b2c', transparent: true, opacity: .5, side: THREE.DoubleSide, depthWrite: false }), 1, 1, 1, p.x + p.w / 2, RH, p.y + p.h / 2, g); rf.rotation.x = -PI / 2;
       M(G.box, '#7a2c24', p.w + 30, 8, 8, p.x + p.w / 2, RH, p.y - 12, g); M(G.box, '#7a2c24', p.w + 30, 8, 8, p.x + p.w / 2, RH, p.y + p.h + 12, g);
       const st = canvasTex(256, 80, c => { rr(c, 0, 0, 256, 80, 20, 'rgba(74,50,38,.9)'); txt(c, '🐴 마굿간', 128, 42, 34, '#fff'); }), ss = new THREE.Sprite(new THREE.SpriteMaterial({ map: st, transparent: true, depthWrite: false })); ss.scale.set(150, 47, 1); ss.position.set(p.x + p.w / 2, RH + 40, p.y + p.h); g.add(ss); }   // 마굿간 지붕
-    if (hl) { for (const q of [[-24, .5], [10, -.7], [30, .3]]) { const pk = M(G.box, rail, 36, 5, 6, hl.x + q[0], 4, hl.y + q[0] * .5, g); pk.rotation.y = q[1]; } const ws = sprite('⚠️', g, 44); ws.position.set(hl.x, PH + 34, hl.y); }   // 부서진 자리
-    if (p.elec) for (const q of [[p.x, p.y], [p.x + p.w, p.y], [p.x, p.y + p.h], [p.x + p.w, p.y + p.h]]) { const s = sprite('⚡', g, 40); s.position.set(q[0], 78, q[1]); }
+    if (hl) { for (const q of [[-24, .5], [10, -.7], [30, .3]]) { const pk = M(G.box, rail, 36, 5, 6, hl.x + q[0], 4, hl.y + q[0] * .5, g); pk.rotation.y = q[1]; } const ws = warnModel(); ws.position.set(hl.x, PH + 4, hl.y + 4); ws.scale.setScalar(1.3); g.add(ws); }   // 부서진 자리
+    if (p.elec) for (const q of [[p.x, p.y], [p.x + p.w, p.y], [p.x, p.y + p.h], [p.x + p.w, p.y + p.h]]) { const s = boltModel(); s.position.set(q[0], 62, q[1]); s.scale.setScalar(1.2); g.add(s); }
     // 여물통과 그 안의 건초
     B('#8a5a3a', p.tw, 22, 44, p.tx, 11, p.ty, g, 5); B('#6e4628', p.tw - 12, 6, 34, p.tx, 20, p.ty, g, 2);
     p.hayM = []; for (let i = 0; i < 6; i++) p.hayM.push(B('#e9cf8c', 28 * p.tw / 200, 16, 26, p.tx + (i - 2.5) * 31 * p.tw / 200, 28, p.ty, g, 5));
@@ -3293,9 +3321,7 @@ const MODELS = {
   wolf: { pack: 'wolf', hk: 1.9, yaw: 0, clips: { idle: 'Idle', walk: 'Gallop' } },
   fox: { pack: 'fox', hk: 1.9, yaw: 0, clips: { idle: 'Idle', walk: 'Gallop' } },
   cow: { pack: 'cow', hk: 1.95, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } },
-  horse: { pack: 'horse', hk: 2.2, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } },
-  cowdance: { data: 'COWDANCE_GLTF', hk: 2.3, yaw: 0, clips: { idle: 'CowRig|PolishDance' } },
-  panda: { data: 'PANDA_GLTF', hk: 1.9, yaw: 0, clips: { idle: 'Take 001' } }
+  horse: { pack: 'horse', hk: 2.2, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } }
 };
 const GOLD = { c: null };
 function loadModels() {
@@ -3368,7 +3394,7 @@ function syncTrees() {
   for (const t of trees) { const T = TREES[t.type];
     if (!t.md) { const g = new THREE.Group(), fr = new THREE.Group(); g.add(fr);
       if (T.big) { M(G.cyl, '#7a5a3a', 13, 120, 13, 0, 60, 0, g); for (let i = 0; i < 8; i++) { const an = i / 8 * TAU, lf = M(G.sph, '#3f8f4a', 46, 7, 13, Math.cos(an) * 40, 118 - (i % 2) * 8, Math.sin(an) * 40, g); lf.rotation.y = -an; lf.rotation.z = -.35; } M(G.sph, '#4fa85a', 20, 16, 20, 0, 124, 0, g); }
-      else { M(G.cyl, '#8a5a34', 9, 70, 9, 0, 35, 0, g); M(G.leaf, '#4fae5a', 46, 40, 46, 0, 96, 0, g); M(G.leaf, '#5fc06a', 30, 28, 30, 24, 118, 10, g); M(G.leaf, '#43a050', 30, 26, 30, -26, 84, -12, g);
+      else { if (!prop('tree_oak', 150, g, 0, 0, 0, true)) { M(G.cyl, '#8a5a34', 9, 70, 9, 0, 35, 0, g); M(G.leaf, '#4fae5a', 46, 40, 46, 0, 96, 0, g); M(G.leaf, '#5fc06a', 30, 28, 30, 24, 118, 10, g); M(G.leaf, '#43a050', 30, 26, 30, -26, 84, -12, g); }
         for (const q of [[38, 96, 22], [-30, 110, 30], [10, 82, 44], [-40, 86, -6], [30, 120, -20], [-6, 128, 26]]) M(G.sph, T.col, 7, 7, 7, q[0], q[1], q[2], fr); const sp2 = sprite(T.e, fr, 30); sp2.position.set(0, 168, 0); }
       sh(g); g.position.set(t.x, 0, t.y); world3.petG.add(g); t.md = { g, fr }; }
     const k = (.22 + .78 * Math.min(1, t.g)) * (T.big ? 1.25 : 1); t.md.g.scale.setScalar(k); t.md.fr.visible = t.f >= 1; t.md.g.visible = state !== 'title'; }
@@ -3406,6 +3432,7 @@ function syncCreature(a, dt, pred) {
   if (md.ext) { const x = md.ext, eat = a.state === 'eat', want = sleeping && x.acts.sleep ? 'sleep' : eat && x.acts.eat ? 'eat' : moving && x.acts.walk ? (a.attackedT > 0 && x.acts.run ? 'run' : 'walk') : 'idle', n = x.acts[want] || x.acts.idle;
     if (n && x.act !== n) { if (x.act) x.act.fadeOut(.25); n.reset().fadeIn(.25).play(); x.act = n; }
     x.mixer.update(sleeping && !x.acts.sleep ? 0 : dt * (want === 'walk' ? 1.3 : 1));
+    if (a.rare && a.kind === 'cow') { const dz = sleeping ? 0 : 1; x.holder.position.y = Math.abs(Math.sin(t * 7)) * r * .22 * dz; x.holder.rotation.y = Math.sin(t * 3.5) * .6 * dz; x.holder.rotation.z = Math.sin(t * 7) * .08 * dz; }   // 춤추는 소
     for (const q of x.mats) q.m.color.copy(q.base).lerp(grime, dg * .6);
     const shorn = a.kind === 'sheep' ? .8 + .2 * Math.min(1, a.prod) : 1; x.holder.scale.set(1, shorn, pg * shorn); x.holder.position.x = scared && !carried ? Math.sin(t * 40) : 0; }
   if (md.icon) { const ch = pred ? '' : a.attackedT > 0 ? ICONS.attack : a.loose ? '🏃' : sick ? ICONS.sick : hungry ? hungerIcon(a) : a.thirst >= 60 ? ICONS.thirsty : a.dirt >= 60 ? ICONS.dirty : horseJob(a) ? '🏇' : workReady(a) ? WORK[a.kind].e : cowJob(a) ? '🪮' : sheepJob(a) ? '🧽' : goatJob(a) ? '⛰️' : henJob(a) ? '🪺' : pigJob(a) ? '🍄' : pandaJob(a) ? '⚽' : bigJob(a) ? pathOf(a).tool.e : a.preg > 0 ? ICONS.preg : ''; md.icon.visible = !!ch && !sleeping;
@@ -3433,7 +3460,7 @@ function render3D(dt) {
     world3.visitS.forEach((sp, i) => { sp.visible = !!pp && dayk; if (sp.visible) { const vm = sp.userData.m; sp.position.set(pp.x + 60 + i * (pp.w - 120) / 4, vm ? 0 : Math.abs(Math.sin(gt * 3 + i * 1.7)) * 6, pp.y + pp.h + 44); sp.rotation.y = sp.userData.yaw + Math.sin(gt * .7 + i * 2.1) * .35; if (vm) rigPlay(vm, Math.floor(gt / 2.5 + i * 1.3) % 4 === 0 ? 'Victory' : 'Idle', dt); } }); }
   world3.labM.visible = lab && state !== 'title'; syncTrees(); syncBarns(); syncLand(); syncLake(); syncWorld2(); for (const k in world3.facM) world3.facM[k].visible = !!(own[k] || FAC2[k] && FAC2[k]()) && state !== 'title';
   world3.fireS.forEach((sp, i) => { const f = fires[i]; sp.visible = !!f && state !== 'title'; if (f) { const k = (f.k === 'hay' || f.k === 'tree' ? 70 : f.k === 'fence' ? 56 : 42) * (1 + Math.sin(gt * 19 + f.seed) * .14); sp.position.set(f.x + Math.sin(gt * 11 + f.seed) * 3, (f.k === 'tree' ? 70 : f.k === 'fence' ? 40 : 24) + k * .3, f.y); sp.scale.set(k * (1 + Math.sin(gt * 13 + f.seed) * .08), k * (1 + Math.cos(gt * 17 + f.seed) * .1), 1); sp.material.rotation = Math.sin(gt * 9 + f.seed) * .1; } });
-  world3.gemS.forEach((sp, i) => { const q = gems[i]; sp.visible = !!q && state !== 'title' && (q.life > 6 || Math.sin(gt * 14) > 0); if (q) { sp.position.set(q.x, 22 + Math.abs(Math.sin(gt * 3 + i * 2)) * 14, q.y); const k = 30 + Math.sin(gt * 6 + i) * 6; sp.scale.set(k, k, 1); } });
+  world3.gemS.forEach((sp, i) => { const q = gems[i]; sp.visible = !!q && state !== 'title' && (q.life > 6 || Math.sin(gt * 14) > 0); if (q) { sp.position.set(q.x, 24 + Math.abs(Math.sin(gt * 3 + i * 2)) * 14, q.y); sp.rotation.y = gt * 3 + i; sp.scale.setScalar(1.1 + Math.sin(gt * 6 + i) * .15); } });
   world3.birdM.forEach((s, i) => { const b = birds[i], m = slotUse(world3.birdM, i, b && state !== 'title' ? 'bird' : null); if (!m) return; const fl = b.st !== 'peck'; animWild(b, m, dt, fl); m.g.position.set(b.x, fl ? b.h : 0, b.y); m.inner.rotation.z = fl ? .15 : -.35 * Math.max(0, Math.sin(gt * 11 + i)); });
   for (const w of workers) {   // 일꾼
     if (!w.md) { const k = w.md = makeWorker(w) || makeKid(), col = JOBS[w.job].col; M(G.cyl, col, 23, 3, 23, 0, 13, 0, k.head); M(G.cone, col, 13, 13, 13, 0, 21, 0, k.head); M(G.cyl, col, 14.6, 15, 14.1, 0, 46, 0, k.inner); k.shadow.visible = false; sh(k.inner); k.g.scale.setScalar(.92); scene.add(k.g); w.spr = sprite('🌾', k.g, 26); w.spr.position.set(0, 150, 0); w.sprCh = '🌾'; }
@@ -3451,6 +3478,9 @@ function render3D(dt) {
   const sw = pl.swingT > 0, hasT = pl.tool === 'torch'; torch.intensity = hasT ? n * 2.2 * (sw ? 1.7 : 1) * (1 + Math.sin(gt * 17) * .08) : 0; torch.position.set(pl.x + pl.ax * 14, 96, pl.y + pl.ay * 14);
   flame.visible = !!pl.tool && !pl.carry; if (flame.visible) { const ch = TOOLS[pl.tool].e; if (world3.toolCh !== ch) { world3.toolCh = ch; flame.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; flame.material.needsUpdate = true; }
     const an = Math.atan2(pl.ay, pl.ax) + Math.sin(gt * 13) * PI / 4, fr = sw ? 50 : 20, fx0 = sw ? Math.cos(an) : pl.ax, fy0 = sw ? Math.sin(an) : pl.ay; flame.position.set(pl.x + fx0 * fr, (tr.riding ? 150 : 112) + Math.sin(gt * 20) * 2, pl.y + fy0 * fr); flame.scale.setScalar((hasT ? 46 * (1 + Math.sin(gt * 23) * .08) : 38) * (sw ? 1.7 : 1)); }
+  { const tm = world3.toolM || (world3.toolM = {}), tk = flame.visible ? pl.tool : ''; for (const k in tm) if (tm[k]) tm[k].visible = k === tk;   // 손에 든 도구는 3D 모형으로. 모형이 없는 도구만 그림으로 남는다
+    if (tk && !(tk in tm)) { tm[tk] = toolModel(tk); if (tm[tk]) scene.add(tm[tk]); } const t3 = tk && tm[tk];
+    if (t3) { t3.visible = true; t3.position.set(flame.position.x, flame.position.y - 26, flame.position.z); t3.rotation.set(0, faceTo(pl.ax, pl.ay), sw ? Math.sin(gt * 13) * .5 : Math.sin(gt * 3) * .05); t3.scale.setScalar(1.15); if (hasT) { flame.position.y += 22; flame.scale.multiplyScalar(.72); } else flame.visible = false; } }
   const wsp = world3.workSpr; wsp.visible = !!work; if (work) { const a = work.a, w = work.w, k = work.t / work.dur, r = a.sp.r, top = a.md ? a.md.top : r * 2;   // 일하는 도구 그림
     if (world3.workCh !== w.tool) { world3.workCh = w.tool; wsp.material.map = sprCache[w.tool] || sprite(w.tool, null, 1).material.map; wsp.material.needsUpdate = true; }
     let sz = 34;
