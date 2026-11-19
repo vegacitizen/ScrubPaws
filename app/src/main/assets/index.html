@@ -2030,8 +2030,18 @@ function update(dt) {
 }
 
 /* ---------- 오버레이 ---------- */
-function showOv(html) { $('card').innerHTML = html; $('ov').hidden = false; const b = $('go'); if (b) { try { b.focus({ preventScroll: true }); } catch (e) { b.focus(); } } $('card').scrollTop = 0; $('ov').scrollTop = 0; }   // 긴 목록은 항상 맨 위부터 보이게
-function hideOv() { $('ov').hidden = true; }
+let ovKey = '';
+function showOv(html) {   // 같은 메뉴를 다시 그릴 때(물건을 산 뒤 등)는 보던 자리를 지키고, 다른 메뉴는 맨 위부터 보인다
+  const C = $('card'), O = $('ov'), was = !O.hidden, y1 = C.scrollTop, y2 = O.scrollTop; C.innerHTML = html; O.hidden = false;
+  const hd = C.querySelector('h1,h2'), tb = C.querySelector('.tab.on'), key = (hd ? hd.textContent : '') + '|' + (tb ? tb.dataset.tab : ''), same = was && key === ovKey; ovKey = key;
+  const b = $('go'); if (b) { try { b.focus({ preventScroll: true }); } catch (e) { b.focus(); } }
+  C.scrollTop = same ? y1 : 0; O.scrollTop = same ? y2 : 0;
+}
+$('ov').addEventListener('click', e => {   // 메뉴 바깥을 누르면 닫는다 (닫기만 하는 메뉴에서만)
+  if (e.target !== $('ov')) return; const g = $('go'), k = $('back');
+  if (g && ['닫기', '농장으로', '좋아요', '잘 읽었어요'].includes(g.textContent.trim())) g.click(); else if (k && ['그대로 두기', '취소'].includes(k.textContent.trim())) k.click();
+});
+function hideOv() { $('ov').hidden = true; ovKey = ''; }
 function showTitle() {
   state = 'title'; let has = false; try { has = !!localStorage.getItem(SAVE_KEY); } catch (e) { }
   showOv('<h1>ScrubPaws 농장</h1><p class="sub">꼬질꼬질 목장 키우기</p>' +
