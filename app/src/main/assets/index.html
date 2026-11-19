@@ -476,7 +476,11 @@ const TOOL_MODEL = {       // 손잡이가 아래, 앞은 +x. 키는 40쯤
   crow: P => { P.cy('#e9cf8c', 13, 1.6, 13, 0, 18, 0); P.co('#d9b877', 7.5, 9, 7.5, 0, 23, 0); P.cy('#c2523f', 7.8, 2, 7.8, 0, 20, 0); },
   gun: P => { P.bx('#6b4a2a', 14, 6, 4, -9, 21, 0); P.bx('#6b4a2a', 5, 9, 3.6, -13, 16, 0); P.cy('#4a5058', 1.8, 30, 1.8, 11, 24, 0).rotation.z = PI / 2; P.bx('#4a5058', 10, 4, 4, 0, 23, 0); }
 };
-function toolModel(k) { return TOOL_MODEL[k] ? baked('tool:' + k, g => TOOL_MODEL[k](shapeP(g))) : null; }
+const TOOL_PROP = { torch: ['torch', 40, 0], shovel: ['shovel', 46, 0], treat: ['food_donut', 9, 20], gun1: ['gun1', 0, 22], gun2: ['gun2', 0, 22], gun3: ['gun3', 0, 22], gun4: ['gun4', 0, 22] };   // 묶음의 도구 모형: [모형, 높이(0이면 길이 46에 맞춤), 든 높이]
+function toolModel(k) {
+  const q = TOOL_PROP[k]; if (q && propGeo(q[0])) { const g = new THREE.Group(), m = q[1] ? prop(q[0], q[1], g) : propLen(q[0], 46, g); m.position.y = q[2]; return g; }
+  const b = k.slice(0, 3) === 'gun' ? 'gun' : k; return TOOL_MODEL[b] ? baked('tool:' + b, g => TOOL_MODEL[b](shapeP(g))) : null;
+}
 function gemModel() { return baked('gem', g => { const P = shapeP(g); P.co('#ffd24a', 8, 12, 8, 0, 6, 0); P.co('#f0a81c', 8, 12, 8, 0, -6, 0).rotation.z = PI; P.s('#fff6c8', 2.4, 2.4, 2.4, 0, 14, 0); }); }
 function warnModel() { return baked('warn', g => { const P = shapeP(g); P.cy(WOODC, 1.6, 22, 1.6, 0, 11, 0); const t = M(new THREE.CylinderGeometry(1, 1, 1, 3), '#ffd24a', 15, 3, 15, 0, 32, 0, g); t.rotation.x = -PI / 2; P.bx('#3a2a22', 2.6, 9, 4, 0, 33.5, 0); P.bx('#3a2a22', 2.6, 2.6, 4, 0, 26.5, 0); }); }
 function boltModel() { return baked('bolt', g => { const P = shapeP(g); P.bx('#ffd24a', 5, 14, 3, 3, 26, 0).rotation.z = -.5; P.bx('#ffd24a', 12, 4, 3, 0, 19, 0); P.bx('#ffd24a', 5, 14, 3, -3, 12, 0).rotation.z = -.5; P.co('#ffd24a', 3.4, 7, 2, -7.5, 3, 0).rotation.z = PI - .5; }); }
@@ -488,7 +492,9 @@ const CROP_RIPE = {
   pumpkin: (g, S, Cy) => { S('#f08a1c', 14, 10.5, 14, 0, 10, 0); S('#f79a2a', 16, 10, 9, 0, 10, 0); S('#e87c14', 9, 10, 16, 0, 10, 0); Cy('#5a8f3a', 1.8, 6, 1.8, 0, 22, 0); for (const [x, z, a] of [[-17, 6, .5], [15, -9, 2.4], [8, 16, 4]]) { const l = S('#4fae4a', 8, 1.2, 6, x, 4, z); l.rotation.y = a; } S('#f08a1c', 7, 5.5, 7, 17, 5.5, 8); },
   bamboo: (g, S, Cy) => { for (const [x, z, h] of [[0, 0, 4], [-8, 5, 3], [7, 6, 3]]) { for (let j = 0; j < h; j++) { Cy(j % 2 ? '#6fbf5a' : '#5fae4a', 2.6, 12, 2.6, x, 6 + j * 12.6, z); Cy('#3f8a3a', 2.9, 1, 2.9, x, 12.3 + j * 12.6, z); } for (let j = 0; j < 4; j++) { const a = j / 4 * TAU + x, l = S('#4fae4a', 8, 1, 2.4, x + Math.cos(a) * 7, h * 12.6 + 1 - j, z + Math.sin(a) * 7); l.rotation.set(0, -a, -.4); } } }
 };
+const CROP_PROP = { carrot: g => { for (const [x, z, k, a] of [[0, 0, 1, .1], [-12, 6, .8, -.25], [11, 7, .85, .3]]) { const m = prop('food_carrot', 34 * k, g, x, -9 * k, z); m.rotation.z = a; m.rotation.y = x; } }, pumpkin: g => { prop('food_pumpkin', 20, g, 0, 1, 0); prop('food_pumpkin', 11, g, 19, 1, 9).rotation.y = 1; } };
 function cropModel(type, st) {            // 0 새싹 · 1 자라는 중 · 2 다 자람
+  if (st === 2 && CROP_PROP[type] && propGeo('food_' + type)) { const g = new THREE.Group(); g.add(baked('cropsoil', b => M(lowGeo().sph, '#7a5a3a', 13, 3, 13, 0, .5, 0, b))); CROP_PROP[type](g); return g; }   // 다 자란 당근 · 호박은 음식 모형
   const key = 'crop' + (st < 2 || !CROP_RIPE[type] ? st : type);
   return baked(key, g => { const Q = lowGeo(), S = (c, sx, sy, sz, x, y, z) => M(Q.sph, c, sx, sy, sz, x, y, z, g), Cy = (c, sx, sy, sz, x, y, z) => M(Q.cyl, c, sx, sy, sz, x, y, z, g), Co = (c, sx, sy, sz, x, y, z) => M(Q.cone, c, sx, sy, sz, x, y, z, g);
     S('#7a5a3a', 13, 3, 13, 0, .5, 0);
@@ -573,9 +579,9 @@ function slotUse(slots, i, k) { const s = slots[i]; if (s.k !== k) { if (s.m) s.
 function lilypads(parent, W, n, seed) {    // 물가의 연잎
   const geo = propGeo('lilypad'); if (!geo) return; const im = new THREE.InstancedMesh(geo, packMat(), n), d = new THREE.Object3D(); for (let i = 0; i < n; i++) { const a = i * 2.399 + seed, k = .8 + ((i * 7 + seed) % 5) * .028, s = (20 + (i % 4) * 5) / geo.userData.w; d.position.set(W.x + Math.cos(a) * W.rx * k, 1.9, W.y + Math.sin(a) * W.ry * k); d.rotation.set(0, a * 3, 0); d.scale.set(s, s, s); d.updateMatrix(); im.setMatrixAt(i, d.matrix); } im.frustumCulled = false; im.receiveShadow = true; parent.add(im);
 }
-function makeSchool() {
+function makeSchool(n) {
   const g = new THREE.Group(), fm = new THREE.MeshBasicMaterial({ color: '#16406c', transparent: true, opacity: .55, depthWrite: false }), rm = () => new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .5, depthWrite: false }), fish = [], rings = [], Q = lowGeo();
-  const kg = propGeo('koi'), km = kg && (matCache.koi || (matCache.koi = (m => { m.transparent = true; m.opacity = .72; m.depthWrite = false; m.color.set('#9fc8e8'); return m; })(packMat().clone())));
+  const kg = propGeo(['koi', 'fish1', 'fish3'][(n || 0) % 3]) || propGeo('koi'), km = kg && (matCache.koi || (matCache.koi = (m => { m.transparent = true; m.opacity = .72; m.depthWrite = false; m.color.set('#9fc8e8'); return m; })(packMat().clone())));
   for (let i = 0; i < 6; i++) { const f = new THREE.Group(); if (kg) { const b = kg.boundingBox, lx = b.max.x - b.min.x, lz = b.max.z - b.min.z, k = new THREE.Mesh(kg, km); k.scale.setScalar(24 / Math.max(lx, lz)); k.rotation.y = lz > lx ? PI / 2 : 0; k.position.y = -3; f.add(k); } else { M(Q.sph, fm, 9, 1, 3.6, 0, 0, 0, f); const t = M(Q.cone, fm, 1, 7, 5, -11, 0, 0, f); t.rotation.z = -PI / 2; } f.scale.setScalar(.8 + (i % 3) * .2); g.add(f); fish.push(f); }
   for (let i = 0; i < 2; i++) { const r = M(G.ring, rm(), 1, 1, 1, 0, 2.6, 0, g); r.rotation.x = -PI / 2; rings.push(r); } return { g, fish, rings };
 }
@@ -2961,7 +2967,8 @@ function buildWorld2(S) {   // 3D: 지역 바닥색 · 숲 · 산 · 덤불 · �
   flat(G.circ, '#ecd9a0', RESV.rx + 40, RESV.ry + 40, RESV.x, .5, RESV.y); flat(G.circ, '#5ab4e8', RESV.rx, RESV.ry, RESV.x, .9, RESV.y); flat(G.circ, '#3f9ad6', RESV.rx * .7, RESV.ry * .7, RESV.x, 1.2, RESV.y); flat(G.circ, '#2c78b8', RESV.rx * .4, RESV.ry * .4, RESV.x, 1.5, RESV.y); addWaterFx(S, RESV.x, RESV.y, RESV.rx, RESV.ry); lilypads(S, RESV, 18, 3);
   const reeds = []; for (let i = 0; i < 70; i++) { const an = r() * TAU; if (Math.cos(an) > .8) continue; const k = .97 + r() * .1, x = RESV.x + Math.cos(an) * RESV.rx * k, y = RESV.y + Math.sin(an) * RESV.ry * k; reeds.push([x, 18, y, 3, 36 + r() * 20, 3]); } inst(G.cone, '#6f9a3a', reeds);
   if (!propBox('dock_long', RPIER.x1 - RPIER.x0 + 26, 62, 56, S, (RPIER.x0 + RPIER.x1) / 2, 50, RPIER.y)) { B('#a9744f', RPIER.x1 - RPIER.x0 + 20, 8, 46, (RPIER.x0 + RPIER.x1) / 2, 9, RPIER.y, S, 2); for (let x = RPIER.x0 + 10; x < RPIER.x1; x += 50) for (const z of [-20, 20]) M(G.cyl, '#7a4f2c', 5, 30, 5, x, 6, RPIER.y + z, S); }
-  flat(new THREE.PlaneGeometry(1, 1), '#c9a77a', 180, 260, -190, .7, 600); for (const [x, z] of [[-200, 500], [-200, 690]]) { if (prop('bench', 34, S, x, 0, z)) continue; B('#8a5a34', 70, 8, 22, x, 22, z, S, 2); B('#8a5a34', 70, 22, 6, x, 36, z - 11, S, 2); for (const dx of [-28, 28]) B('#6b4a2a', 6, 20, 18, x + dx, 10, z, S, 1); }
+  flat(new THREE.PlaneGeometry(1, 1), '#c9a77a', 180, 260, -190, .7, 600); prop('bonfire', 26, S, -150, 0, 596); { const tn = prop('tent', 62, S, -236, 0, 600); if (tn) tn.rotation.y = PI / 2; }   // 낚시터의 모닥불과 천막
+  for (const [x, z] of [[-200, 500], [-200, 690]]) { if (prop('bench', 34, S, x, 0, z)) continue; B('#8a5a34', 70, 8, 22, x, 22, z, S, 2); B('#8a5a34', 70, 22, 6, x, 36, z - 11, S, 2); for (const dx of [-28, 28]) B('#6b4a2a', 6, 20, 18, x + dx, 10, z, S, 1); }
   M(G.cyl, '#8a5a3a', 4, 90, 4, -120, 45, 470, S); const rs = canvasTex(512, 96, c => { rr(c, 0, 0, 512, 96, 24, 'rgba(42,110,160,.9)'); txt(c, '🎣 저수지 낚시터', 256, 50, 40, '#fff'); }); const rsp = new THREE.Sprite(new THREE.SpriteMaterial({ map: rs, transparent: true, depthWrite: false })); rsp.scale.set(260, 49, 1); rsp.position.set(-120, 118, 470); S.add(rsp);
   { const g = world3.rboatM = new THREE.Group(); if (!propLen('boat_small', 72, g, .08)) { B('#a9744f', 60, 14, 26, 0, 7, 0, g, 6); B('#8a5a34', 58, 4, 27, 0, 14, 0, g, 2); B('#6b4a2a', 6, 3, 30, 10, 16, 0, g, 1); sh(g); } g.visible = false; scene.add(g); }
   // 정류장과 지역 표지판
@@ -3254,7 +3261,7 @@ function init3D() {
     { const g = world3.marketM = new THREE.Group(); B('#fff3e0', 120, 56, 80, DOCKPOS.x - 150, 28, DOCKPOS.y - 130, g, 6); B('#3f8fd9', 132, 12, 92, DOCKPOS.x - 150, 62, DOCKPOS.y - 130, g, 4); B('#6b4a2a', 24, 36, 4, DOCKPOS.x - 150, 18, DOCKPOS.y - 89, g, 2); const ms = sprite('🐟', g, 34); ms.position.set(DOCKPOS.x - 150, 110, DOCKPOS.y - 130); sh(g); g.visible = false; scene.add(g); }
     world3.boatM = [[60, 14, 26, '#a9744f', 0], [84, 18, 34, '#f4f4f0', 1], [130, 26, 46, '#3f6fa8', 2], [180, 32, 60, '#f4f4f0', 3]].map(q => { const g = new THREE.Group(); if (propLen('boat' + (q[4] + 1), q[0] * 1.25, g, q[4] === 3 ? .12 : .1)) { g.visible = false; scene.add(g); return g; } B(q[3], q[0], q[1], q[2], 0, q[1] / 2, 0, g, 6); B(q[4] === 2 ? '#d94f3a' : '#8a5a34', q[0] * .96, 4, q[2] * 1.04, 0, q[1], 0, g, 2);
       if (q[4] >= 1) B('#e8eef4', q[0] * .34, q[1] * 1.1, q[2] * .7, -q[0] * .12, q[1] * 1.6, 0, g, 4); if (q[4] >= 2) { M(G.cyl, '#6b6f78', 3, 70, 3, q[0] * .2, q[1] + 36, 0, g); B('#ffd54a', 30, 6, 6, q[0] * .2 + 14, q[1] + 66, 0, g, 1); } if (q[4] === 3) { M(G.sph, '#d8f4ff', 14, 14, 14, -q[0] * .12, q[1] * 2.6, 0, g); B('#d94f3a', q[0], 5, q[2] * 1.06, 0, 5, 0, g, 2); } sh(g); g.visible = false; scene.add(g); return g; });
-    world3.schoolS = []; for (let i = 0; i < 3; i++) { const sm = makeSchool(); sm.g.visible = false; scene.add(sm.g); world3.schoolS.push(sm); } }
+    world3.schoolS = []; for (let i = 0; i < 3; i++) { const sm = makeSchool(i); sm.g.visible = false; scene.add(sm.g); world3.schoolS.push(sm); } }
   world3.wildS = []; world3.trapM = []; for (let i = 0; i < 6; i++) { const g = new THREE.Group(), by = [null, 1, 2, 3].map(t => t && toolModel('trap' + t)); by.forEach(m => m && g.add(m)); g.visible = false; scene.add(g); world3.trapM.push({ g, by }); } world3.trapW = modelSlot(scene, 6);
   world3.trapS = []; world3.pondS = []; for (let i = 0; i < 6; i++) { for (const [l, ch] of [[world3.trapS, '🪤'], [world3.pondS, '🚰']]) { const sp = sprite(ch, scene, 34); sp.visible = false; sp.userData.ch = ch; l.push(sp); } }
   world3.pondS = world3.pondS.map(sp => { const w = prop('well', 56, scene); if (!w) return sp; scene.remove(sp); w.visible = false; return w; });   // 연못의 급수 표시는 우물 모형으로
@@ -3434,7 +3441,7 @@ function syncTrees() {
     if (!t.md) { const g = new THREE.Group(), fr = new THREE.Group(); g.add(fr);
       if (T.big) { M(G.cyl, '#7a5a3a', 13, 120, 13, 0, 60, 0, g); for (let i = 0; i < 8; i++) { const an = i / 8 * TAU, lf = M(G.sph, '#3f8f4a', 46, 7, 13, Math.cos(an) * 40, 118 - (i % 2) * 8, Math.sin(an) * 40, g); lf.rotation.y = -an; lf.rotation.z = -.35; } M(G.sph, '#4fa85a', 20, 16, 20, 0, 124, 0, g); }
       else { if (!prop('tree_oak', 150, g, 0, 0, 0, true)) { M(G.cyl, '#8a5a34', 9, 70, 9, 0, 35, 0, g); M(G.leaf, '#4fae5a', 46, 40, 46, 0, 96, 0, g); M(G.leaf, '#5fc06a', 30, 28, 30, 24, 118, 10, g); M(G.leaf, '#43a050', 30, 26, 30, -26, 84, -12, g); }
-        for (const q of [[38, 96, 22], [-30, 110, 30], [10, 82, 44], [-40, 86, -6], [30, 120, -20], [-6, 128, 26]]) M(G.sph, T.col, 7, 7, 7, q[0], q[1], q[2], fr); const sp2 = sprite(T.e, fr, 30); sp2.position.set(0, 168, 0); }
+        { const fid = { apple: 'food_apple', pear: 'food_pear', orange: 'food_orange' }[t.type], fg = fid && propGeo(fid); for (const q of [[38, 96, 22], [-30, 110, 30], [10, 82, 44], [-40, 86, -6], [30, 120, -20], [-6, 128, 26]]) { if (fg) prop(fid, 16, fr, q[0], q[1] - 8, q[2]); else M(G.sph, T.col, 7, 7, 7, q[0], q[1], q[2], fr); } } const sp2 = sprite(T.e, fr, 30); sp2.position.set(0, 168, 0); }
       sh(g); g.position.set(t.x, 0, t.y); world3.petG.add(g); t.md = { g, fr }; }
     const k = (.22 + .78 * Math.min(1, t.g)) * (T.big ? 1.25 : 1); t.md.g.scale.setScalar(k); t.md.fr.visible = t.f >= 1; t.md.g.visible = state !== 'title'; }
 }
@@ -3518,7 +3525,7 @@ function render3D(dt) {
   const sw = pl.swingT > 0, hasT = pl.tool === 'torch'; torch.intensity = hasT ? n * 2.2 * (sw ? 1.7 : 1) * (1 + Math.sin(gt * 17) * .08) : 0; torch.position.set(pl.x + pl.ax * 14, 96, pl.y + pl.ay * 14);
   flame.visible = !!pl.tool && !pl.carry; if (flame.visible) { const ch = TOOLS[pl.tool].e; if (world3.toolCh !== ch) { world3.toolCh = ch; flame.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; flame.material.needsUpdate = true; }
     const an = Math.atan2(pl.ay, pl.ax) + Math.sin(gt * 13) * PI / 4, fr = sw ? 50 : 20, fx0 = sw ? Math.cos(an) : pl.ax, fy0 = sw ? Math.sin(an) : pl.ay; flame.position.set(pl.x + fx0 * fr, (tr.riding ? 150 : 112) + Math.sin(gt * 20) * 2, pl.y + fy0 * fr); flame.scale.setScalar((hasT ? 46 * (1 + Math.sin(gt * 23) * .08) : 38) * (sw ? 1.7 : 1)); }
-  { const tm = world3.toolM || (world3.toolM = {}), tk = flame.visible ? pl.tool : ''; for (const k in tm) if (tm[k]) tm[k].visible = k === tk;   // 손에 든 도구는 3D 모형으로. 모형이 없는 도구만 그림으로 남는다
+  { const tm = world3.toolM || (world3.toolM = {}), tk = !flame.visible ? '' : pl.tool === 'gun' ? 'gun' + clamp(gunLv || 1, 1, 4) : pl.tool; for (const k in tm) if (tm[k]) tm[k].visible = k === tk;   // 손에 든 도구는 3D 모형으로. 모형이 없는 도구만 그림으로 남는다
     if (tk && !(tk in tm)) { tm[tk] = toolModel(tk); if (tm[tk]) scene.add(tm[tk]); } const t3 = tk && tm[tk];
     if (t3) { t3.visible = true; t3.position.set(flame.position.x, flame.position.y - 26, flame.position.z); t3.rotation.set(0, faceTo(pl.ax, pl.ay), sw ? Math.sin(gt * 13) * .5 : Math.sin(gt * 3) * .05); t3.scale.setScalar(1.15); if (hasT) { flame.position.y += 22; flame.scale.multiplyScalar(.72); } else flame.visible = false; } }
   const wsp = world3.workSpr; wsp.visible = !!work; if (work) { const a = work.a, w = work.w, k = work.t / work.dur, r = a.sp.r, top = a.md ? a.md.top : r * 2;   // 일하는 도구 그림

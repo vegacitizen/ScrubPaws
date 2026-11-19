@@ -14,5 +14,9 @@
 | `Farm_*.glb` | Farm Buildings (2018-09) | FBX → GLB |
 | `Village_*.glb` | Medieval Village Pack (2020-12) | FBX → GLB |
 | `RTS_*.glb` | Ultimate Fantasy RTS (2022-08) | glTF → GLB(`trim.mjs`) |
+| `Food_*.glb` | Ultimate Food Pack (2019-10) | FBX → GLB |
+| `Fish2018_*.glb` | Animated Fish Pack (2018) | FBX → GLB |
+| `Survival_*.glb` | Survival Pack (2020-09) | FBX → GLB |
+| `Gun_*.glb` | Animated FPS Guns (2018-06) | FBX → GLB. **이 폴더에는 License.txt가 없었다.** 같은 작가의 다른 팩은 모두 CC0이지만 이 팩의 라이선스는 폴더 안에서 확인하지 못했다 |
 
 FBX → GLB는 three.js(0.160)의 FBXLoader로 읽어 GLTFExporter로 내보냈다. 색과 삼각형 수는 `build.mjs`의 옵션(pal · lift · simplify)으로 맞춘다.
