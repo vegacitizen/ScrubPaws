@@ -851,3 +851,7 @@ v5.0.0의 공룡 값과 먹이 규칙은 이 절의 내용으로 바뀌었어요
 # v7.8.0 — CC0 모형 묶음
 - 나무·덤불·바위·트랙터와 사슴·여우·늑대, 전시관 손님이 새 3D 모형으로 보여요. 숲과 들판에는 꽃과 버섯이 피어요.
 - 모형 출처(모두 CC0 1.0): Kenney(kenney.nl)의 Nature Kit · Car Kit · Mini Characters, Quaternius(quaternius.com)의 동물. npm의 `@netforge/asset-library-files` 0.2.0에서 가져와 `tools/models`에서 `npm install && npm run build`로 다시 만들 수 있어요.
+
+# v7.9.0 — 가축 모형 교체
+- 소·말·양·돼지가 Quaternius의 CC0 모형으로 바뀌었어요. 소와 말은 걷고 달리고 풀을 먹는 동작이 있어요.
+- 닭·염소와 그 밖의 가축은 아직 도형으로 만든 모형이에요.
