@@ -491,8 +491,7 @@ GitHub Actions 실행 결과의 `ScrubPaws-debug-apk` 아티팩트에서도 내�
 - 라마: "Low Poly Llama 3d Model Free" (https://sketchfab.com/3d-models/low-poly-llama-3d-model-free-fe23d7daf59940ffb7f982701d7de7f4) by iRahulRajput (https://sketchfab.com/rt699448), CC-BY-4.0
 - 양: "animated low poly sheep game ready model" (https://sketchfab.com/3d-models/animated-low-poly-sheep-game-ready-model-66f3851d8827411c91d208d172305666) by creosine (https://sketchfab.com/creosine), CC-BY-4.0
 - 위 다섯 모형은 텍스처를 꼭짓점 색으로 바꾸고, 일부는 삼각형 수를 줄여서 씁니다.
-- 낙타·코끼리(매머드)·들소·야생 말: Natural History Museum of Los Angeles County (https://sketchfab.com/NHMLA) 의 "Low poly western camel (Camelops hesternus)", "Low poly Columbian mammoth (Mammuthus columbi)", "Low poly ancient bison (Bison antiquus)", "Low poly western horse", **CC-BY-NC-SA-4.0** (http://creativecommons.org/licenses/by-nc-sa/4.0/). 텍스처를 꼭짓점 색으로 바꾸고 삼각형 수와 동작을 줄였습니다. 고친 모형 파일(`tools/models/src/NHMLA_*.glb`와 묶음 안의 해당 모형)도 같은 CC-BY-NC-SA-4.0 조건입니다.
-- **이 네 모형 때문에 이 게임은 비상업 용도로만 배포할 수 있습니다.** 상업적으로 쓰려면 이 모형들을 빼야 합니다(`tools/models/build.mjs`에서 camel·mammoth·bison·whorse 줄을 지우면 예전 모형으로 돌아갑니다).
+- 낙타는 Quaternius의 알파카(CC0)를 고쳐 만든 것이고, 코끼리는 코드로 직접 만든 모형입니다. v8.3.0~v8.3.2에 들어 있던 비상업 조건(CC-BY-NC-SA) 모형 4종은 v8.4.0에서 뺐습니다.
 
 게임 안에서는 모델의 크기를 맞추고, 더러움에 따라 색을 입히며, 희귀 가축은 황금빛으로 물들여 씁니다.
 닭·돼지·말·늑대·곰·주인공과 배경, 소리는 코드로 만든 것입니다.
@@ -904,3 +903,6 @@ v5.0.0의 공룡 값과 먹이 규칙은 이 절의 내용으로 바뀌었어요
 
 # v8.3.2 — 돼지 모형 복구
 - v8.3.1에서 돼지가 예전 도형 모형으로 보이던 문제를 고쳤어요.
+
+# v8.4.0 — 비상업 조건 모형 제거
+- 비상업 조건이 붙은 모형 4종을 빼고, 낙타는 알파카를 고쳐서, 코끼리는 직접 만들어서 바꿨어요.

@@ -36,14 +36,3 @@ FBX → GLB는 three.js(0.160)의 FBXLoader로 읽어 GLTFExporter로 내보냈�
 | `Extra_Llama.glb` | "Low Poly Llama 3d Model Free" (https://sketchfab.com/3d-models/low-poly-llama-3d-model-free-fe23d7daf59940ffb7f982701d7de7f4) by iRahulRajput (https://sketchfab.com/rt699448), CC-BY-4.0 |
 
 "Giraffe" by Nevermoredmb는 CC-BY-NC(비상업)라서 넣지 않았다.
-
-## Natural History Museum of Los Angeles County (CC-BY-NC-SA 4.0 — 출처 표기 · 비상업 · 같은 조건으로 공유)
-
-`prebake.mjs`로 텍스처를 꼭짓점 색으로 바꿔 넣었다. 이 파일들과 여기서 만든 묶음 속 모형도 CC-BY-NC-SA 4.0이다.
-
-| 파일 | 원본 |
-| --- | --- |
-| `NHMLA_Camel.glb` | "Low poly western camel (Camelops hesternus)" by NHMLA (https://sketchfab.com/NHMLA) |
-| `NHMLA_Mammoth.glb` | "Low poly Columbian mammoth (Mammuthus columbi)" by NHMLA |
-| `NHMLA_Bison.glb` | "Low poly ancient bison (Bison antiquus)" by NHMLA |
-| `NHMLA_Horse.glb` | "Low poly western horse" by NHMLA |

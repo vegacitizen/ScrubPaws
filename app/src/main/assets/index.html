@@ -453,7 +453,7 @@ function propBox(id, len, hgt, wid, parent, x, top, z) {   // 상자 크기에 �
   const m = prop(id, 1, parent); if (!m) return null; const b = m.geometry.boundingBox, lx = b.max.x - b.min.x, lz = b.max.z - b.min.z, turn = lz > lx; m.scale.set((turn ? wid : len) / lx, hgt, (turn ? len : wid) / lz); if (turn) m.rotation.y = PI / 2; m.position.set(x, top - hgt, z); return m;
 }
 const WILD_STILL = { ibex: ['goat', 2.2, [.95, .92, .88], PI / 2], llama: ['llama', 2.6, null, 0], hippo: ['hippo', 1.5, null, PI] };   // 뼈대 없는 모형을 쓰는 야생 동물: [모형, 키(r의 배수), 색, 앞 방향 보정]
-const WILD_RIG = { wildhorse: ['whorse', 2.1], bison: ['bison', 1.8], unicorn: ['horse_white', 2.15, [1.12, 1.05, 1.2]], alpaca: ['alpaca', 2.5], donkey: ['donkey', 2.1], deer: ['stag', 2.6], roe: ['deer', 2.3], whitedeer: ['stag', 2.6, [2.4, 2.4, 2.6]], fox2: ['fox', 1.9], wolf: ['wolf', 2] };
+const WILD_RIG = { wildhorse: ['horse', 2.1, [.62, .56, .52]], bison: ['bull', 1.75, [.62, .5, .42]], unicorn: ['horse_white', 2.15, [1.12, 1.05, 1.2]], alpaca: ['alpaca', 2.5], donkey: ['donkey', 2.1], deer: ['stag', 2.6], roe: ['deer', 2.3], whitedeer: ['stag', 2.6, [2.4, 2.4, 2.6]], fox2: ['fox', 1.9], wolf: ['wolf', 2] };
 const TREE_ROUND = ['tree_oak', 'tree_fat', 'tree_oak', 'tree_fat', 'tree_autumn'], TREE_PINE = ['tree_pine', 'tree_pine_tall', 'tree_dark'];
 /* ---------- 손에 든 도구 · 덫 · 반짝이 · 경고 표시: 이모지 그림 대신 쓰는 작은 3D 모형 ---------- */
 function shapeP(g) { const Q = lowGeo(); return { s: (c, sx, sy, sz, x, y, z) => M(Q.sph, c, sx, sy, sz, x, y, z, g), cy: (c, sx, sy, sz, x, y, z) => M(Q.cyl, c, sx, sy, sz, x, y, z, g), co: (c, sx, sy, sz, x, y, z) => M(Q.cone, c, sx, sy, sz, x, y, z, g), bx: (c, sx, sy, sz, x, y, z) => M(G.box, c, sx, sy, sz, x, y, z, g), tor: (c, sx, sy, sz, x, y, z) => M(Q.tor, c, sx, sy, sz, x, y, z, g) }; }
@@ -487,6 +487,26 @@ function toolModel(k) {
 function gemModel() { return baked('gem', g => { const P = shapeP(g); P.co('#ffd24a', 8, 12, 8, 0, 6, 0); P.co('#f0a81c', 8, 12, 8, 0, -6, 0).rotation.z = PI; P.s('#fff6c8', 2.4, 2.4, 2.4, 0, 14, 0); }); }
 function warnModel() { return baked('warn', g => { const P = shapeP(g); P.cy(WOODC, 1.6, 22, 1.6, 0, 11, 0); const t = M(new THREE.CylinderGeometry(1, 1, 1, 3), '#ffd24a', 15, 3, 15, 0, 32, 0, g); t.rotation.x = -PI / 2; P.bx('#3a2a22', 2.6, 9, 4, 0, 33.5, 0); P.bx('#3a2a22', 2.6, 2.6, 4, 0, 26.5, 0); }); }
 function boltModel() { return baked('bolt', g => { const P = shapeP(g); P.bx('#ffd24a', 5, 14, 3, 3, 26, 0).rotation.z = -.5; P.bx('#ffd24a', 12, 4, 3, 0, 19, 0); P.bx('#ffd24a', 5, 14, 3, -3, 12, 0).rotation.z = -.5; P.co('#ffd24a', 3.4, 7, 2, -7.5, 3, 0).rotation.z = PI - .5; }); }
+/* ---------- 직접 만든 동물 모형: 코끼리(코드로 만든 도형 조립), 낙타의 혹 ---------- */
+function makeElephant() {                 // 앞은 +x, 키 100. 다리 · 코 · 귀 · 꼬리가 따로 움직인다
+  const g = new THREE.Group(), C = '#8f9aa6', D = '#7b8591', L = '#a8b2bc';
+  const part = (key, f, parent, x, y, z) => { const pv = new THREE.Group(); pv.position.set(x, y, z); pv.add(baked('ele:' + key, b => f(shapeP(b)))); parent.add(pv); return pv; };
+  part('body', P => { P.s(C, 40, 29, 27, 0, 0, 0); P.s(C, 24, 26, 25, 22, 3, 0); P.s(D, 26, 24, 24, -20, -1, 0); P.s(L, 30, 14, 20, 0, -17, 0);          // 몸통 · 어깨 · 엉덩이 · 배
+    P.s(C, 19, 21, 18, 44, 12, 0); P.s(C, 10, 9, 9, 40, 30, 7); P.s(C, 10, 9, 9, 40, 30, -7); P.s(D, 12, 10, 12, 58, 6, 0);                              // 머리 · 이마 · 코 뿌리
+    for (const s of [1, -1]) { P.s('#20160f', 2, 2.4, 1.6, 55, 16, s * 13); P.co('#fff8e6', 3, 22, 3, 63, -4, s * 8).rotation.z = -2.2; } }, g, 0, 62, 0);   // 눈 · 상아
+  const legs = [[26, 13], [26, -13], [-24, 13], [-24, -13]].map(q => part('leg', P => { P.cy(D, 9, 42, 9, 0, -21, 0); P.cy(C, 10, 8, 10, 0, -38, 0); for (const a of [-.6, 0, .6]) P.s('#e8e2d6', 2.6, 2.4, 2, 8 * Math.cos(a), -40, 8 * Math.sin(a)); }, g, q[0], 44, q[1]));
+  const ears = [1, -1].map(s => part('ear' + s, P => { P.s(C, 3, 24, 17, -3, -4, s * 14); P.s('#b9a8ae', 1.6, 19, 13, -1.4, -5, s * 15); }, g, 40, 80, s * 15));
+  const trunk = []; let par = g, px = 64, py = 66; for (let i = 0; i < 6; i++) { const r0 = 7.5 - i * .9, pv = part('trunk' + i, P => { P.cy(i % 2 ? D : C, r0, 11, r0 * .95, 0, -5, 0); if (i === 5) P.s('#c8a8a8', r0 * .7, 1.5, r0 * .7, 0, -10.5, 0); }, par, px, py, 0); trunk.push(pv); par = pv; px = 0; py = -9.5; }
+  const tail = part('tail', P => { P.cy(D, 1.6, 26, 1.6, 0, -13, 0); P.s('#3a3a40', 3, 5, 3, 0, -27, 0); }, g, -44, 70, 0); tail.rotation.z = -.25;
+  return { g, update(t, mv, eat, seed) { const ph = t * 6.5 + seed, sw = mv ? Math.sin(ph) * .42 : 0; legs[0].rotation.z = sw; legs[3].rotation.z = sw; legs[1].rotation.z = -sw; legs[2].rotation.z = -sw; g.position.y = mv ? Math.abs(Math.sin(ph)) * 1.6 : 0;
+    trunk.forEach((p, i) => { p.rotation.z = (eat ? [.1, -.5, -.6, -.6, -.5, -.3][i] : [.25, .1, -.05, -.2, -.3, -.3][i]) + Math.sin(t * 1.7 + seed + i * .7) * (mv ? .09 : .05); });
+    const fl = .3 + Math.sin(t * 2.3 + seed) * .22; ears[0].rotation.y = -fl; ears[1].rotation.y = fl; tail.rotation.x = Math.sin(t * 3 + seed) * .35; } };
+}
+function camelHumps(root, pr) {            // 알파카 모형의 등뼈에 혹 두 개를 붙여 낙타로 만든다
+  root.updateMatrixWorld(true); const h = pr.h, ws = new THREE.Vector3();
+  for (const [bn, sz] of HUMPS) { let b = null; root.traverse(o => { if (o.isBone && o.name === bn) b = o; }); if (!b) continue; b.getWorldScale(ws); const k = 1 / ws.x; M(lowGeo().sph, '#c9a26a', h * sz * k, h * sz * 1.3 * k, h * sz * .85 * k, HUMP_AT[0] * h * k, HUMP_AT[1] * h * k, HUMP_AT[2] * h * k, b); }
+}
+const HUMPS = [['Torso', .12], ['Torso3', .11]], HUMP_AT = [0, 0, .08];   // 혹을 붙일 등뼈와 크기(키의 배수), 뼈 기준 위치(+z가 등 위쪽)
 /* ---------- 작물 ---------- */
 const CROP_RIPE = {
   clover: (g, S, Cy) => { for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + .3, k = i % 2 ? .55 : 1, x = Math.cos(a) * 12 * k, z = Math.sin(a) * 12 * k, y = 9 + (i % 3) * 4; Cy('#5fae4a', .8, y, .8, x, y / 2, z); for (let j = 0; j < 3; j++) { const b = j / 3 * TAU + i; S(i % 2 ? '#3fa64a' : '#57c060', 4.2, 1.2, 4.2, x + Math.cos(b) * 3.6, y, z + Math.sin(b) * 3.6); } } Cy('#5fae4a', .8, 20, .8, 0, 10, 0); S('#f6b6d2', 3.6, 3.6, 3.6, 0, 22, 0); S('#ffffff', 2.6, 2.6, 2.6, 7, 16, 5); },
@@ -3435,8 +3455,8 @@ const MODELS = {
   brachio: { pack: 'dino_apato', hk: 1.1, yaw: 0, clips: { idle: 'Armature|Apatosaurus_Idle', walk: 'Armature|Apatosaurus_Walk', run: 'Armature|Apatosaurus_Run' } },
   wolf: { pack: 'wolf', hk: 1.9, yaw: 0, clips: { idle: 'Idle', walk: 'Gallop' } },
   fox: { pack: 'fox', hk: 1.9, yaw: 0, clips: { idle: 'Idle', walk: 'Gallop' } },
-  camel: { pack: 'camel', hk: 2.4, yaw: 0, clips: { idle: 'Idle', walk: 'Walk' } },
-  elephant: { pack: 'mammoth', hk: 2.1, yaw: 0, clips: { idle: 'Idle', walk: 'Walk' } },
+  camel: { pack: 'camel', hk: 2.5, yaw: 0, addon: camelHumps, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } },
+  elephant: { make: makeElephant, h: 100, hk: 2, yaw: -PI / 2, clips: {} },   // make: 묶음의 모형 대신 코드로 만든 모형
   giraffe: { pack: 'giraffe', hk: 3.4, yaw: PI / 2, clips: {} },   // yaw: 모형의 앞 방향 보정
   goat: { pack: 'goat', hk: 2.1, yaw: PI / 2, clips: {} },
   cow: { pack: 'cow', hk: 1.95, yaw: 0, clips: { idle: 'Idle', walk: 'Walk', run: 'Gallop', eat: 'Eating' } },
@@ -3446,7 +3466,8 @@ const GOLD = { c: null };
 function loadModels() {
   if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return;
   for (const key in MODELS) {
-    const cfg = MODELS[key], data = cfg.pack ? PACK[cfg.pack] : window[cfg.data]; if (!data) continue;
+    const cfg = MODELS[key]; if (cfg.make) { cfg.proto = { root: null, anims: [], h: cfg.h, off: [0, 0, 0] }; continue; }
+    const data = cfg.pack ? PACK[cfg.pack] : window[cfg.data]; if (!data) continue;
     try {
       const use = g => {
         const skinned = []; g.scene.traverse(o => { if (o.isSkinnedMesh) skinned.push(o); if (o.isMesh) { o.material = cfg.pack ? mkMat({ vertexColors: true }) : mkMat({ map: o.material.map || null, color: o.material.color }); if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); } });
@@ -3462,12 +3483,12 @@ function loadModels() {
 }
 function attachModel(a, md) {
   const cfg = MODELS[a.model], pr = cfg.proto, k = a.sp.r * cfg.hk / pr.h, gold = GOLD.c || (GOLD.c = new THREE.Color('#ffc21a'));
-  const root = THREE.SkeletonUtils.clone(pr.root), holder = new THREE.Group(), fit = new THREE.Group(), off = new THREE.Group(), mats = [];
+  const made = cfg.make ? cfg.make() : null, root = made ? made.g : THREE.SkeletonUtils.clone(pr.root), holder = new THREE.Group(), fit = new THREE.Group(), off = new THREE.Group(), mats = []; if (cfg.addon) cfg.addon(root, pr);
   fit.rotation.y = PI / 2 + cfg.yaw; fit.scale.setScalar(k); off.position.set(pr.off[0], pr.off[1], pr.off[2]); off.add(root); fit.add(off); holder.add(fit); md.g.add(holder);
   root.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); if (cfg.tint) o.material.color.setRGB(cfg.tint[0], cfg.tint[1], cfg.tint[2]); if (a.legend) o.material.color.multiply(new THREE.Color('#c79bff')).multiplyScalar(1.35); else if (a.rare && !a.K.rareModel) o.material.color.multiply(gold).multiplyScalar(1.25); mats.push({ m: o.material, base: o.material.color.clone() }); o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; });
   const mixer = new THREE.AnimationMixer(root), acts = {};
   for (const n in cfg.clips) { const c = pr.anims.find(x => x.name === cfg.clips[n]); if (c) acts[n] = mixer.clipAction(c); }
-  md.inner.visible = false; md.top = pr.h * k; md.ext = { cfg, holder, mats, mixer, acts, act: null };
+  md.inner.visible = false; md.top = pr.h * k; md.ext = { cfg, holder, mats, mixer, acts, act: null, made };
 }
 function buildGear(p) {   // 울타리에 설치한 날씨 장비
   if (!renderer) return; if (p.gearG) { world3.gearG.remove(p.gearG); p.gearG = null; } if (!p.gear) return;
@@ -3551,6 +3572,7 @@ function syncCreature(a, dt, pred) {
   if (md.ext) { const x = md.ext, eat = a.state === 'eat', want = sleeping && x.acts.sleep ? 'sleep' : eat && x.acts.eat ? 'eat' : moving && x.acts.walk ? (a.attackedT > 0 && x.acts.run ? 'run' : 'walk') : 'idle', n = x.acts[want] || x.acts.idle;
     if (n && x.act !== n) { if (x.act) x.act.fadeOut(.25); n.reset().fadeIn(.25).play(); x.act = n; }
     x.mixer.update((sleeping && !x.acts.sleep) || (!x.acts.idle && !moving) ? 0 : dt * (want === 'walk' ? 1.3 : 1));
+    if (x.made) x.made.update(t, moving && !sleeping, a.state === 'eat', a.seed || 0);
     if (x.cfg.still || x.cfg.bob) { const mv = moving && !sleeping ? 1 : 0, ph = t * 11 + a.seed; x.holder.position.y = mv * Math.abs(Math.sin(ph)) * r * .1; x.holder.rotation.z = mv * Math.sin(ph) * .05 + (a.state === 'eat' && x.cfg.still ? -.16 : 0); x.holder.rotation.x = mv * Math.sin(ph * .5) * .04; }
     if (a.rare && a.kind === 'cow') { const dz = sleeping ? 0 : 1; x.holder.position.y = Math.abs(Math.sin(t * 7)) * r * .22 * dz; x.holder.rotation.y = Math.sin(t * 3.5) * .6 * dz; x.holder.rotation.z = Math.sin(t * 7) * .08 * dz; }   // 춤추는 소
     for (const q of x.mats) q.m.color.copy(q.base).lerp(grime, dg * .6);
