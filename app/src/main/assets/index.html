@@ -125,6 +125,7 @@
   @keyframes wob{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
   .cell.new{border-color:var(--accent);background:#fff1e0;cursor:default} .cell.new .cp{background:var(--accent)}
   details.help p,details.fold p{margin:6px 0} details.fold{margin:6px 0;text-align:center} details.fold summary{cursor:pointer;font:clamp(15px,2.8vw,18px) var(--display);background:#f6ead8;border:3px solid var(--ink);border-radius:12px;padding:7px 12px;text-align:left}
+  #det:not(.sel){position:static}
   #det .more{color:var(--accent);cursor:pointer;white-space:nowrap}
   #bigmap{width:auto;max-width:100%;max-height:calc(100vh - 150px)}
   /* 도구: 자주 쓰는 세 칸과 팔레트 버튼 */
@@ -1507,6 +1508,7 @@ function openShop(tab) {
       h += row(I.e, T.n + ' ' + I.n, I.d + ' · 지금 ' + Math.round(T.prot * 100) + '% 막음' + (can ? ' → ' + N.n + ': ' + Math.round(N.prot * 100) + '%' : ''), can ? won(N.price) : N ? '레벨 ' + LV.wx[lv + 1] + '부터' : '최고', 'wx:' + k, !!can && money >= N.price); }
     flush(); h = h0;
     const SEC = [['fac', '🏗️', '농장 시설'], ['tool', '🧰', '도구·장비'], ['veh', '🚗', '탈것'], ['land', '⛏️', '땅·자연'], ['lake', '⛵', '호수 (남동쪽)'], ['chicken', '🐔', '닭'], ['sheep', '🐑', '양'], ['pig', '🐷', '돼지'], ['cow', '🐮', '소'], ['goat', '🐐', '염소'], ['horse', '🐴', '말'], ['panda', '🐼', '판다'], ['camel', '🐫', '낙타'], ['giraffe', '🦒', '기린'], ['elephant', '🐘', '코끼리'], ['dino', '🦕', '공룡'], ['wx', '🌦️', '날씨 장비 (창고에 비치)']];
+    { const AN = ['chicken', 'sheep', 'pig', 'cow', 'goat', 'horse', 'panda', 'camel', 'giraffe', 'elephant', 'dino'], v = AN.map(k => G[k] || '').join(''); AN.forEach(k => { delete G[k]; }); if (v) G.ani = v; SEC.splice(5, 11, ['ani', '🐾', '가축 시설']); }   // 가축별 묶음은 하나로 합친다
     if (gearSec && !G[gearSec]) gearSec = 'fac';
     for (const [k, e2, n2] of SEC) { const v = G[k]; if (!v) continue;
       h += '<p class="sub dexh">' + e2 + ' ' + n2 + '</p>' + v; }
@@ -3298,7 +3300,7 @@ function whyNot(c) {
   return l.length ? l.join(' · ') : '지금은 조건이 맞지 않아요';
 }
 function showCell(i) {
-  const c = cells[i], D2 = $('det'); if (!c || !D2) return; cellSel = c.id + '|' + c.name.replace(/[\d,.]+/g, '');
+  const c = cells[i], D2 = $('det'); if (!c || !D2) return; D2.classList.add('sel'); cellSel = c.id + '|' + c.name.replace(/[\d,.]+/g, '');
   document.querySelectorAll('#card .cell').forEach(x => x.classList.toggle('sel', +x.dataset.c === i));
   const m = c.btn.match(/^[\d,]+원$/), sub = c.sub.replace(/\s*·\s*⚠️[^·<]*/g, '').replace(/\s*·\s*손이 비어야 해요/g, '');
   D2.innerHTML = '<div class="dh"><span class="ci">' + c.icon + '</span><b>' + c.name + '</b>' + (c.ok ? '<button class="btn" id="cbuy" type="button">' + (m ? '사기 · ' + c.btn : c.btn) + '</button>' : c.own ? '<span class="dok">✔ 갖추었어요</span>' : '') + '</div>' + (c.ok || c.own ? '' : '<p class="dno">🚫 ' + whyNot(c) + '</p>') + '<p class="ds">' + (sub.split(' · ').length > 2 ? sub.split(' · ').slice(0, 2).join(' · ') + ' <a class="more" id="dmore">더 보기 ▾</a>' : sub) + '</p>';   // 설명은 짧게, 나머지는 [더 보기]
