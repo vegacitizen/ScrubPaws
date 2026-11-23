@@ -126,6 +126,11 @@
   .cell.new{border-color:var(--accent);background:#fff1e0;cursor:default} .cell.new .cp{background:var(--accent)}
   details.help p,details.fold p{margin:6px 0} details.fold{margin:6px 0;text-align:center} details.fold summary{cursor:pointer;font:clamp(15px,2.8vw,18px) var(--display);background:#f6ead8;border:3px solid var(--ink);border-radius:12px;padding:7px 12px;text-align:left}
   #det:not(.sel){position:static}
+  /* 가축 수확 버튼: 늘 같은 자리에 있고, 할 일이 생기면 색이 켜지며 두근거린다 */
+  #bWork{font-size:14px;line-height:1.15} #bWork.rdy{animation:rdy 1s ease-in-out infinite}
+  @keyframes rdy{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.9),0 5px 0 rgba(0,0,0,.35)}50%{box-shadow:0 0 0 7px rgba(255,255,255,0),0 5px 0 rgba(0,0,0,.35)}}
+  @media (max-height:480px){#bWork{font-size:12px}}
+  #zoomR{position:fixed;left:calc(14px + env(safe-area-inset-left,0px));bottom:calc(68px + env(safe-area-inset-bottom,0px));border:3px solid var(--paper);border-radius:999px;background:rgba(74,50,38,.8);color:#fff;font:14px var(--display);padding:5px 11px;cursor:pointer;z-index:5;touch-action:none}
   #det .more{color:var(--accent);cursor:pointer;white-space:nowrap}
   #bigmap{width:auto;max-width:100%;max-height:calc(100vh - 150px)}
   /* 도구: 자주 쓰는 세 칸과 팔레트 버튼 */
@@ -157,7 +162,7 @@
   <button id="bDrop" class="pb sm" type="button" hidden>내려놓기</button>
   <button id="bCar" class="pb sm" type="button" hidden>내리기</button>
   <button id="bWood" class="pb sm" type="button" hidden>목공</button>
-  <button id="bWork" class="pb sm" type="button" hidden>일</button>
+  <button id="bWork" class="pb off" type="button" hidden>🧺</button>
   <button id="bGun" class="pb sm off" type="button" hidden>총</button>
  </div>
  <div class="prow">
@@ -167,6 +172,7 @@
 </div>
 <button id="bShop" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2.4l2.2 10.2h10.2L20 7H7"/><circle cx="9.5" cy="18.6" r="1.5" fill="currentColor"/><circle cx="16.6" cy="18.6" r="1.5" fill="currentColor"/></svg>상점</button>
 <canvas id="mini" width="336" height="184" hidden aria-label="지도"></canvas>
+<button id="zoomR" type="button" aria-label="확대 되돌리기" hidden></button>
 <button id="snd" type="button" aria-label="소리 켜기/끄기"></button>
 <button id="pz" type="button" aria-label="일시정지" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 5.5v13M15.5 5.5v13" stroke-width="3.2"/></svg></button>
 <button id="bDex" type="button" aria-label="도감" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.4C10 4.9 7 4.6 3.6 5.2v12.6c3.4-.6 6.4-.3 8.4 1.2 2-1.5 5-1.8 8.4-1.2V5.2C17 4.6 14 4.9 12 6.4zM12 6.4V19"/></svg></button>
@@ -1624,13 +1630,14 @@ const woodPrice = () => lic.carp >= 3 ? 1050 : 1500;
 const workReady = a => { const w = WORK[a.kind]; return !!w && a.adult && a.prod >= 1; };
 const workable = a => !!WORK[a.kind] && a.adult && a.prod >= .5;
 function findWork() {   // 가까운 가축에게 할 수 있는 일. 말은 안장 얹기와 훈련이 먼저다
-  if (pl.carry || onWheels() || fly || ride || build || work) return null; let b = null, bd = 60;
-  for (const a of animals) { if (a.state !== 'free') continue; const job = horseJob(a) || (workable(a) ? WORK[a.kind] : null) || cowJob(a) || pandaJob(a) || sheepJob(a) || goatJob(a) || henJob(a) || pigJob(a) || bigJob(a); if (!job) continue; const d = Math.hypot(a.x - pl.x, a.y - pl.y) - a.sp.r * .5; if (d < bd) { bd = d; b = a; a.job = job; } }
+  if (pl.carry || onWheels() || fly || ride || build || work) return null; let b = null, bd = 95;   // 닿는 범위를 넉넉히 하고, 지금 고른 가축은 조금 멀어져도 놓지 않는다
+  for (const a of animals) { if (a.state !== 'free') continue; const job = horseJob(a) || (workable(a) ? WORK[a.kind] : null) || cowJob(a) || pandaJob(a) || sheepJob(a) || goatJob(a) || henJob(a) || pigJob(a) || bigJob(a); if (!job) continue; const d = Math.hypot(a.x - pl.x, a.y - pl.y) - a.sp.r * .5 - (a === curWork ? 35 : 0); if (d < bd) { bd = d; b = a; a.job = job; } }
   return b;
 }
 let work = null, flashT = 0;
 function pressWork() {   // 가축 옆에서 일을 시작한다. 끝날 때까지 주인공과 가축이 그 자리에 머문다
-  if (state !== 'play' || work) return; initAudio(); const a = findWork(); if (!a) return; const w = a.job;
+  if (state !== 'play' || work) return; initAudio(); const a = findWork();
+  if (!a) { const n = animals.filter(q => q.state === 'free' && workReady(q)).length; showToast(pl.carry ? '🧺 손에 든 것을 내려놓으면 거둘 수 있어요' : n ? '🧺 거둘 수 있는 가축이 ' + n + '마리 있어요. 가까이 가면 버튼이 켜져요' : '🧺 아직 거둘 것이 없어요. 잘 먹이고 씻기면 쌓여요', 2.5); return; } const w = a.job;
   const dx = a.x - pl.x, dy = a.y - pl.y, d = Math.hypot(dx, dy) || 1; pl.ax = dx / d; pl.ay = dy / d;
   work = { a, w, t: 0, dur: w.dur, tick: 0 }; a.state = 'work'; a.moving = false; SFX.take();
 }
@@ -3223,11 +3230,20 @@ window.addEventListener('keydown', e => {
   keys[e.code] = true; if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
   if (e.repeat) return;
   if (e.code === 'Space' || e.code === 'Enter') { if (document.activeElement && /btn|buy|tab/.test(document.activeElement.className)) return; pressAct(); }
-  else if (e.code === 'KeyX' || e.code === 'KeyH' || e.code === 'KeyC' || e.code === 'KeyF') { hoseHeld = true; pressTool(); } else if (e.code === 'KeyG') dropFeed(); else if (e.code === 'KeyQ') swapTool(); else if (/^Digit[123]$/.test(e.code)) { const k = quickTools()[+e.code.slice(5) - 1]; if (k && state === 'play') pickTool(k, false); } else if (e.code === 'KeyJ') openDex(); else if (e.code === 'KeyM') openMap(); else if (e.code === 'KeyV') pressWork(); else if (e.code === 'KeyN') pressWood(); else if (e.code === 'KeyB' || e.code === 'KeyM') openShop(); else if (e.code === 'KeyP' || e.code === 'Escape') pressPause();
+  else if (e.code === 'KeyX' || e.code === 'KeyH' || e.code === 'KeyC' || e.code === 'KeyF') { hoseHeld = true; pressTool(); } else if (e.code === 'KeyG') dropFeed(); else if (e.code === 'Equal' || e.code === 'NumpadAdd') setZoom(camZoom * 1.2); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') setZoom(camZoom / 1.2); else if (e.code === 'Digit0') setZoom(1); else if (e.code === 'KeyQ') swapTool(); else if (/^Digit[123]$/.test(e.code)) { const k = quickTools()[+e.code.slice(5) - 1]; if (k && state === 'play') pickTool(k, false); } else if (e.code === 'KeyJ') openDex(); else if (e.code === 'KeyM') openMap(); else if (e.code === 'KeyV') pressWork(); else if (e.code === 'KeyN') pressWood(); else if (e.code === 'KeyB' || e.code === 'KeyM') openShop(); else if (e.code === 'KeyP' || e.code === 'Escape') pressPause();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; if (state === 'exam' && e.code === 'Space') exUp(); if (e.code === 'KeyX' || e.code === 'KeyH' || e.code === 'KeyC' || e.code === 'KeyF') hoseHeld = false; });
 cv.addEventListener('pointerdown', e => { initAudio(); if (hudTap(e.clientX / SC, e.clientY / SC)) return; if (joy.id === null) { joy.id = e.pointerId; joy.ox = joy.x = e.clientX; joy.oy = joy.y = e.clientY; try { cv.setPointerCapture(e.pointerId); } catch (err) { } } });
 cv.addEventListener('pointermove', e => { if (e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
+/* 확대 · 축소: 두 손가락 벌리기 / 마우스 휠 / + - 키. 🔍 단추를 누르면 원래대로 */
+let camZoom = 1; try { camZoom = clamp(+localStorage.getItem('scrubpaws_zoom') || 1, .7, 2.6); } catch (e) { }
+function setZoom(z) { camZoom = clamp(z, .7, 2.6); if (Math.abs(camZoom - 1) < .04) camZoom = 1; try { localStorage.setItem('scrubpaws_zoom', camZoom.toFixed(2)); } catch (e) { } }
+{ const P = new Map(); let d0 = 0, z0 = 1; const dist = () => { const v = [...P.values()]; return Math.hypot(v[0][0] - v[1][0], v[0][1] - v[1][1]) || 1; };
+  cv.addEventListener('pointerdown', e => { P.set(e.pointerId, [e.clientX, e.clientY]); if (P.size >= 2) { joy.id = null; if (P.size === 2) { d0 = dist(); z0 = camZoom; } } });
+  cv.addEventListener('pointermove', e => { if (!P.has(e.pointerId)) return; P.set(e.pointerId, [e.clientX, e.clientY]); if (P.size === 2 && state === 'play') setZoom(z0 * dist() / d0); });
+  const end = e => { P.delete(e.pointerId); }; cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  cv.addEventListener('wheel', e => { e.preventDefault(); if (state === 'play') setZoom(camZoom * Math.exp(-e.deltaY * .0015)); }, { passive: false });
+  $('zoomR').addEventListener('pointerdown', e => { e.preventDefault(); setZoom(1); }); }
 const joyEnd = e => { if (e.pointerId === joy.id) joy.id = null; }; cv.addEventListener('pointerup', joyEnd); cv.addEventListener('pointercancel', joyEnd);
 const bAct = $('bAct'), bHose = $('bHose'), bGun = $('bGun'), bShop = $('bShop'), bWork = $('bWork'), bWood = $('bWood'), bSwap = $('bSwap'), bDex = $('bDex');
 bSwap.addEventListener('pointerdown', e => { e.preventDefault(); swapTool(); }); const bDrop = $('bDrop'); bDrop.addEventListener('pointerdown', e => { e.preventDefault(); dropFeed(); }); bDex.addEventListener('click', () => { initAudio(); openDex(); bDex.blur(); });
@@ -3267,7 +3283,7 @@ function update(dt) {
     updateHose(dt); updateWeather(dt); updateTractor(); if (pl.pumpT > 0) pl.pumpT -= dt;
     updatePlots(dt); updatePiles(dt); updateWork(dt); updateAuto(dt); updateBirds(dt); updateWorkers(dt); metaT -= dt; if (metaT <= 0) { metaT = .5; checkQuest(); checkOrder(); checkLevel(); if (state === 'play') { checkBadges(); checkStars(); checkMissions(); checkBundles(); checkLvm(); } }
     for (const g of grass) if (g.t > 0) { g.t -= dt; if (g.t <= 0) placeGrass(g); }
-    for (const a of animals.slice()) updateAnimal(a, dt);
+    { const h = curWork && curWork.state === 'free' && !curWork.loose && !isNight() ? curWork : null, hx = h && h.x, hy = h && h.y; for (const a of animals.slice()) updateAnimal(a, dt); if (h && h.state === 'free') { h.x = hx; h.y = hy; h.moving = false; } }   // 수확하려고 다가간 가축은 그 자리에 잠깐 서 있는다
     if (isNight()) { if (toSpawn > 0) { spawnT -= dt; if (spawnT <= 0) { spawnT = R(5, 9) * nightLevel().gap; toSpawn--; if (animals.length) spawnPred(); } } }
     for (const q of preds) { const x0 = q.x, y0 = q.y; updatePred(q, dt); if (pitBlocks(q.x, q.y, q.sp.r, true) && !pitBlocks(x0, y0, q.sp.r, true)) { q.x = x0; q.y = y0; } }
     for (const q of preds) if (q.gone && q.md && q.md.g.parent) q.md.g.parent.remove(q.md.g); preds = preds.filter(q => !q.gone);
@@ -3276,11 +3292,11 @@ function update(dt) {
   const play = state === 'play', lab = play && curAct ? curAct.label : '행동';
   if (bAct.textContent !== lab) bAct.textContent = lab; bAct.classList.toggle('off', !(play && curAct && curAct.type !== 'full'));
   bHose.classList.toggle('off', !toolReady()); bHose.classList.toggle('on', pl.hose || pl.swingT > 0); bGun.hidden = true; const tl = toolLabel(); if (bHose.textContent !== tl) bHose.textContent = tl;
-  bWork.hidden = !(play && curWork); if (curWork) { const wl = curWork.job.label; if (bWork.textContent !== wl) bWork.textContent = wl; }
+  { const cw = play && curWork ? curWork : null, n = cw ? 0 : animals.reduce((t, q) => t + (q.state === 'free' && workReady(q) ? 1 : 0), 0), wl = cw ? (cw.job.e ? cw.job.e + ' ' : '') + cw.job.label : n ? '🧺 ' + n : '🧺'; bWork.hidden = !play; if (bWork.textContent !== wl) bWork.textContent = wl; bWork.classList.toggle('off', !cw); bWork.classList.toggle('rdy', !!cw); }
   bWood.hidden = !(play && (lic.carp > 0 || build)); const wl2 = build ? '취소' : '목공'; if (bWood.textContent !== wl2) bWood.textContent = wl2;
   bDrop.hidden = !(play && pl.carry === 'hay' && !tr.riding); bDex.hidden = !play; const sw = play ? (fly ? SPRAY[sprayMode].e : '🧰') : ''; if (bSwap.textContent !== sw) bSwap.textContent = sw;
   { const q = play && !fly ? quickTools() : [], cur = toolKey(); for (let i = 0; i < 3; i++) { const b = $('q' + i), k = q[i] || '', sig = k + (k === cur ? '*' : ''); if (b.dataset.sig !== sig) { b.dataset.sig = sig; b.dataset.k = k; b.hidden = !k; b.textContent = k ? toolIcon(k) : ''; b.classList.toggle('on', k === cur); if (k) b.setAttribute('aria-label', toolName(k)); } } }
-  $('pad').hidden = !play; $('pz').hidden = !(play || state === 'pause'); $('snd').style.visibility = $('ov').hidden || state === 'title' ? '' : 'hidden'; bShop.hidden = !play; $('mini').hidden = !play;
+  { const zr = $('zoomR'), zt = play && camZoom !== 1 ? '🔍 ' + camZoom.toFixed(1) + '× ✕' : ''; zr.hidden = !zt; if (zr.textContent !== zt) zr.textContent = zt; } $('pad').hidden = !play; $('pz').hidden = !(play || state === 'pause'); $('snd').style.visibility = $('ov').hidden || state === 'title' ? '' : 'hidden'; bShop.hidden = !play; $('mini').hidden = !play;
 }
 
 /* ---------- 오버레이 ---------- */
@@ -3695,7 +3711,7 @@ function render3D(dt) {
   const tp = state === 'play' && curAct && curAct.pet; ring.visible = !!tp; if (tp) { ring.position.set(tp.x, 2, tp.y); const s = tp.sp.r * 1.2 + 8 + Math.sin(gt * 8) * 2; ring.scale.set(s, s, s); }
   dropPool.forEach((m, i) => { const d = drops[i]; m.visible = !!d; if (d) m.position.set(d.x, d.h, d.y); });
   const tx = clamp(pl.x, MAP.x0 + 380, MAP.x1 - 380), tz = clamp(pl.y, MAP.y0 + 230, MAP.y1 - 150);   // 카메라는 주인공을 따라간다
-  cam3.position.set(tx + world3.off.x, world3.off.y + 30, tz + world3.off.z); if (shake > 0) { cam3.position.x += R(-9, 9) * shake; cam3.position.y += R(-9, 9) * shake; } cam3.lookAt(tx, 30, tz);
+  { const zo = 1 / camZoom, zf = Math.max(1, zo), d = world3.off.length(); cam3.position.set(tx + world3.off.x * zo, world3.off.y * zo + 30, tz + world3.off.z * zo); if (scene.fog) { scene.fog.near = d * .9 * zf; scene.fog.far = d * 2.7 * zf; } } if (shake > 0) { cam3.position.x += R(-9, 9) * shake; cam3.position.y += R(-9, 9) * shake; } cam3.lookAt(tx, 30, tz);
   lightScene(n, L, tx, tz); syncWaterFx(dt, dk); syncMotes(n, tx, tz);
   world3.buildM.visible = !!(build && build.a); if (world3.buildM.visible) { const r = buildRect(); world3.buildM.position.set(r.x + r.w / 2, 3, r.y + r.h / 2); world3.buildM.scale.set(Math.max(10, r.w), Math.max(10, r.h), 1); world3.buildM.material.color.set(r.why ? '#e2493f' : '#3fae6a'); }
   const fx = n < .5 && state !== 'title' ? WXFX[wx] : null; if (fx) wxMat.color.set(fx.col);   // 비 · 우박 · 바람
@@ -3742,7 +3758,7 @@ function hudFxDraw(c) {
 function hudTap(x, y) { const r = hudFx.rect; if (state !== 'play' || !r || x < r[0] || x > r[0] + r[2] || y < r[1] || y > r[1] + r[3]) return false; hudFx.fold = !hudFx.fold; try { localStorage.setItem('scrubpaws_hudfold', hudFx.fold ? '1' : '0'); } catch (e) { } return true; }
 function drawHUD() {
   const c = ctx, night = isNight(); if (state === 'title') hudFx.money = null;
-  for (const q of parts) { const [x, y] = proj(q.x, q.h, q.y), k = pxu * 1.6; c.globalAlpha = clamp(q.life * 1.6, 0, 1);
+  for (const q of parts) { const [x, y] = proj(q.x, q.h, q.y), k = pxu * camZoom * 1.6; c.globalAlpha = clamp(q.life * 1.6, 0, 1);
     if (q.kind === 'bubble') { ell(c, x, y, 6 * q.s * k, 6 * q.s * k, 'rgba(255,255,255,.85)'); } else if (q.kind === 'heart') txt(c, '♥', x, y, 18 * q.s * k, '#ff6b8a'); else if (q.kind === 'spark') txt(c, '✦', x, y, 18 * q.s * k, '#ffd54a'); else ell(c, x, y, 5 * q.s * k, 4 * q.s * k, '#b89a70'); c.globalAlpha = 1; }
   if (shotFx) { const [x0, y0] = proj(shotFx.x0, 70, shotFx.y0), [x1, y1] = proj(shotFx.x1, 30, shotFx.y1); c.strokeStyle = 'rgba(255,240,160,.95)'; c.lineWidth = 4; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); }
   for (const s of says) { const [x, y] = proj(s.x, s.h, s.y); c.globalAlpha = clamp(s.life * 2, 0, 1); txt(c, s.text, clamp(x, 60, VW - 60), clamp(y, HUDH + 14, VH - 30), (s.big ? 21 : 17) * (1 + Math.max(0, s.life - 1.32) * 2.2), s.col, 'center', '#fff'); c.globalAlpha = 1; }
