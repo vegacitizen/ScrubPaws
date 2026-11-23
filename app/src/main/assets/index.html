@@ -1222,12 +1222,27 @@ function updatePred(q, dt) {
     return; }
   q.moving = true; q.x = nx; q.y = ny;
 }
+function shotBlock(maxAlong) {   // 조준선 위에서 가장 먼저 맞는 물건(울타리 · 나무 · 허수아비 · 장식 · 장작)
+  const ax = pl.ax, ay = pl.ay; let best = null; const put = (al, x, y, hit) => { if (al > 12 && al < maxAlong - 8 && (!best || al < best.al)) best = { al, x, y, hit }; };
+  const pt = (o, rad, hit) => { const dx = o.x - pl.x, dy = o.y - pl.y, al = dx * ax + dy * ay; if (Math.abs(dx * ay - dy * ax) <= rad) put(al, o.x, o.y, hit); };
+  for (const P of PENS) { if (!P.own || P.hole) continue;   // 울타리 네 변과 조준선이 만나는 곳. 이미 구멍이 났거나 문이 열린 곳은 지나간다
+    for (const [x0, y0, x1, y1] of [[P.x, P.y, P.x + P.w, P.y], [P.x, P.y + P.h, P.x + P.w, P.y + P.h], [P.x, P.y, P.x, P.y + P.h], [P.x + P.w, P.y, P.x + P.w, P.y + P.h]]) { let t = -1, hx = 0, hy = 0;
+      if (y0 === y1) { if (Math.abs(ay) < 1e-4) continue; t = (y0 - pl.y) / ay; hx = pl.x + ax * t; hy = y0; if (hx < x0 || hx > x1) continue; } else { if (Math.abs(ax) < 1e-4) continue; t = (x0 - pl.x) / ax; hx = x0; hy = pl.y + ay * t; if (hy < y0 || hy > y1) continue; }
+      if (P.gateOpen && hy === P.y + P.h && Math.abs(hx - (P.x + P.w / 2)) < 44) continue;
+      put(t, hx, hy, () => { if (P.tier >= 4) { showToast('🔩 철 울타리는 총알을 튕겨 내요', 3); tone(1400, 900, .12, 'triangle', .3); return; } makeHole(P, hx, hy); buildFences(); showToast('💥 ' + (P.i + 1) + '번 울타리가 총에 맞아 부서졌어요! 고쳐야 가축이 나가지 않아요', 5); }); } }
+  for (const w of wtrees) if (wtGone[w.i] == null) pt(w, 24, () => { wtGone[w.i] = day; setWT(w, 0); const f = fires.find(q => q.o === w); if (f) fires.splice(fires.indexOf(f), 1); say(w, '💥 나무가 부러졌어요', '#6b4a3a', 1); });
+  for (const t of trees) pt(t, 22, () => { showToast('💥 ' + TREES[t.type].n + '가 총에 맞아 부러졌어요', 4); removeTree(t); });
+  for (const c2 of scarecrows) pt(c2, 16, () => { scarecrows.splice(scarecrows.indexOf(c2), 1); say(c2, '💥 허수아비가 부서졌어요', '#6b4a3a', 1); });
+  for (const d of decor) pt(d, 18, () => { decor.splice(decor.indexOf(d), 1); decorVer++; say(d, '💥 ' + DECOR[d.k].n + '이(가) 부서졌어요', '#6b4a3a', 1); });
+  for (const c2 of camps) pt(c2, 16, () => { const f = fires.find(q => q.o === c2); if (f) fires.splice(fires.indexOf(f), 1); camps.splice(camps.indexOf(c2), 1); campVer++; say(c2, '💥 장작 더미가 흩어졌어요', '#6b4a3a', 1); });
+  return best;
+}
 function pressShoot() {
   if (state !== 'play' || pl.tool !== 'gun' || !gun || pl.shootCd > 0) return; initAudio(); const G0 = GUNS[gunLv || 1];
   pl.shootCd = G0.cd; noise(.25, 900, .6, .9); tone(160, 50, .2, 'square', .4); shake = Math.max(shake, .25);
   const b = gunRay();
-  if (!b && !wildRay(G0)) { let a0 = null, ad = G0.range; for (const a of animals) { if (a.state === 'carried') continue; const dx = a.x - pl.x, dy = a.y - pl.y, along = dx * pl.ax + dy * pl.ay; if (along < 10 || along > ad) continue; if (Math.abs(dx * pl.ay - dy * pl.ax) <= a.sp.r * .5) { ad = along; a0 = a; } }
-    if (a0) { const n = Math.min(a0.sp.r < 20 ? 1 : a0.sp.r < 35 ? 3 : 6, Math.max(0, storeCap() - storeUsed())); shotFx = { x0: pl.x, y0: pl.y, x1: a0.x, y1: a0.y, t: .12 }; if (n) store.meat = (store.meat || 0) + n; burst(a0.x, a0.y, 'dust', 10); showToast('💥 ' + a0.K.n + '을(를) 쏘았어요…' + (n ? ' 🥩 고기 ' + n + '개가 창고에 들어갔어요' : ' (창고가 가득 차 고기를 못 넣었어요)'), 5); removeAnimal(a0); for (const q of animals) if (Math.hypot(q.x - a0.x, q.y - a0.y) < 300) { q.attackedT = 3; q.happy = Math.max(0, q.happy - 20); } saveGame(); return; } }
+  { const tg = b || wildRay(G0), blk = shotBlock(tg ? (tg.x - pl.x) * pl.ax + (tg.y - pl.y) * pl.ay : G0.range);   // 가축과 개는 총에 맞지 않는다. 울타리 · 나무 같은 것이 먼저 맞으면 총알이 거기서 멈추고 그것이 부서진다
+    if (blk) { shotFx = { x0: pl.x, y0: pl.y, x1: blk.x, y1: blk.y, t: .12 }; burst(blk.x, blk.y, 'dust', 12); noise(.2, 500, .8, .5); blk.hit(); for (const q of preds) if (!q.flee && !q.dead && Math.hypot(q.x - pl.x, q.y - pl.y) < G0.range * 1.1) scarePred(q, '탕! 깨갱'); saveGame(); return; } }
   if (!b) { const w0 = wildRay(G0); if (w0) { shotFx = { x0: pl.x, y0: pl.y, x1: w0.x, y1: w0.y, t: .12 }; shootWild(w0); return; } }
   if (!b) {   // 빗나감: 근처 맹수는 총소리에 놀라 달아난다 (보상 없음)
     shotFx = { x0: pl.x, y0: pl.y, x1: pl.x + pl.ax * G0.range, y1: pl.y + pl.ay * G0.range, t: .12 }; let n = 0;
@@ -3507,9 +3522,12 @@ function syncDogs() {   // 양치기 개: 방목한 무리 둘레를 돌고, 불
   const late = herd.filter(a => a.gateT === 'i1').sort((p, q) => { const P1 = PENS[p.pen], P2 = PENS[q.pen]; return Math.hypot(q.x - P2.x - P2.w / 2, q.y - P2.y - P2.h / 2) - Math.hypot(p.x - P1.x - P1.w / 2, p.y - P1.y - P1.h / 2); });
   { const riding = onWheels() || fly || !!ride || boat.riding || !!carRide;   // 탈것을 타면 창고 옆에서 기다리고, 걸어서 창고 가까이 오면 다시 따라나선다
     if (riding) world3.dogWait = true; else if (world3.dogWait && Math.hypot(BARN.x - pl.x, BARN.y - pl.y) < 300) world3.dogWait = false; }
+  const foes = preds.filter(q => !q.flee && !q.dead && !q.gone && q.x > -200 && q.y > -200 && q.x < WORLD.w + 200 && q.y < WORLD.h + 200);
   D.forEach((d, i) => { d.m.g.visible = i < dogs && state !== 'title'; if (i >= dogs) return; let tx = BARN.x + 70 + i * 34, ty = BARN.y + 120, sp = 250;
-    if (!herd.length && !world3.dogWait) { const an = Math.atan2(-pl.ay, -pl.ax) + (i % 2 ? 1 : -1) * (.5 + (i >> 1) * .45), r = 58 + (i >> 1) * 30; tx = pl.x + Math.cos(an) * r; ty = pl.y + Math.sin(an) * r; sp = 310; if (Math.hypot(tx - d.x, ty - d.y) < 26 && !pl.moving) { tx = d.x; ty = d.y; } }   // 방목하지 않을 때는 걸어 다니는 주인공을 따라다닌다
-    if (late.length) { const a = late[i % late.length], P = PENS[a.pen], vx = a.x - (P.x + P.w / 2), vy = a.y - (P.y + P.h / 2), l = Math.hypot(vx, vy) || 1; tx = a.x + vx / l * 46; ty = a.y + vy / l * 46; }
+    const foe = state === 'play' && foes.length ? foes[i % foes.length] : null;
+    if (foe) { tx = foe.x; ty = foe.y; sp = 330; d.cd = Math.max(0, (d.cd || 0) - dt); if (Math.hypot(foe.x - d.x, foe.y - d.y) < 52 && d.cd <= 0) { d.cd = 2.4; voice(VOICE.woof); hitPred(foe, 1, '멍멍! 깨갱'); burst(foe.x, foe.y, 'dust', 5); } }   // 맹수가 나타나면 무엇보다 먼저 쫓아가 문다
+    else if (!herd.length && !world3.dogWait) { const an = Math.atan2(-pl.ay, -pl.ax) + (i % 2 ? 1 : -1) * (.5 + (i >> 1) * .45), r = 58 + (i >> 1) * 30; tx = pl.x + Math.cos(an) * r; ty = pl.y + Math.sin(an) * r; sp = 310; if (Math.hypot(tx - d.x, ty - d.y) < 26 && !pl.moving) { tx = d.x; ty = d.y; } }   // 방목하지 않을 때는 걸어 다니는 주인공을 따라다닌다
+    if (foe) { } else if (late.length) { const a = late[i % late.length], P = PENS[a.pen], vx = a.x - (P.x + P.w / 2), vy = a.y - (P.y + P.h / 2), l = Math.hypot(vx, vy) || 1; tx = a.x + vx / l * 46; ty = a.y + vy / l * 46; }
     else if (herd.length) { const an = gt * .35 + i * TAU / Math.max(1, dogs), r = 150 + Math.min(260, herd.length * 10); tx = cx + Math.cos(an) * r; ty = cy + Math.sin(an) * r * .8; }
     const dx = tx - d.x, dy = ty - d.y, l = Math.hypot(dx, dy), run = l > 12; if (run) { const v = Math.min(l, sp * dt); d.x += dx / l * v; d.y += dy / l * v; d.a = Math.atan2(dy, dx); }
     d.m.g.position.set(d.x, 0, d.y); d.m.g.rotation.y = -d.a; if (d.m.rig && state === 'play') rigPlay(d.m, run ? (l > 120 ? 'Gallop' : 'Walk') : 'Idle', dt); });
