@@ -365,7 +365,7 @@ function M(geo, m, sx, sy, sz, x, y, z, parent) {
   const o = new THREE.Mesh(geo, typeof m === 'string' ? (geo === G.leaf || geo === G.pine ? leafMat(m) : mat(m)) : m); o.scale.set(sx, sy, sz); o.position.set(x || 0, y || 0, z || 0); if (parent) parent.add(o); return o;
 }
 function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d')); const t = new THREE.CanvasTexture(c); t.anisotropy = 8; t.encoding = THREE.sRGBEncoding; return t; }
-function bubMap(ch) { return sprCache['b:' + ch] || (sprCache['b:' + ch] = canvasTex(96, 96, c => { ell(c, 48, 48, 45, 45, 'rgba(74,50,38,.9)'); ell(c, 48, 48, 41, 41, '#fffaf0'); emo(c, ch, 48, 51, 54); })); }   // 가축 머리 위 상태 그림: 흰 말풍선에 담아 멀리서도 보이게
+function bubMap(ch) { return sprCache['b:' + ch] || (sprCache['b:' + ch] = canvasTex(96, 96, c => { if (ch === '✚') { ell(c, 48, 48, 45, 45, '#d6293e'); ell(c, 48, 48, 40, 40, '#ffffff'); c.fillStyle = '#e0243c'; c.fillRect(38, 20, 20, 56); c.fillRect(20, 38, 56, 20); return; } ell(c, 48, 48, 45, 45, 'rgba(74,50,38,.9)'); ell(c, 48, 48, 41, 41, '#fffaf0'); emo(c, ch, 48, 51, 54); })); }   // 가축 머리 위 상태 그림: 흰 말풍선에 담아 멀리서도 보이게
 function sprite(ch, parent, size) {
   const map = sprCache[ch] || (sprCache[ch] = canvasTex(96, 96, c => { emo(c, ch, 48, 52, 72); }));
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false })); s.scale.set(size, size, 1); if (parent) parent.add(s); return s;
@@ -1072,7 +1072,7 @@ function updateAnimal(a, dt) {
       else if (rareBorn) { say(a, '✨ 희귀한 새끼가 태어났어요!', '#d99a00', 1); showToast('✨ 희귀한 ' + (K.rareName || '황금 ' + K.n) + ' 새끼가 태어났어요! 다 크면 ' + RARE_MULT + '배 값에 팔려요', 5); burst(a.x, a.y, 'spark', 16); tone(1047, 1047, .15, 'triangle', .25, .6); tone(1568, 1568, .3, 'triangle', .25, .75); }
       else say(a, '🎉 ' + K.n + ' 새끼 ' + born + '마리가 태어났어요!', '#e2497f', 1); }
     else say(a, '울타리가 꽉 찼어요', '#7a6a4f'); } }
-  if (a.health < SICK) { if (!a.sickT) { a.sickT = 1; if (!(sickToastT > gt)) { sickToastT = gt + 25; showToast('🏥 ' + K.n + '이(가) 아파요! 하트가 다 사라지기 전에 ' + (meds > 0 ? '옆에서 [💊 응급 조치]를 눌러 주세요' : '상점(가축 탭)에서 💊 응급약을 사서 응급 조치를 해 주세요'), 6); } } } else if (a.health >= SICK + 10) a.sickT = 0;
+  if (a.health < SICK) { if (!a.sickT) { a.sickT = 1; if (!(sickToastT > gt)) { sickToastT = gt + 25; showToast('💊 ' + K.n + '이(가) 아파요! 하트가 다 사라지기 전에 ' + (meds > 0 ? '옆에서 [💊 응급 조치]를 눌러 주세요' : '상점(가축 탭)에서 💊 응급약을 사서 응급 조치를 해 주세요'), 6); } } } else if (a.health >= SICK + 10) a.sickT = 0;
   if (a.health <= 0 && peace) { a.health = 25; if (!(a.sickWarn > gt)) { a.sickWarn = gt + 20; showToast('🤒 ' + K.n + '이(가) 많이 아파요. 먹이와 물, 목욕을 챙겨 주세요', 4); } }
   if (a.health <= 0) { showToast(K.n + '이(가) 병들어 떠났어요… 먹이와 물, 목욕을 챙겨 주세요', 4); removeAnimal(a); return; }
   if (a.state === 'carried') { a.x = pl.x; a.y = pl.y; a.moving = false; return; }
@@ -1442,7 +1442,7 @@ function openShop(tab) {
 
     h += '<p class="sub">가축은 제 먹이만 먹어요. 🌾 건초는 건초 더미와 들판의 풀, 나머지는 씨앗을 심어 길러요. 좋아하는 먹이를 먹으면 더 빨리 자라고 많이 내놓아요.</p><p class="sub">✨ 희귀한 가축은 그 종이 가장 좋아하는 먹이만 먹어요. 만족도가 높은 어미에게서 가끔 태어나고, ' + RARE_MULT + '배 값에 팔려요.</p>';
     h += '<p class="sub">' + '산 가축은 그 가축에게 맞는 높이의 울타리 가운데 빈자리가 있는 곳으로 들어가요. 울타리가 낮으면 넘어서 나가요.' + '</p>'; }
-  if (tab === 'buy') h += row('💊', '응급약 (보유 ' + meds + '개)', '아픈 가축(🏥) 옆에서 [💊 응급 조치]를 누르면 생명이 절반쯤 돌아오고 배고픔과 목마름도 덜어 줘요 · 하트가 다 사라지면 가축을 잃어요', won(MED_PRICE), 'med:x', money >= MED_PRICE);
+  if (tab === 'buy') h += row('💊', '응급약 (보유 ' + meds + '개)', '아픈 가축(빨간 십자가 표시) 옆에서 [💊 응급 조치]를 누르면 생명이 절반쯤 돌아오고 배고픔과 목마름도 덜어 줘요 · 하트가 다 사라지면 가축을 잃어요', won(MED_PRICE), 'med:x', money >= MED_PRICE);
   else if (tab === 'sell') { const list = animals.filter(a => a.state !== 'taken').sort((a, b) => sellPrice(b) - sellPrice(a));
     for (const a of list) { const K = a.K; h += row((a.legend ? '🌈' : a.rare ? '✨' : '') + K.e, (a.legend ? '전설의 ' + K.n : a.rare ? '희귀 ' + (K.rareName || '황금 ' + K.n) : K.n) + (a.adult ? '' : ' 새끼 (' + Math.round(a.age * 100) + '% 자람)'), (a.pen + 1) + '번 울타리 · 건강 ' + Math.round(a.health) + ' · 만족도 ' + Math.round(a.happy) + (a.boost > 1.05 ? ' · 먹이 ×' + a.boost.toFixed(2) : '') + (a.preg > 0 ? ' · 💗 임신 중' : '') + (a.loose ? ' · 🏃 울타리 밖' : '') + (a.kind === 'cow' && a.groom ? ' · 🪮 돌봄 ' + a.groom + '%' : '') + (a.kind === 'sheep' && a.fleece ? ' · 🧽 털결 ' + a.fleece + '%' : '') + (a.kind === 'chicken' && a.lay ? ' · 🪺 산란 ' + a.lay + '% · 황금알 ' + Math.round(goldChance(a) * 100) + '%' : '') + (a.kind === 'pig' && a.nose ? ' · 🍄 후각 ' + a.nose + '%' + (a.nose >= TRUFFLE_AT ? ' · 아침마다 ' + (Math.round(truffleOf(a) / 10) * 10).toLocaleString() + '원' : '') + ' · 값 ×' + careerMul(a).toFixed(1) : '') + (a.kind === 'goat' && (a.agile || a.climbs) ? ' · ⛰️ 민첩 ' + (a.agile || 0) + '%' + (a.climbs ? ' · ' + a.climbs + '전 ' + (a.cwins || 0) + '승' : '') + ' · 값 ×' + careerMul(a).toFixed(1) : '') + (a.kind === 'panda' && (a.fame || a.fest) ? ' · ⚽ 인기 ' + (a.fame || 0) + '% · 축제 ' + (a.fest || 0) + '회 · 값 ×' + careerMul(a).toFixed(1) : '') + (a.kind === 'horse' && a.saddled ? ' · 🏇 훈련 ' + (a.train || 0) + '%' + (a.races ? ' · ' + a.races + '전 ' + (a.wins || 0) + '승 · 값 ×' + horseMul(a).toFixed(1) : '') : '') + ' · 오늘 시세 ×' + mk(a.kind), won(sellPrice(a)), 'sell:' + animals.indexOf(a), true); }
     if (!list.length) h += '<p class="sub">팔 가축이 없어요.</p>'; h += '<p class="sub">건강하고 만족도가 높을수록 비싸게 팔려요. 희귀한 가축은 ' + RARE_MULT + '배, 새끼는 덜 자란 만큼 싸요.</p>'; }
@@ -1669,7 +1669,7 @@ function findWork() {   // 가까운 가축에게 할 수 있는 일. 말은 안
 let work = null, flashT = 0;
 function pressWork() {   // 가축 옆에서 일을 시작한다. 끝날 때까지 주인공과 가축이 그 자리에 머문다
   if (state !== 'play' || work) return; initAudio(); const a = findWork();
-  if (!a) { const n = animals.filter(q => q.state === 'free' && workReady(q)).length; showToast(animals.some(q => q.health < SICK) && meds <= 0 ? '🏥 아픈 가축이 있어요. 상점(가축 탭)에서 💊 응급약을 사세요' : pl.carry ? '🧺 손에 든 것을 내려놓으면 거둘 수 있어요' : n ? '🧺 거둘 수 있는 가축이 ' + n + '마리 있어요. 가까이 가면 버튼이 켜져요' : '🧺 아직 거둘 것이 없어요. 잘 먹이고 씻기면 쌓여요', 2.5); return; } const w = a.job;
+  if (!a) { const n = animals.filter(q => q.state === 'free' && workReady(q)).length; showToast(animals.some(q => q.health < SICK) && meds <= 0 ? '💊 아픈 가축이 있어요. 상점(가축 탭)에서 응급약을 사세요' : pl.carry ? '🧺 손에 든 것을 내려놓으면 거둘 수 있어요' : n ? '🧺 거둘 수 있는 가축이 ' + n + '마리 있어요. 가까이 가면 버튼이 켜져요' : '🧺 아직 거둘 것이 없어요. 잘 먹이고 씻기면 쌓여요', 2.5); return; } const w = a.job;
   const dx = a.x - pl.x, dy = a.y - pl.y, d = Math.hypot(dx, dy) || 1; pl.ax = dx / d; pl.ay = dy / d;
   work = { a, w, t: 0, dur: w.dur, tick: 0 }; a.state = 'work'; a.moving = false; SFX.take();
 }
@@ -3405,7 +3405,7 @@ function drawExtra(c) {
       c.save(); c.translate(ex + Math.cos(a) * 34, ey + Math.sin(a) * 34); c.rotate(a); c.fillStyle = '#ffd54a'; c.beginPath(); c.moveTo(10, 0); c.lineTo(-6, -9); c.lineTo(-6, 9); c.closePath(); c.fill(); c.restore(); } }
   if (isNight() && nm && NIGHT_M[nm.k]) { const t = '🌙 ' + nmText() + (nm.done ? '  ✅' : '  · +' + nmPay().toLocaleString() + '원'); c.font = '15px Jua,sans-serif'; const w = Math.min(VW - 380, c.measureText(t).width + 30), x0 = VW / 2 - w / 2, y0 = VH - 40; rr(c, x0, y0, w, 30, 15, nm.done ? 'rgba(63,143,74,.85)' : 'rgba(40,44,80,.85)'); txt(c, t, VW / 2, y0 + 16, c.measureText(t).width + 26 > w ? 12 : 15, '#fff'); }   // 오늘 밤 미션
   if (!isNight()) { let hu = 0, th = 0, di = 0, rd = 0, sk = 0; for (const a of animals) { if (a.health < SICK) sk++; if (a.state !== 'free' || a.loose) continue; if (a.hunger >= 60) hu++; if (a.thirst >= 60) th++; if (a.dirt >= 60) di++; if (workReady(a)) rd++; }   // 농장 한눈에: 배고픔 · 목마름 · 더러움 · 거둘 것
-    const l = [['🏥', sk], ['🍴', hu], ['💧', th], ['🫧', di], ['🧺', rd]].filter(q => q[1] > 0); if (l.length) { const w = l.length * 54 + 10, x0 = VW / 2 - w / 2, y0 = VH - 40; rr(c, x0, y0, w, 30, 15, 'rgba(59,42,34,.72)'); l.forEach((q, i) => { emo(c, q[0], x0 + 22 + i * 54, y0 + 16, 17); txt(c, String(q[1]), x0 + 42 + i * 54, y0 + 16, 15, q[0] === '🧺' ? '#9be37f' : q[0] === '🏥' ? '#ff9a9a' : '#ffd9a0'); }); } }
+    const l = [['✚', sk], ['🍴', hu], ['💧', th], ['🫧', di], ['🧺', rd]].filter(q => q[1] > 0); if (l.length) { const w = l.length * 54 + 10, x0 = VW / 2 - w / 2, y0 = VH - 40; rr(c, x0, y0, w, 30, 15, 'rgba(59,42,34,.72)'); l.forEach((q, i) => { if (q[0] === '✚') { const x = x0 + 22 + i * 54, y = y0 + 15; ell(c, x, y, 10, 10, '#fff'); c.fillStyle = '#e0243c'; c.fillRect(x - 2.5, y - 7, 5, 14); c.fillRect(x - 7, y - 2.5, 14, 5); } else emo(c, q[0], x0 + 22 + i * 54, y0 + 16, 17); txt(c, String(q[1]), x0 + 42 + i * 54, y0 + 16, 15, q[0] === '🧺' ? '#9be37f' : q[0] === '✚' ? '#ff9a9a' : '#ffd9a0'); }); } }
 }
 /* ---------- 도끼 · 장작 · 모닥불 · 숲의 나무 · 밤 미션 ---------- */
 let wtrees = [], wtGone = {}, logsInv = 0, camps = [], campVer = 0, nm = { k: 'torch', done: false }, nmP = { repel: 0, woke: 0, straw: 0, camp: 0, maxCamp: 0 };
@@ -3781,7 +3781,7 @@ function buildGear(p) {   // 울타리에 설치한 날씨 장비
 const WXL = { sunny: [.56, .82, 1, 1, 1], hot: [.66, .86, 1, 1.3, 1.1], drizzle: [.62, .68, .74, .55, .9], rain: [.45, .5, .58, .35, .8], wind: [.6, .8, .92, .9, 1], hail: [.5, .54, .62, .4, .8], typhoon: [.3, .33, .4, .2, .65] };
 const WXFX = { drizzle: { n: 40, v: 520, wx: 0, s: [1.5, 22, 1.5], rot: 0, col: '#cfe6ff' }, rain: { n: 110, v: 700, wx: -60, s: [1.6, 30, 1.6], rot: -.08, col: '#bcd9ff' }, wind: { n: 28, v: 0, wx: -650, s: [46, 1.6, 1.6], rot: 0, col: '#ffffff' },
   hail: { n: 45, v: 620, wx: 0, s: [6, 6, 6], rot: 0, col: '#ffffff' }, typhoon: { n: 140, v: 650, wx: -520, s: [1.8, 34, 1.8], rot: -.65, col: '#b0c8e8' } };
-const ICONS = { attack: '❗', hungry: '🍴', thirsty: '💧', dirty: '🫧', preg: '💗', sick: '🏥' };
+const ICONS = { attack: '❗', hungry: '🍴', thirsty: '💧', dirty: '🫧', preg: '💗', sick: '✚' };
 function heartMap(n) { return sprCache['hp:' + n] || (sprCache['hp:' + n] = canvasTex(176, 48, c => { rr(c, 2, 2, 172, 44, 22, 'rgba(74,50,38,.9)'); rr(c, 5, 5, 166, 38, 19, '#fffaf0'); c.font = 'bold 32px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; for (let i = 0; i < 5; i++) { c.fillStyle = i < n ? '#e2264a' : '#d8ccc6'; c.fillText('♥', 24 + i * 32, 26); } })); }   // 아픈 가축의 남은 생명: 하트 다섯 칸
 function makeAnimalModel(a) {
   const md = makePet(a), r = a.sp.r;
