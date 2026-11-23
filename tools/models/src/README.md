@@ -36,3 +36,7 @@ FBX → GLB는 three.js(0.160)의 FBXLoader로 읽어 GLTFExporter로 내보냈�
 | `Extra_Llama.glb` | "Low Poly Llama 3d Model Free" (https://sketchfab.com/3d-models/low-poly-llama-3d-model-free-fe23d7daf59940ffb7f982701d7de7f4) by iRahulRajput (https://sketchfab.com/rt699448), CC-BY-4.0 |
 
 "Giraffe" by Nevermoredmb는 CC-BY-NC(비상업)라서 넣지 않았다.
+
+## npm `@netforge/asset-library-files` 0.2.0 (트랙터 · 사슴 2종 · 여우 · 늑대)
+
+묶음의 `NOTICE`에 따르면 `library/`의 파일은 모두 CC0 1.0 원본을 줄인 사본이다. 동물은 Quaternius가 Poly Pizza에 올린 모형(각 모형 페이지에 Public Domain(CC0) 표기)이고, 탈것은 Kenney의 Car Kit 등(각 압축 파일의 License.txt에 CC0)이다. 같은 NOTICE에 "Quaternius's pack pages state License CC0"라고 적혀 있어, License.txt가 없던 `Gun_*.glb`(Animated FPS Guns)도 같은 조건으로 본다. 원본 페이지를 직접 열어 확인한 것은 아니다.
