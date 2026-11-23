@@ -3505,10 +3505,13 @@ function syncDogs() {   // 양치기 개: 방목한 무리 둘레를 돌고, 불
   while (D.length < dogs) { let m = rigClone('wolf', 40, [1.5, 1.15, .75]); if (!m) { const g = new THREE.Group(); M(G.sph, '#c98a4a', 16, 11, 9, 0, 14, 0, g).castShadow = true; M(G.sph, '#fff3e0', 8, 8, 7, 14, 20, 0, g); m = { g }; } scene.add(m.g); D.push({ m, x: BARN.x + 70 + D.length * 34, y: BARN.y + 120, a: 0 }); }
   const herd = animals.filter(a => a.graze && a.loose); let cx = 0, cy = 0; for (const a of herd) { cx += a.x; cy += a.y; } if (herd.length) { cx /= herd.length; cy /= herd.length; }
   const late = herd.filter(a => a.gateT === 'i1').sort((p, q) => { const P1 = PENS[p.pen], P2 = PENS[q.pen]; return Math.hypot(q.x - P2.x - P2.w / 2, q.y - P2.y - P2.h / 2) - Math.hypot(p.x - P1.x - P1.w / 2, p.y - P1.y - P1.h / 2); });
-  D.forEach((d, i) => { d.m.g.visible = i < dogs && state !== 'title'; if (i >= dogs) return; let tx = BARN.x + 70 + i * 34, ty = BARN.y + 120;
+  { const riding = onWheels() || fly || !!ride || boat.riding || !!carRide;   // 탈것을 타면 창고 옆에서 기다리고, 걸어서 창고 가까이 오면 다시 따라나선다
+    if (riding) world3.dogWait = true; else if (world3.dogWait && Math.hypot(BARN.x - pl.x, BARN.y - pl.y) < 300) world3.dogWait = false; }
+  D.forEach((d, i) => { d.m.g.visible = i < dogs && state !== 'title'; if (i >= dogs) return; let tx = BARN.x + 70 + i * 34, ty = BARN.y + 120, sp = 250;
+    if (!herd.length && !world3.dogWait) { const an = Math.atan2(-pl.ay, -pl.ax) + (i % 2 ? 1 : -1) * (.5 + (i >> 1) * .45), r = 58 + (i >> 1) * 30; tx = pl.x + Math.cos(an) * r; ty = pl.y + Math.sin(an) * r; sp = 310; if (Math.hypot(tx - d.x, ty - d.y) < 26 && !pl.moving) { tx = d.x; ty = d.y; } }   // 방목하지 않을 때는 걸어 다니는 주인공을 따라다닌다
     if (late.length) { const a = late[i % late.length], P = PENS[a.pen], vx = a.x - (P.x + P.w / 2), vy = a.y - (P.y + P.h / 2), l = Math.hypot(vx, vy) || 1; tx = a.x + vx / l * 46; ty = a.y + vy / l * 46; }
     else if (herd.length) { const an = gt * .35 + i * TAU / Math.max(1, dogs), r = 150 + Math.min(260, herd.length * 10); tx = cx + Math.cos(an) * r; ty = cy + Math.sin(an) * r * .8; }
-    const dx = tx - d.x, dy = ty - d.y, l = Math.hypot(dx, dy), run = l > 12; if (run) { const v = Math.min(l, 250 * dt); d.x += dx / l * v; d.y += dy / l * v; d.a = Math.atan2(dy, dx); }
+    const dx = tx - d.x, dy = ty - d.y, l = Math.hypot(dx, dy), run = l > 12; if (run) { const v = Math.min(l, sp * dt); d.x += dx / l * v; d.y += dy / l * v; d.a = Math.atan2(dy, dx); }
     d.m.g.position.set(d.x, 0, d.y); d.m.g.rotation.y = -d.a; if (d.m.rig && state === 'play') rigPlay(d.m, run ? (l > 120 ? 'Gallop' : 'Walk') : 'Idle', dt); });
 }
 /* 꾸미기: 산 장식은 주인공 앞에 놓인다. 가까이에서 치우면 절반을 돌려받는다 */
