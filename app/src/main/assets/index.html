@@ -215,7 +215,7 @@ function mix(a, b, t) {
 }
 
 /* ---------- 소리 (WebAudio 합성) ---------- */
-let ac = null, master = null, muted = false;
+let ac = null, master = null, sfxBus = null, muted = false;   // sfxBus: 효과음과 울음소리만 지나는 길. 높은 소리를 깎아 부드럽게 한다(음악은 그대로)
 try { muted = localStorage.getItem('scrubpaws_mute') === '1'; } catch (e) { }
 function initAudio() {
   if (!ac) {
@@ -223,6 +223,7 @@ function initAudio() {
       ac = new (window.AudioContext || window.webkitAudioContext)();
       const comp = ac.createDynamicsCompressor(); master = ac.createGain(); master.gain.value = muted ? 0 : .6;
       master.connect(comp); comp.connect(ac.destination);
+      { const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3000; lp.Q.value = .5; sfxBus = ac.createGain(); sfxBus.gain.value = .85; sfxBus.connect(lp); lp.connect(master); }
     } catch (e) { ac = null; return; }
   }
   if (ac.state !== 'running' && ac.resume) { const r = ac.resume(); if (r && r.catch) r.catch(() => { }); }
@@ -231,35 +232,38 @@ function initAudio() {
 ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(n => window.addEventListener(n, initAudio, true));
 function tone(f0, f1, dur, type, vol, delay) {
   if (!ac) return; const t = ac.currentTime + (delay || 0);
-  const o = ac.createOscillator(), g = ac.createGain(); o.type = type || 'sine';
+  const o = ac.createOscillator(), g = ac.createGain(), hard = type === 'square' || type === 'sawtooth'; o.type = hard ? 'triangle' : type || 'sine'; if (hard) vol *= 1.1;   // 날카로운 파형은 둥근 파형으로
+  if (f0 > 1600) f0 = 1600 + (f0 - 1600) * .6; if (f1 > 1600) f1 = 1600 + (f1 - 1600) * .6;
   o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
-  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(.02, dur / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .02);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(.045, dur / 2.5)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(sfxBus); o.start(t); o.stop(t + dur + .02);
 }
 let noiseBuf = null;
 function noise(dur, freq, q, vol, delay, type) {
   if (!ac) return; const t = ac.currentTime + (delay || 0);
   if (!noiseBuf) { noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
   const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+  if (freq > 2000) freq = 2000 + (freq - 2000) * .45; vol *= .7;
   const f = ac.createBiquadFilter(); f.type = type || 'bandpass'; f.frequency.value = freq; f.Q.value = q || 1;
-  const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + .015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + dur + .02);
+  const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + Math.min(.04, dur / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(sfxBus); s.start(t, Math.random()); s.stop(t + dur + .02);
 }
 /* 목소리 합성: 음높이 곡선 f[], 떨림 vib[속도,깊이Hz], 진폭 떨림 am[속도,깊이], 대역 필터 bp */
 function voice(o) {
-  if (!ac) return; const t = ac.currentTime + (o.delay || 0), d = o.dur, f = o.f;
+  if (!ac) return; const t = ac.currentTime + (o.delay || 0), d = o.dur, f = o.f.map(v => v > 1400 ? 1400 + (v - 1400) * .5 : v);   // 귀를 찌르는 높은 음은 낮춘다
   const osc = ac.createOscillator(); osc.type = o.wave || 'sawtooth';
   osc.frequency.setValueAtTime(f[0], t);
   for (let i = 1; i < f.length; i++) osc.frequency.linearRampToValueAtTime(f[i], t + d * i / (f.length - 1));
   let node = osc;
-  if (o.vib) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = o.vib[0]; lg.gain.value = o.vib[1]; l.connect(lg); lg.connect(osc.frequency); l.start(t); l.stop(t + d + .05); }
+  if (o.vib) { const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = o.vib[0]; lg.gain.value = o.vib[1] * .75; l.connect(lg); lg.connect(osc.frequency); l.start(t); l.stop(t + d + .05); }
   if (o.bp) { const fl = ac.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = o.bp; fl.Q.value = o.q || 1; node.connect(fl); node = fl; }
-  const g = ac.createGain(), v = o.vol;
-  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + Math.min(.03, d * .2)); g.gain.setValueAtTime(v, t + d * .65); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  { const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = Math.min(2400, Math.max(900, (o.bp || 1200) * 1.8)); lp.Q.value = .4; node.connect(lp); node = lp; }
+  const g = ac.createGain(), v = o.vol * .8;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + Math.min(.07, d * .3)); g.gain.setValueAtTime(v, t + d * .5); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
   node.connect(g); let out = g;
-  if (o.am) { const a = ac.createGain(); a.gain.value = 1 - o.am[1] / 2; const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = o.am[0]; lg.gain.value = o.am[1] / 2; l.connect(lg); lg.connect(a.gain); l.start(t); l.stop(t + d + .05); g.connect(a); out = a; }
-  out.connect(master); osc.start(t); osc.stop(t + d + .05);
-  if (o.nz) noise(d, o.bp || 1000, .8, v * o.nz, o.delay || 0);
+  if (o.am) { const a = ac.createGain(); a.gain.value = 1 - o.am[1] * .6 / 2; const l = ac.createOscillator(), lg = ac.createGain(); l.frequency.value = o.am[0]; lg.gain.value = o.am[1] * .6 / 2; l.connect(lg); lg.connect(a.gain); l.start(t); l.stop(t + d + .05); g.connect(a); out = a; }
+  out.connect(sfxBus); osc.start(t); osc.stop(t + d + .05);
+  if (o.nz) noise(d, o.bp || 1000, .8, v * o.nz * .6, o.delay || 0);
 }
 /* 동물별 기본 울음소리 */
 const VOICE = {
