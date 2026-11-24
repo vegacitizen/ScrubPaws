@@ -3300,8 +3300,8 @@ cv.addEventListener('pointerdown', e => { initAudio(); if (hudTap(e.clientX / SC
 cv.addEventListener('pointermove', e => { if (e.pointerId === joy.id) { joy.x = e.clientX; joy.y = e.clientY; } });
 /* 확대 · 축소: 두 손가락 벌리기 / 마우스 휠 / + - 키. 🔍 단추를 누르면 원래대로 */
 let camZoom = 1; try { camZoom = clamp(+localStorage.getItem('scrubpaws_zoom') || 1, .7, 2.6); } catch (e) { }
-let camPitch = 50; try { camPitch = clamp(+localStorage.getItem('scrubpaws_pitch') || 50, 24, 80); } catch (e) { }   // 내려다보는 각도(도). 두 손가락을 함께 위아래로 끌어 바꾼다
-function setPitch(p) { camPitch = clamp(p, 24, 80); if (Math.abs(camPitch - 50) < 1.5) camPitch = 50; try { localStorage.setItem('scrubpaws_pitch', camPitch.toFixed(1)); } catch (e) { } }
+let camPitch = 50; try { camPitch = clamp(+localStorage.getItem('scrubpaws_pitch') || 50, 24, 90); } catch (e) { }   // 내려다보는 각도(도). 두 손가락을 함께 위아래로 끌어 바꾼다
+function setPitch(p) { camPitch = clamp(p, 24, 90); if (Math.abs(camPitch - 50) < 1.5) camPitch = 50; try { localStorage.setItem('scrubpaws_pitch', camPitch.toFixed(1)); } catch (e) { } }
 function setZoom(z) { camZoom = clamp(z, .7, 2.6); if (Math.abs(camZoom - 1) < .04) camZoom = 1; try { localStorage.setItem('scrubpaws_zoom', camZoom.toFixed(2)); } catch (e) { } }
 { const P = new Map(); let d0 = 0, z0 = 1, y0 = 0, p0 = 50, mode = ''; const dist = () => { const v = [...P.values()]; return Math.hypot(v[0][0] - v[1][0], v[0][1] - v[1][1]) || 1; }, midY = () => { const v = [...P.values()]; return (v[0][1] + v[1][1]) / 2; };
   cv.addEventListener('pointerdown', e => { P.set(e.pointerId, [e.clientX, e.clientY]); if (P.size >= 2) { joy.id = null; if (P.size === 2) { d0 = dist(); z0 = camZoom; y0 = midY(); p0 = camPitch; mode = ''; } } });
@@ -3976,7 +3976,7 @@ function render3D(dt) {
   const tp = state === 'play' && curAct && curAct.pet; ring.visible = !!tp; if (tp) { ring.position.set(tp.x, 2, tp.y); const s = tp.sp.r * 1.2 + 8 + Math.sin(gt * 8) * 2; ring.scale.set(s, s, s); }
   dropPool.forEach((m, i) => { const d = drops[i]; m.visible = !!d; if (d) m.position.set(d.x, d.h, d.y); });
   const tx = clamp(pl.x, MAP.x0 + 380, MAP.x1 - 380), tz = clamp(pl.y, MAP.y0 + 230, MAP.y1 - 150);   // 카메라는 주인공을 따라간다
-  { const zo = 1 / camZoom, zf = Math.max(1, zo) * (camPitch < 50 ? 1 + (50 - camPitch) / 26 : 1), d = world3.off.length(), pr = camPitch * PI / 180; cam3.position.set(tx, d * Math.sin(pr) * zo + 30, tz + d * Math.cos(pr) * zo); if (scene.fog) { scene.fog.near = d * .9 * zf; scene.fog.far = d * 2.7 * zf; } } if (shake > 0) { cam3.position.x += R(-9, 9) * shake; cam3.position.y += R(-9, 9) * shake; } cam3.lookAt(tx, 30, tz);
+  { const zo = 1 / camZoom, zf = Math.max(1, zo) * (camPitch < 50 ? 1 + (50 - camPitch) / 26 : 1), d = world3.off.length(), pr = camPitch * PI / 180; cam3.position.set(tx, d * Math.sin(pr) * zo + 30, tz + d * Math.cos(pr) * zo); cam3.up.set(0, Math.cos(pr), -Math.sin(pr)); if (scene.fog) { scene.fog.near = d * .9 * zf; scene.fog.far = d * 2.7 * zf; } } if (shake > 0) { cam3.position.x += R(-9, 9) * shake; cam3.position.y += R(-9, 9) * shake; } cam3.lookAt(tx, 30, tz);
   lightScene(n, L, tx, tz); syncWaterFx(dt, dk); syncMotes(n, tx, tz);
   world3.buildM.visible = !!(build && build.a); if (world3.buildM.visible) { const r = buildRect(); world3.buildM.position.set(r.x + r.w / 2, 3, r.y + r.h / 2); world3.buildM.scale.set(Math.max(10, r.w), Math.max(10, r.h), 1); world3.buildM.material.color.set(r.why ? '#e2493f' : '#3fae6a'); }
   const fx = n < .5 && state !== 'title' ? WXFX[wx] : null; if (fx) wxMat.color.set(fx.col);   // 비 · 우박 · 바람
