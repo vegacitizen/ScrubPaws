@@ -2380,7 +2380,7 @@ function rodPress() {
   pl.fishBonus = (Rl.hit ? 1.3 : 1) * (1 + (Rl.need - 3) * .06); pl.fishing = null; pl.digCd = 0; pl.fishGo = true; pl.winT = 1.1; if (Rl.hit) say(pl, '✨ 딱 맞췄어요! ×1.3', '#ffd27a'); landTool('rod'); pl.fishGo = false; pl.fishBonus = 1;
 }
 function updateHooks(dt) {
-  if (pl.reelT > 0) pl.reelT -= dt; if (pl.winT > 0) pl.winT -= dt; if (pl.pullT > 0) pl.pullT -= dt;
+  if (pl.reelT > 0) pl.reelT -= dt; if (pl.winT > 0) pl.winT -= dt; if (pl.pullT > 0) pl.pullT -= dt; if (pl.chopT > 0) pl.chopT -= dt;
   { const N = pl.netting; if (N) { N.t -= dt; N.n = Math.max(0, N.n - dt * .6); if (Math.hypot(pl.x - N.x, pl.y - N.y) > 40 || pl.tool !== 'net') { pl.netting = null; showToast('그물을 놓았어요', 2); } else if (N.t <= 0) { pl.netting = null; pl.digCd = 2; showToast('🕸️ 그물이 무거워 놓쳤어요… 더 빠르게 연타하세요', 3); tone(400, 200, .3, 'triangle', .3); } } }
   const F = pl.fishing; if (F && F.reel) { F.reel.t -= dt; F.reel.n = Math.max(0, F.reel.n - dt * .7); if (F.reel.t <= 0) { pl.fishing = null; pl.digCd = .6; showToast('🐟 힘이 달려 놓쳤어요… 더 빠르게 연타하세요', 3); tone(400, 200, .3, 'triangle', .3); return; } }
   if (F) { if (Math.hypot(pl.x - F.x, pl.y - F.y) > 26) { pl.fishing = null; showToast('움직여서 낚시를 그만뒀어요', 2); }
@@ -2675,9 +2675,9 @@ function landTool(t) {
     saveGame(); return; }
   if (t === 'pick') {
     let b = null, bd = 1e9; for (const q of rocks) { const d = Math.hypot(q.x - pl.x, q.y - pl.y) - q.s * 18; if (d < 62 && d < bd) { bd = d; b = q; } }
-    if (!b) { showToast('바위 가까이에서 누르세요'); return; } b.hp -= pickLv; pl.digCd = .35; shake = Math.max(shake, .12); noise(.08, 2600, 3, .4); tone(700, 380, .08, 'square', .12); burst(b.x, b.y, 'dust', 4);
+    if (!b) { showToast('바위 가까이에서 누르세요'); return; } b.hp -= pickLv; pl.digCd = .35; pl.chopT = .3; b.hitUntil = gt + .28; shake = Math.max(shake, .12); noise(.08, 2600, 3, .4); tone(700, 380, .08, 'square', .12); chips(b.x, b.y, 30 + b.s * 12, '#9aa0a8', 6 + b.s * 2); burst(b.x, b.y, 'spark', 2);
     if (b.hp > 0) { say(b, '⛏️ ' + Math.ceil(b.hp / pickLv) + '번 더', '#8a6a55'); return; }
-    landMd(b); rocks.splice(rocks.indexOf(b), 1); addXp([0, 10, 25, 60][b.s]); burst(b.x, b.y, 'dust', 16); showToast('🪨 ' + ROCK_N[b.s] + '를 깼어요!', 3); giveLoot(ROCK_LOOT[b.s], b); if (b.s >= 2 && Math.random() < .5) giveLoot(ROCK_LOOT[b.s - 1], { x: b.x + 20, y: b.y + 10 }); saveGame(); return; }
+    landMd(b); rocks.splice(rocks.indexOf(b), 1); addXp([0, 10, 25, 60][b.s]); chips(b.x, b.y, 40, '#8f949c', 18 + b.s * 6, 1.4 + b.s * .3); burst(b.x, b.y, 'dust', 12); pl.winT = .8; shake = Math.max(shake, .25); showToast('🪨 ' + ROCK_N[b.s] + '를 깼어요!', 3); giveLoot(ROCK_LOOT[b.s], b); if (b.s >= 2 && Math.random() < .5) giveLoot(ROCK_LOOT[b.s - 1], { x: b.x + 20, y: b.y + 10 }); saveGame(); return; }
   if (t === 'rod' && !pl.fishGo) { rodPress(); return; }
   if (t === 'rod' && (inResvBoat() || (!boat.riding && nearResv()))) { resvFish(); return; }
   if (t === 'rod' && (boat.riding || (nearLake() && !bodyAt(pl.x, pl.y, 110)))) { lakeFish('rod'); return; }
@@ -3464,17 +3464,24 @@ function drawExtra(c) {
 /* ---------- 도끼 · 장작 · 모닥불 · 숲의 나무 · 밤 미션 ---------- */
 let wtrees = [], wtGone = {}, logsInv = 0, camps = [], campVer = 0, nm = { k: 'torch', done: false }, nmP = { repel: 0, woke: 0, straw: 0, camp: 0, maxCamp: 0 };
 const CAMP_MAX = 8, WT_REGROW = 3;
-function setWT(w, k) {   // 숲의 나무 한 그루의 크기를 바꾼다(0이면 사라짐). 묶어 그리는 나무라 행렬만 고친다
-  const dm = setWT.dm || (setWT.dm = new THREE.Object3D()); for (const [im, i, q] of w.parts) { dm.position.set(q[0] - im.position.x, q[1] * k, q[2] - im.position.z); dm.scale.set(q[3] * k, q[4] * k, q[5] * k); dm.rotation.set(0, q[6] || 0, 0); dm.updateMatrix(); im.setMatrixAt(i, dm.matrix); im.instanceMatrix.needsUpdate = true; }
+function setWT(w, k, tilt) {   // 숲의 나무 한 그루의 크기를 바꾼다(0이면 사라짐). 묶어 그리는 나무라 행렬만 고친다
+  const dm = setWT.dm || (setWT.dm = new THREE.Object3D()); for (const [im, i, q] of w.parts) { dm.position.set(q[0] - im.position.x, q[1] * k, q[2] - im.position.z); dm.scale.set(q[3] * k, q[4] * k, q[5] * k); dm.rotation.set(0, q[6] || 0, tilt || 0); dm.updateMatrix(); im.setMatrixAt(i, dm.matrix); im.instanceMatrix.needsUpdate = true; }
+}
+const chips = (x, y, h, col, n, sz) => { for (let i = 0; i < n; i++) parts.push({ x: x + R(-10, 10), y: y + R(-8, 8), h: h + R(-10, 20), vx: R(-90, 90), vy: R(-170, -60), life: R(.5, 1), kind: 'dust', s: R(.6, 1.2) * (sz || 1), c: col }); };   // 튀는 조각(나뭇조각 · 나뭇잎 · 돌 조각)
+let wtAnim = [];
+function animLand() {   // 찍힌 나무는 흔들리고, 베인 나무는 쓰러진 뒤 사라진다. 맞은 바위는 떨고 금이 갈수록 작아진다
+  if (wtAnim.length) wtAnim = wtAnim.filter(w => { if (w.fallAt != null) { const k = (gt - w.fallAt) / .75; if (k >= 1) { setWT(w, 0); w.fallAt = null; burst(w.x + 40, w.y, 'dust', 10); return false; } setWT(w, 1, (w.fallDir || 1) * PI / 2 * k * k); return true; }
+    const k = (w.hitUntil - gt) / .32; if (k <= 0) { if (wtGone[w.i] == null) setWT(w, 1); return false; } setWT(w, 1, Math.sin(gt * 55) * .07 * k); return true; });
+  for (const q of rocks) { if (!q.md) continue; const k = q.hitUntil > gt ? (q.hitUntil - gt) / .28 : 0, sz = .82 + .18 * clamp(q.hp / ROCK_HP[q.s], 0, 1); if (k > 0 || q.md.scale.y !== sz) { q.md.scale.set(sz * (1 + k * .08), sz * (1 - k * .12), sz * (1 + k * .08)); q.md.position.x = q.x + (k > 0 ? Math.sin(gt * 70) * 3 * k : 0); } }
 }
 function regrowWT() { for (const k in wtGone) if (day - wtGone[k] >= WT_REGROW) { delete wtGone[k]; const w = wtrees[k]; if (w) { w.hp = 3; setWT(w, 1); } } }   // 베거나 탄 나무는 사흘 뒤 다시 자란다
 function axeHit() {
   if (pl.carry) { showToast('들고 있는 것을 먼저 내려놓으세요'); return; } if (onWheels()) { showToast('내려서 하세요'); return; } if (pl.digCd > 0) return; pl.digCd = .45;
   let b = null, bd = 120; for (const w of wtrees) { if (wtGone[w.i] != null) continue; const d = Math.hypot(w.x - pl.x, w.y - pl.y); if (d < bd) { bd = d; b = w; } }
   if (!b) { showToast('🪓 가까이에 벨 나무가 없어요. 농장 밖 숲의 나무 옆에서 눌러요', 3); return; }
-  const dx = b.x - pl.x, dy = b.y - pl.y, d = Math.hypot(dx, dy) || 1; pl.ax = dx / d; pl.ay = dy / d; b.hp--; tone(180, 90, .12, 'triangle', .5); noise(.1, 900, 1, .3); burst(b.x, b.y, 'dust', 6); shake = Math.max(shake, .05);
+  const dx = b.x - pl.x, dy = b.y - pl.y, d = Math.hypot(dx, dy) || 1; pl.ax = dx / d; pl.ay = dy / d; b.hp--; pl.chopT = .32; tone(180, 90, .12, 'triangle', .5); noise(.1, 900, 1, .3); chips(b.x, b.y, 40, '#d9a25f', 7); chips(b.x, b.y, 120, '#4f9d5d', 4, .9); shake = Math.max(shake, .05); b.hitUntil = gt + .32; if (wtAnim.indexOf(b) < 0) wtAnim.push(b);
   if (b.hp > 0) { say(b, '쿵! (' + (3 - b.hp) + ' / 3)', '#6b4a3a'); return; }
-  wtGone[b.i] = day; setWT(b, 0); const f = fires.find(q => q.o === b); if (f) fires.splice(fires.indexOf(f), 1); logsInv += 3; burst(b.x, b.y, 'dust', 14); SFX.take(); say(b, '🪵 장작 +3 (모두 ' + logsInv + '개)', '#3fae6a', 1); saveGame();
+  wtGone[b.i] = day; b.fallAt = gt; b.fallDir = pl.x < b.x ? -1 : 1; if (wtAnim.indexOf(b) < 0) wtAnim.push(b); tone(140, 60, .5, 'triangle', .4); const f = fires.find(q => q.o === b); if (f) fires.splice(fires.indexOf(f), 1); logsInv += 3; chips(b.x, b.y, 130, '#4f9d5d', 12, 1.1); pl.winT = .8; SFX.take(); say(b, '🪵 장작 +3 (모두 ' + logsInv + '개)', '#3fae6a', 1); saveGame();
 }
 function placeCamp() {
   if (onWheels() || fly) { showToast('내려서 하세요'); return; } if (logsInv <= 0) { showToast('🪵 장작이 없어요. 🪓 도끼로 숲의 나무를 베어 오세요', 3); return; } if (camps.length >= CAMP_MAX) { showToast('장작 더미는 ' + CAMP_MAX + '곳까지만 놓을 수 있어요', 3); return; }
@@ -3948,7 +3955,7 @@ function syncCreature(a, dt, pred) {
 }
 function syncKid(dt) {
   const k = plM, sw = pl.moving && !tr.riding && !ride && !carRide ? Math.sin(pl.phase) * .7 : 0, hold = !!pl.carry || !!work;
-  if (k.rig) rigPlay(k, pl.stunT > 0 ? 'RecieveHit' : tr.riding || ride || fly || carRide ? 'SitDown' : pl.winT > 0 ? 'Victory' : pl.pullT > 0 ? 'PickUp' : pl.fishing || pl.netting ? (pl.reelT > 0 ? 'SwordSlash' : 'Shoot_OneHanded') : work ? (work.tapT > 0 ? 'Punch' : 'PickUp') : pl.swingT > 0 ? 'SwordSlash' : pl.carry ? (pl.moving ? 'Run_Carry' : 'Idle') : pl.hose ? 'Shoot_OneHanded' : pl.moving ? 'Run' : 'Idle', dt);   // 사람 모형의 동작
+  if (k.rig) rigPlay(k, pl.stunT > 0 ? 'RecieveHit' : tr.riding || ride || fly || carRide ? 'SitDown' : pl.winT > 0 ? 'Victory' : pl.chopT > 0 ? 'SwordSlash' : pl.pullT > 0 ? 'PickUp' : pl.fishing || pl.netting ? (pl.reelT > 0 ? 'SwordSlash' : 'Shoot_OneHanded') : work ? (work.tapT > 0 ? 'Punch' : 'PickUp') : pl.swingT > 0 ? 'SwordSlash' : pl.carry ? (pl.moving ? 'Run_Carry' : 'Idle') : pl.hose ? 'Shoot_OneHanded' : pl.moving ? 'Run' : 'Idle', dt);   // 사람 모형의 동작
   turn(k.g, faceTo(pl.ax, pl.ay), Math.min(1, dt * 12)); k.g.position.set(pl.x, boat.riding ? 16 : fly ? 146 : ride ? ride.sp.r * 1.5 : carRide ? CARS[carRide].h : tr.riding ? 46 : 0, pl.y); k.legs[0].rotation.z = sw; k.legs[1].rotation.z = -sw;
   if (hold) k.arms[0].rotation.z = k.arms[1].rotation.z = work ? 1.2 + Math.sin(gt * 18) * .4 : pl.carry === 'hay' ? 1.5 : 2.9; else if (pl.hose) { k.arms[0].rotation.z = 1.5; k.arms[1].rotation.z = 1.3; } else { k.arms[0].rotation.z = -sw; k.arms[1].rotation.z = sw; }
   k.inner.position.y = pl.moving ? Math.abs(Math.sin(pl.phase)) * 2 : 0; k.shadow.visible = false;
@@ -3976,7 +3983,7 @@ function render3D(dt) {
     const k = w.md, working = w.st === 'work', sw = w.moving ? Math.sin(w.phase) * .7 : 0; if (k.rig) rigPlay(k, working ? 'PickUp' : w.moving ? 'Walk' : 'Idle', dt); k.g.visible = state !== 'title'; k.g.position.set(w.x, 0, w.y); turn(k.g, faceTo(w.fx, w.fy), Math.min(1, dt * 12)); k.legs[0].rotation.z = sw; k.legs[1].rotation.z = -sw;
     k.arms[0].rotation.z = k.arms[1].rotation.z = working ? 1.2 + Math.sin(gt * 18) * .4 : 0; if (!working) { k.arms[0].rotation.z = -sw; k.arms[1].rotation.z = sw; } k.inner.position.y = working ? -8 + Math.sin(gt * 12) * 1.5 : w.moving ? Math.abs(Math.sin(w.phase)) * 2 : 0;
     const ch = w.tgt ? w.tgt.e : w.st === 'rest' ? '💤' : ''; w.spr.visible = !!ch; if (ch && w.sprCh !== ch) { w.sprCh = ch; w.spr.material.map = sprCache[ch] || sprite(ch, null, 1).material.map; w.spr.material.needsUpdate = true; } }
-  syncDecor(); syncCamps(); syncDogs();
+  syncDecor(); syncCamps(); syncDogs(); animLand();
   world3.crowM.forEach((g, i) => { const c2 = scarecrows[i]; g.visible = !!c2 && state !== 'title'; if (c2) { g.position.set(c2.x, 0, c2.y); g.rotation.z = Math.sin(gt * 1.5 + i) * .04; } });
   world3.bales.forEach((m, i) => { m.visible = i < Math.ceil(hayStock / 12); }); world3.pumpH.rotation.z = pl.pumpT > 0 ? Math.sin(pl.pumpT * 18) * .5 : 0;
   world3.plotM.forEach((m, i) => { const q = plots[i]; m.g.visible = !!q && state !== 'title'; if (!q) return; m.g.position.set(q.x, 0, q.y); m.soil.material.color.set(q.wet > 0 ? '#5a3d28' : '#9c7a52'); m.fm.visible = q.fert;
@@ -4054,7 +4061,7 @@ function hudTap(x, y) { const r = hudFx.rect; if (state !== 'play' || !r || x < 
 function drawHUD() {
   const c = ctx, night = isNight(); if (state === 'title') hudFx.money = null;
   for (const q of parts) { const [x, y] = proj(q.x, q.h, q.y), k = pxu * camZoom * 1.6; c.globalAlpha = clamp(q.life * 1.6, 0, 1);
-    if (q.kind === 'smoke') { const r2 = 9 * q.s * k * (2.4 - Math.min(1.4, q.life * .5)); c.globalAlpha = clamp(q.life * .5, 0, .5); ell(c, x, y, r2, r2 * .85, '#6f6a66'); } else if (q.kind === 'bubble') { ell(c, x, y, 6 * q.s * k, 6 * q.s * k, 'rgba(255,255,255,.85)'); } else if (q.kind === 'heart') txt(c, '♥', x, y, 18 * q.s * k, '#ff6b8a'); else if (q.kind === 'spark') txt(c, '✦', x, y, 18 * q.s * k, '#ffd54a'); else ell(c, x, y, 5 * q.s * k, 4 * q.s * k, '#b89a70'); c.globalAlpha = 1; }
+    if (q.kind === 'smoke') { const r2 = 9 * q.s * k * (2.4 - Math.min(1.4, q.life * .5)); c.globalAlpha = clamp(q.life * .5, 0, .5); ell(c, x, y, r2, r2 * .85, '#6f6a66'); } else if (q.kind === 'bubble') { ell(c, x, y, 6 * q.s * k, 6 * q.s * k, 'rgba(255,255,255,.85)'); } else if (q.kind === 'heart') txt(c, '♥', x, y, 18 * q.s * k, '#ff6b8a'); else if (q.kind === 'spark') txt(c, '✦', x, y, 18 * q.s * k, '#ffd54a'); else ell(c, x, y, 5 * q.s * k, 4 * q.s * k, q.c || '#b89a70'); c.globalAlpha = 1; }
   if (shotFx) { const [x0, y0] = proj(shotFx.x0, 70, shotFx.y0), [x1, y1] = proj(shotFx.x1, 30, shotFx.y1); c.strokeStyle = 'rgba(255,240,160,.95)'; c.lineWidth = 4; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); }
   for (const s of says) { const [x, y] = proj(s.x, s.h, s.y); c.globalAlpha = clamp(s.life * 2, 0, 1); txt(c, s.text, clamp(x, 60, VW - 60), clamp(y, HUDH + 14, VH - 30), (s.big ? 21 : 17) * (1 + Math.max(0, s.life - 1.32) * 2.2), s.col, 'center', '#fff'); c.globalAlpha = 1; }
   if (state === 'play') drawExtra(c);
