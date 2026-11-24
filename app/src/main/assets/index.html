@@ -1255,12 +1255,12 @@ function pressShoot() {
   releasePrey(b); const dx = b.x - pl.x, dy = b.y - pl.y, d = Math.hypot(dx, dy) || 1; b.rx = dx / d; b.ry = dy / d; b.retreatT = 1.6; b.breakT = 0; b.target = null; emote(b, 'angry'); say(b, '맞았다! 앞으로 ' + Math.ceil(b.life / G0.dmg) + '발', '#ffd27a', 1);
 }
 /* 손에 든 도구: 창고에서 바꾼다. 도구에 따라 도구 버튼이 하는 일이 달라진다 */
-function toolLabel() { if (fly) return SPRAY[sprayMode].n; if (trUnloadMode()) return atBarn() ? '창고에 넣기' : '작물 내리기'; const t = pl.tool; if (!t) return '맨손'; if (t === 'log') return '장작 놓기 ' + logsInv; if (t === 'rod' && pl.fishing) return pl.fishing.reel ? '연타! ' + Math.ceil(pl.fishing.reel.n) + ' / ' + pl.fishing.reel.need : pl.fishing.bit ? '지금 당겨요!' : '기다려요…'; if (t.startsWith('trap')) return '덫 놓기 ' + trapInv[+t.slice(4)]; if (t === 'treat') return '간식 주기 ' + treats; if (t === 'fork') return curAct && curAct.type === 'fill' ? '먹이 놓기' : curAct && curAct.type === 'stack' ? '건초 쌓기' : curAct && curAct.type === 'grass' ? '풀 베기' : '짚 잡기'; if (t === 'crow') return '허수아비 세우기 ' + crowInv; if (t === 'seed') return '씨 뿌리기 ' + seeds[pl.seedType]; if (t === 'fert') return '비료 주기 ' + fert; return TOOLS[t].act; }
+function toolLabel() { if (fly) return SPRAY[sprayMode].n; if (trUnloadMode()) return atBarn() ? '창고에 넣기' : '작물 내리기'; const t = pl.tool; if (!t) return '맨손'; if (t === 'log') return '장작 놓기 ' + logsInv; if (t === 'net' && pl.netting) return '끌어올려요! ' + Math.ceil(pl.netting.n) + ' / ' + pl.netting.need; if (t === 'rod' && pl.fishing) return pl.fishing.reel ? '연타! ' + Math.ceil(pl.fishing.reel.n) + ' / ' + pl.fishing.reel.need : pl.fishing.bit ? '지금 당겨요!' : '기다려요…'; if (t.startsWith('trap')) return '덫 놓기 ' + trapInv[+t.slice(4)]; if (t === 'treat') return '간식 주기 ' + treats; if (t === 'fork') return curAct && curAct.type === 'fill' ? '먹이 놓기' : curAct && curAct.type === 'stack' ? '건초 쌓기' : curAct && curAct.type === 'grass' ? '풀 베기' : '짚 잡기'; if (t === 'crow') return '허수아비 세우기 ' + crowInv; if (t === 'seed') return '씨 뿌리기 ' + seeds[pl.seedType]; if (t === 'fert') return '비료 주기 ' + fert; return TOOLS[t].act; }
 function toolReady() {
   if (state !== 'play' || build) return false; const t = pl.tool;
   if (fly) return !(pl.sprayCd > 0);
   if (trUnloadMode()) return true;
-  if (t === 'rod' && pl.fishing) return true;
+  if (t === 'rod' && pl.fishing) return true; if (t === 'net' && pl.netting) return true;
   if (t === 'net') return !pl.carry && !(pl.digCd > 0) && nearLake();
   if (LAND_TOOLS.includes(t)) return !pl.carry && !onWheels() && !(pl.digCd > 0);
   if (t === 'torch') return pl.swingCd <= 0; if (t === 'gun') return pl.shootCd <= 0; if (t === 'clap' || t === 'gong') return !(pl.clapCd > 0); if (t === 'crow') return crowInv > 0 && !onWheels() && !crowSpot().why; if (onWheels()) return false;
@@ -1272,7 +1272,7 @@ function pressTool() {
   if (state !== 'play' || build) return; initAudio(); const t = pl.tool;
   if (fly) { spray(); return; }
   if (t === 'axe') { axeHit(); return; } if (t === 'log') { placeCamp(); return; }
-  if (t === 'net') { if (inResvBoat() || nearResv()) { showToast('저수지에서는 낚싯대(🎣)로 낚시해요'); return; } lakeFish('net'); return; }
+  if (t === 'net') { if (inResvBoat() || nearResv()) { showToast('저수지에서는 낚싯대(🎣)로 낚시해요'); return; } netPress(); return; }
   if (t === 'rod' && pl.fishing) { rodPress(); return; }
   if (boat.riding && t !== 'rod') { showToast('배 위에서는 낚싯대(🎣)나 그물(🕸️)을 쓰세요. 🧰 버튼으로 바꿔요'); return; }
   if (trUnloadMode()) { unloadTractor(); return; }
@@ -1381,7 +1381,10 @@ function findAction() {
 function pressAct() {
   if (state !== 'play') return; initAudio(); const a = curAct = findAction(); if (!a) return;
   if (a.type === 'hay') { const n = Math.min(level >= LV.fork ? 12 : 4, hayStock); hayStock -= n; pl.carry = 'hay'; pl.feedType = 'hay'; pl.hayN = n; SFX.take(); }
-  else if (a.type === 'harvest') { const q = a.plot, C = CROPS[q.type], n = Math.max(1, Math.round(C.y * (q.fert ? FERT_YIELD : 1) * (1 - (q.peck || 0)))); if (q.peck > .05) showToast('🐦 새가 ' + Math.round(q.peck * 100) + '%를 쪼아 먹어서 수확이 줄었어요', 3); if (pl.carry !== 'hay') { pl.carry = 'hay'; pl.hayN = 0; pl.feedType = q.type; }
+  else if (a.type === 'harvest') { const q = a.plot, C = CROPS[q.type];
+    { const need = 1 + Math.ceil(C.y / 3.4); if (!(q.pullT > gt)) q.pull = 0; q.pull = (q.pull || 0) + 1; q.pullT = gt + 2.5; pl.pullT = .35;   // 뽑기 연타: 큰 작물일수록 여러 번 당겨야 뽑힌다
+      if (q.pull < need) { burst(q.x, q.y, 'dust', 4); tone(260 + q.pull * 70, 200 + q.pull * 70, .09, 'triangle', .3); shake = Math.max(shake, .04); say(q, '영차! ' + q.pull + ' / ' + need, '#6b4a3a'); return; } q.pull = 0; pl.winT = .7; burst(q.x, q.y, 'dust', 10); }
+    const n = Math.max(1, Math.round(C.y * (q.fert ? FERT_YIELD : 1) * (1 - (q.peck || 0)))); if (q.peck > .05) showToast('🐦 새가 ' + Math.round(q.peck * 100) + '%를 쪼아 먹어서 수확이 줄었어요', 3); if (pl.carry !== 'hay') { pl.carry = 'hay'; pl.hayN = 0; pl.feedType = q.type; }
     pl.hayN += n; plots.splice(plots.indexOf(q), 1); stats.harvested++; addXp(4 + n); dexAdd('c:' + q.type); SFX.take(); tone(660, 990, .12, 'triangle', .2); burst(q.x, q.y, 'spark', 6); say(pl, C.e + ' ' + C.n + ' +' + n, '#3fae6a', 1); saveGame(); }
   else if (a.type === 'mixed') showToast('한 번에 한 종류만 들 수 있어요. 든 먹이를 먼저 여물통이나 창고에 두세요', 4);
   else if (a.type === 'grass') { if (pl.carry !== 'hay') { pl.carry = 'hay'; pl.hayN = 0; pl.feedType = 'hay'; } pl.hayN += a.g.n; a.g.t = 1e9; a.g.eaten = 1; noise(.12, 2600, 2, .3); burst(a.g.x, a.g.y, 'dust', 4); say(pl, '🌿 풀 +' + a.g.n, '#3fae6a'); }
@@ -2358,6 +2361,13 @@ function takePhoto() {   // 화면을 그린 바로 그 프레임에 찍어야 �
   $('go').onclick = () => { state = 'play'; hideOv(); };
 }
 /* 낚시 손맛: 던지고 → 기다리다 → 찌가 움직일 때(❗) 당긴다. 빨리 당길수록 값이 더 나간다 */
+function netPress() {   // 그물: 던진 뒤 연타로 끌어올린다. 좋은 그물 · 배 위 · 물고기 떼일수록 무거워 더 많이 눌러야 한다
+  const N = pl.netting;
+  if (!N) { if (pl.digCd > 0) return; const rho = lakeRho(pl.x, pl.y); if (pl.carry || (!boat.riding && rho > 1.14) || lakeStock < 5) { lakeFish('net'); return; }
+    const sch = schools.some(q => Math.hypot(q.x - pl.x, q.y - pl.y) < 130), need = 4 + netLv * 2 + (boat.riding ? 2 : 0) + (sch ? 3 : 0); pl.netting = { need, n: 0, t: 3 + need * .5, t0: 3 + need * .5, x: pl.x, y: pl.y }; noise(.25, 1200, 1.5, .25); say(pl, '🕸️ 그물을 던졌어요! 연타로 끌어올려요' + (sch ? ' (어군!)' : ''), '#2a7fb8', 1); return; }
+  N.n++; pl.reelT = .25; tone(420 + N.n * 40, 560 + N.n * 40, .06, 'triangle', .25); burst(pl.x + pl.ax * 70, pl.y + pl.ay * 70, 'bubble', 4); if (N.n < N.need) return;
+  pl.netting = null; pl.winT = 1.1; lakeFish('net');
+}
 function rodPress() {
   const F = pl.fishing;
   if (!F) { if (pl.carry) { showToast('들고 있는 것을 먼저 내려놓으세요'); return; } const lake = boat.riding || nearResv() || (nearLake() && !bodyAt(pl.x, pl.y, 110)); if (!lake && !bodyAt(pl.x, pl.y, 110)) { showToast('물가에서 누르세요. 삽으로 땅을 깊이(5번) 파면 물이 나오고, 농장 동쪽에는 큰 호수가 있어요'); return; }
@@ -2370,7 +2380,8 @@ function rodPress() {
   pl.fishBonus = (Rl.hit ? 1.3 : 1) * (1 + (Rl.need - 3) * .06); pl.fishing = null; pl.digCd = 0; pl.fishGo = true; pl.winT = 1.1; if (Rl.hit) say(pl, '✨ 딱 맞췄어요! ×1.3', '#ffd27a'); landTool('rod'); pl.fishGo = false; pl.fishBonus = 1;
 }
 function updateHooks(dt) {
-  if (pl.reelT > 0) pl.reelT -= dt; if (pl.winT > 0) pl.winT -= dt;
+  if (pl.reelT > 0) pl.reelT -= dt; if (pl.winT > 0) pl.winT -= dt; if (pl.pullT > 0) pl.pullT -= dt;
+  { const N = pl.netting; if (N) { N.t -= dt; N.n = Math.max(0, N.n - dt * .6); if (Math.hypot(pl.x - N.x, pl.y - N.y) > 40 || pl.tool !== 'net') { pl.netting = null; showToast('그물을 놓았어요', 2); } else if (N.t <= 0) { pl.netting = null; pl.digCd = 2; showToast('🕸️ 그물이 무거워 놓쳤어요… 더 빠르게 연타하세요', 3); tone(400, 200, .3, 'triangle', .3); } } }
   const F = pl.fishing; if (F && F.reel) { F.reel.t -= dt; F.reel.n = Math.max(0, F.reel.n - dt * .7); if (F.reel.t <= 0) { pl.fishing = null; pl.digCd = .6; showToast('🐟 힘이 달려 놓쳤어요… 더 빠르게 연타하세요', 3); tone(400, 200, .3, 'triangle', .3); return; } }
   if (F) { if (Math.hypot(pl.x - F.x, pl.y - F.y) > 26) { pl.fishing = null; showToast('움직여서 낚시를 그만뒀어요', 2); }
     else if (!F.bit) { F.wait -= dt; if (F.wait <= 0) { F.bit = true; F.win = .95; say(pl, '❗', '#e2493f', 1); tone(1200, 1600, .1, 'square', .2); tone(1600, 1200, .1, 'square', .2, .1); } }
@@ -3438,6 +3449,9 @@ function drawExtra(c) {
     if (Rl) { ell(c, x1, y1 + 4, 20 + Math.sin(gt * 20) * 4, 8, 'rgba(255,255,255,.55)'); emo(c, Rl.need >= 9 ? '🐋' : '🐟', x1, y1 - 12 - Math.abs(Math.sin(gt * 12)) * 16, 20 + Rl.need * 1.6);
       const [px, py] = proj(pl.x, 150, pl.y), w = 130, k = clamp(Rl.n / Rl.need, 0, 1), tk = clamp(Rl.t / (2.8 + Rl.need * .55), 0, 1); rr(c, px - w / 2 - 4, py - 16, w + 8, 30, 10, 'rgba(59,42,34,.85)'); rr(c, px - w / 2, py - 11, w, 12, 6, '#2a1c16'); rr(c, px - w / 2, py - 11, Math.max(6, w * k), 12, 6, k > .7 ? '#7bd65a' : '#ffb81f'); rr(c, px - w / 2, py + 4, w * tk, 4, 2, tk < .3 ? '#e2493f' : '#8fd0ff'); emo(c, '🎣', px - w / 2 - 16, py - 3, 20); }
     else { ell(c, x1, y1 + bob, 5, 5, '#ffffff'); ell(c, x1, y1 + bob - 3, 4, 3, '#e2364f'); if (F.bit) emo(c, '❗', x1, y1 - 24, 24); } }
+  if (pl.netting) { const N = pl.netting, [x1, y1] = proj(pl.x + pl.ax * 70, 3, pl.y + pl.ay * 70), [px, py] = proj(pl.x, 150, pl.y), w = 130, k = clamp(N.n / N.need, 0, 1), tk = clamp(N.t / N.t0, 0, 1), rr2 = 26 - k * 10;   // 그물과 끌어올리기 막대
+    c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 2; c.beginPath(); c.ellipse(x1, y1, rr2 * 1.5, rr2 * .7, 0, 0, 6.283); c.stroke(); emo(c, '🕸️', x1, y1 - 4, 22); for (let i = 0; i < 3; i++) emo(c, '🐟', x1 + Math.sin(gt * 9 + i * 2.1) * rr2, y1 - 8 - Math.abs(Math.sin(gt * 11 + i)) * 12, 13);
+    rr(c, px - w / 2 - 4, py - 16, w + 8, 30, 10, 'rgba(59,42,34,.85)'); rr(c, px - w / 2, py - 11, w, 12, 6, '#2a1c16'); rr(c, px - w / 2, py - 11, Math.max(6, w * k), 12, 6, k > .7 ? '#7bd65a' : '#ffb81f'); rr(c, px - w / 2, py + 4, w * tk, 4, 2, tk < .3 ? '#e2493f' : '#8fd0ff'); emo(c, '🕸️', px - w / 2 - 16, py - 3, 18); }
   if (work) { const a = work.a, [px, py] = proj(a.x, (a.md ? a.md.top : a.sp.r * 2) + 46, a.y), w = 90, k = clamp(work.t / work.dur, 0, 1); rr(c, px - w / 2 - 3, py - 3, w + 6, 14, 7, 'rgba(59,42,34,.85)'); rr(c, px - w / 2, py, Math.max(5, w * k), 8, 4, (work.taps || 0) >= 3 ? '#ffd54a' : '#7bd65a'); }   // 일의 진행 막대: 세 번 넘게 연타하면 금빛
   if (guide && guide.x != null && $('ov').hidden) { const [x, y, z] = proj(guide.x, 95, guide.y), on = z < 1 && x > 30 && x < VW - 30 && y > HUDH + 30 && y < VH - 30;
     if (on) { const b = Math.sin(gt * 6) * 7; ell(c, x, y - 4 + b, 21, 21, 'rgba(255,213,74,.95)'); emo(c, guide.e || '👇', x, y - 3 + b, 22); emo(c, '👇', x, y + 26 + b, 24); }
@@ -3934,7 +3948,7 @@ function syncCreature(a, dt, pred) {
 }
 function syncKid(dt) {
   const k = plM, sw = pl.moving && !tr.riding && !ride && !carRide ? Math.sin(pl.phase) * .7 : 0, hold = !!pl.carry || !!work;
-  if (k.rig) rigPlay(k, pl.stunT > 0 ? 'RecieveHit' : tr.riding || ride || fly || carRide ? 'SitDown' : pl.winT > 0 ? 'Victory' : pl.fishing ? (pl.reelT > 0 ? 'SwordSlash' : 'Shoot_OneHanded') : work ? (work.tapT > 0 ? 'Punch' : 'PickUp') : pl.swingT > 0 ? 'SwordSlash' : pl.carry ? (pl.moving ? 'Run_Carry' : 'Idle') : pl.hose ? 'Shoot_OneHanded' : pl.moving ? 'Run' : 'Idle', dt);   // 사람 모형의 동작
+  if (k.rig) rigPlay(k, pl.stunT > 0 ? 'RecieveHit' : tr.riding || ride || fly || carRide ? 'SitDown' : pl.winT > 0 ? 'Victory' : pl.pullT > 0 ? 'PickUp' : pl.fishing || pl.netting ? (pl.reelT > 0 ? 'SwordSlash' : 'Shoot_OneHanded') : work ? (work.tapT > 0 ? 'Punch' : 'PickUp') : pl.swingT > 0 ? 'SwordSlash' : pl.carry ? (pl.moving ? 'Run_Carry' : 'Idle') : pl.hose ? 'Shoot_OneHanded' : pl.moving ? 'Run' : 'Idle', dt);   // 사람 모형의 동작
   turn(k.g, faceTo(pl.ax, pl.ay), Math.min(1, dt * 12)); k.g.position.set(pl.x, boat.riding ? 16 : fly ? 146 : ride ? ride.sp.r * 1.5 : carRide ? CARS[carRide].h : tr.riding ? 46 : 0, pl.y); k.legs[0].rotation.z = sw; k.legs[1].rotation.z = -sw;
   if (hold) k.arms[0].rotation.z = k.arms[1].rotation.z = work ? 1.2 + Math.sin(gt * 18) * .4 : pl.carry === 'hay' ? 1.5 : 2.9; else if (pl.hose) { k.arms[0].rotation.z = 1.5; k.arms[1].rotation.z = 1.3; } else { k.arms[0].rotation.z = -sw; k.arms[1].rotation.z = sw; }
   k.inner.position.y = pl.moving ? Math.abs(Math.sin(pl.phase)) * 2 : 0; k.shadow.visible = false;
